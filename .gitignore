@@ -1,0 +1,26 @@
+# binaries
+/bin/
+/dist/
+*.exe
+*.test
+*.out
+
+# local config and secrets — never commit
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+configs/local*.json
+
+# runtime data
+/data/
+/research/
+coverage.*
+*.prof
+
+# editors / OS
+.idea/
+.vscode/
+*.swp
+.DS_Store
