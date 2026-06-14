@@ -1,0 +1,7 @@
+DROP TABLE IF EXISTS settings;
+DROP TABLE IF EXISTS audit_log;
+DROP TABLE IF EXISTS api_tokens;
+DROP TABLE IF EXISTS sessions;
+DROP TABLE IF EXISTS recovery_codes;
+DROP TABLE IF EXISTS users;
+DROP FUNCTION IF EXISTS noema_forbid_change();
