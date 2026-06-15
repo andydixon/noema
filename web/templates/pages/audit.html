@@ -1,0 +1,15 @@
+{{define "content"}}
+<div class="pagehead"><h1>Audit</h1><p class="muted">Every administrative change, append-only.</p></div>
+<div class="card">
+  <table class="table compact">
+    <thead><tr><th>#</th><th>When</th><th>Actor</th><th>Action</th><th>Target</th><th>Details</th><th>IP</th></tr></thead>
+    <tbody>{{range .Data.Entries}}<tr>
+      <td class="muted">{{.Seq}}</td><td class="nowrap muted small">{{.At}}</td>
+      <td>{{if .ActorName}}{{.ActorName}}{{else}}<span class="muted">{{.ActorKind}}</span>{{end}}</td>
+      <td><code>{{.Action}}</code></td><td class="small">{{.TargetKind}} <span class="muted">{{.TargetID}}</span></td>
+      <td><code class="small">{{printf "%s" .Details}}</code></td><td class="muted small">{{.IP}}</td>
+    </tr>{{else}}<tr><td colspan="7" class="muted">No entries.</td></tr>{{end}}</tbody>
+  </table>
+  {{with .Data.Next}}<p><a class="btn" href="/audit?before={{.}}">Older</a></p>{{end}}
+</div>
+{{end}}

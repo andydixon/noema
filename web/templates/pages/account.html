@@ -1,0 +1,42 @@
+{{define "content"}}
+<div class="pagehead"><h1>Account</h1><p class="muted">Signed in as <strong>{{.Principal.User.Username}}</strong> ({{.Principal.User.Role}}).</p></div>
+{{with .Data.NewToken}}<div class="card highlight"><h2>New API token</h2><p>Copy it now. It will not be shown again.</p><pre class="token"><code>{{.}}</code></pre><p class="muted small">Use it as <code>Authorization: Bearer …</code> or <code>NOEMA_API_TOKEN</code> for noemactl.</p></div>{{end}}
+<section class="grid cols-2">
+  <div class="card">
+    <h2>Sessions</h2>
+    <table class="table compact">
+      <thead><tr><th>Where</th><th>Client</th><th>Last seen</th><th></th></tr></thead>
+      <tbody>{{range .Data.Sessions}}<tr>
+        <td>{{.IP}}{{if eq .ID $.Principal.SessionID}} <span class="badge">current</span>{{end}}</td>
+        <td class="small muted truncate" title="{{.UserAgent}}">{{.UserAgent}}</td>
+        <td class="small muted nowrap">{{ago .LastSeenAt}}</td>
+        <td>{{if ne .ID $.Principal.SessionID}}<form method="post" action="/account/sessions/{{.ID}}/revoke" class="inline"><input type="hidden" name="_csrf" value="{{$.CSRF}}"><button class="btn small">Revoke</button></form>{{end}}</td>
+      </tr>{{end}}</tbody>
+    </table>
+  </div>
+  <div class="card">
+    <h2>Change password</h2>
+    <form method="post" action="/account/password" class="stack">
+      <input type="hidden" name="_csrf" value="{{.CSRF}}">
+      <label>Current password <input type="password" name="current" required autocomplete="current-password"></label>
+      <label>New password <input type="password" name="password" required minlength="12" autocomplete="new-password"></label>
+      <label>Confirm <input type="password" name="confirm" required minlength="12" autocomplete="new-password"></label>
+      <button class="btn btn-primary" type="submit">Change password</button>
+      <p class="muted small">Other sessions are signed out when the password changes.</p>
+    </form>
+  </div>
+  <div class="card">
+    <h2>API tokens</h2>
+    <table class="table compact">
+      <thead><tr><th>Name</th><th>Created</th><th>Last used</th><th></th></tr></thead>
+      <tbody>{{range .Data.Tokens}}<tr><td>{{.Name}}</td><td class="small muted">{{date .CreatedAt}}</td><td class="small muted">{{if .LastUsedAt}}{{ago .LastUsedAt}}{{else}}never{{end}}</td>
+        <td><form method="post" action="/account/tokens/{{.ID}}/revoke" class="inline"><input type="hidden" name="_csrf" value="{{$.CSRF}}"><button class="btn small">Revoke</button></form></td></tr>{{else}}<tr><td colspan="4" class="muted">No tokens.</td></tr>{{end}}</tbody>
+    </table>
+    <form method="post" action="/account/tokens" class="row">
+      <input type="hidden" name="_csrf" value="{{.CSRF}}">
+      <input name="name" placeholder="Token name (e.g. laptop cli)" required maxlength="64">
+      <button class="btn" type="submit">Create token</button>
+    </form>
+  </div>
+</section>
+{{end}}

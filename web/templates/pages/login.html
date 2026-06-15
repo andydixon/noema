@@ -1,0 +1,14 @@
+{{define "content"}}
+<div class="card auth-card">
+  <div class="brand big"><span class="brand-mark" aria-hidden="true"></span>Noema</div>
+  <p class="muted">Sign in to the cognitive runtime.</p>
+  <form method="post" action="/login" class="stack">
+    <input type="hidden" name="_csrf" value="{{.CSRF}}">
+    <input type="hidden" name="next" value="{{.Data.Next}}">
+    <label>Username <input name="username" autocomplete="username" required autofocus></label>
+    <label>Password <input type="password" name="password" autocomplete="current-password" required></label>
+    {{with .Data.Error}}<p class="error" role="alert">{{.}}</p>{{end}}
+    <button class="btn btn-primary" type="submit">Sign in</button>
+  </form>
+</div>
+{{end}}

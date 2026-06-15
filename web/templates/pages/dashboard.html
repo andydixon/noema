@@ -1,0 +1,27 @@
+{{define "content"}}
+<div class="pagehead"><h1>Dashboard</h1><p class="muted">System overview. Minds, cognition and approvals appear here as they come online.</p></div>
+<section class="grid cols-3">
+  <div class="card stat"><div class="stat-label">Running minds</div><div class="stat-value">{{.Data.Minds}}</div><div class="muted small">No minds yet. Create one under Minds.</div></div>
+  <div class="card stat"><div class="stat-label">System health</div><div class="stat-value">{{if .Data.Status.Database.OK}}<span class="ok">Healthy</span>{{else}}<span class="danger">Degraded</span>{{end}}</div><div class="muted small">Database {{if .Data.Status.Database.OK}}connected{{else}}unavailable{{end}} · up {{duration .Data.Status.UptimeSeconds}}</div></div>
+  <div class="card stat"><div class="stat-label">Outstanding approvals</div><div class="stat-value">0</div><div class="muted small">Capability layer arrives in a later phase.</div></div>
+</section>
+<section class="grid cols-2">
+  <div class="card">
+    <h2>Recent administrative activity</h2>
+    {{if .Data.Audit}}
+    <table class="table compact">
+      <thead><tr><th>When</th><th>Actor</th><th>Action</th><th>Target</th></tr></thead>
+      <tbody>{{range .Data.Audit}}<tr><td class="nowrap muted">{{.At}}</td><td>{{.ActorName}}{{if not .ActorName}}<span class="muted">{{.ActorKind}}</span>{{end}}</td><td><code>{{.Action}}</code></td><td class="muted small">{{.TargetKind}} {{.TargetID}}</td></tr>{{end}}</tbody>
+    </table>
+    {{else}}<p class="muted">Nothing yet.</p>{{end}}
+  </div>
+  <div class="card">
+    <h2>Getting started</h2>
+    <ol class="steps">
+      <li>Add an LLM provider under <a href="/llm">LLM</a>.</li>
+      <li>Create a mind under <a href="/minds">Minds</a> and shape its personality.</li>
+      <li>Open its conversation page and watch the thought stream.</li>
+    </ol>
+  </div>
+</section>
+{{end}}

@@ -1,0 +1,60 @@
+{{define "layout"}}<!doctype html>
+<html lang="en" data-theme="auto">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="csrf-token" content="{{.CSRF}}">
+<title>{{if .Title}}{{.Title}} · {{end}}Noema</title>
+<link rel="stylesheet" href="/static/app.css">
+<link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
+<script src="/static/app.js" defer></script>
+</head>
+<body class="{{if .Principal}}app{{else}}bare{{end}}">
+{{if .Principal}}
+<a class="skip" href="#main">Skip to content</a>
+<header class="topbar">
+  <button class="iconbtn nav-toggle" aria-label="Toggle navigation" aria-expanded="false" data-nav-toggle>☰</button>
+  <a class="brand" href="/"><span class="brand-mark" aria-hidden="true"></span>Noema</a>
+  <div class="topbar-spacer"></div>
+  <span class="muted small">{{.Principal.User.Username}} · {{.Principal.User.Role}}</span>
+  <button class="iconbtn" data-theme-toggle aria-label="Toggle colour theme" title="Toggle theme (t)">◐</button>
+  <form method="post" action="/logout" class="inline"><input type="hidden" name="_csrf" value="{{.CSRF}}"><button class="btn btn-ghost small" type="submit">Sign out</button></form>
+</header>
+<div class="shell">
+  <nav class="sidenav" aria-label="Primary" data-nav>
+    {{template "nav" .}}
+  </nav>
+  <main id="main" class="content" tabindex="-1">
+    {{with .Flash}}<div class="flash flash-{{.Kind}}" role="status">{{.Message}}</div>{{end}}
+    {{template "content" .}}
+  </main>
+</div>
+{{else}}
+<main id="main" class="bare-main">
+  {{with .Flash}}<div class="flash flash-{{.Kind}}" role="status">{{.Message}}</div>{{end}}
+  {{template "content" .}}
+</main>
+{{end}}
+<footer class="footer muted small">Noema {{.Version}} · models cognitive processes; it does not claim consciousness. <a href="/about">Interpretation boundary</a></footer>
+</body>
+</html>{{end}}
+
+{{define "nav"}}
+<div class="navgroup"><div class="navhead">Observe</div>
+  <a href="/" {{if eq .Path "/"}}aria-current="page"{{end}}>Dashboard</a>
+  <a href="/minds" {{if hasPrefix .Path "/minds"}}aria-current="page"{{end}}>Minds</a>
+  <a href="/approvals" {{if hasPrefix .Path "/approvals"}}aria-current="page"{{end}}>Approvals</a>
+</div>
+<div class="navgroup"><div class="navhead">Configure</div>
+  <a href="/llm" {{if hasPrefix .Path "/llm"}}aria-current="page"{{end}}>LLM</a>
+  <a href="/prompts" {{if hasPrefix .Path "/prompts"}}aria-current="page"{{end}}>Prompts</a>
+  <a href="/integrations" {{if hasPrefix .Path "/integrations"}}aria-current="page"{{end}}>Integrations</a>
+  <a href="/policies" {{if hasPrefix .Path "/policies"}}aria-current="page"{{end}}>Policies</a>
+</div>
+<div class="navgroup"><div class="navhead">System</div>
+  <a href="/system" {{if eq .Path "/system"}}aria-current="page"{{end}}>System</a>
+  <a href="/audit" {{if eq .Path "/audit"}}aria-current="page"{{end}}>Audit</a>
+  {{if .Principal.User.Role.AtLeast "administrator"}}<a href="/admin/users" {{if hasPrefix .Path "/admin/users"}}aria-current="page"{{end}}>Users</a>{{end}}
+  <a href="/account" {{if eq .Path "/account"}}aria-current="page"{{end}}>Account</a>
+</div>
+{{end}}

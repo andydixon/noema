@@ -35,20 +35,20 @@ An administrator can: start Noema → log in → create a mind → configure per
 - ☑ `go.mod`, compose and Dockerfile skeletons
 - ☑ First commit
 
-### Phase 1 – Foundation: config, logging, storage, migrations, auth, base UI
-- ☐ `internal/config`: defaults → JSON file → env; validation; no secrets in `String()`
-- ☐ `internal/observability`: slog setup, redacting handler, request logging, Prometheus registry, `/metrics`
-- ☐ `pkg/ids`: UUIDv7
-- ☐ `internal/storage`: pgxpool, migration runner (advisory lock, checksums, up/down/status), test helper with per-run schema
-- ☐ `migrations/0001_foundation`: users, sessions, api_tokens, login_attempts, audit_log (append-only trigger), settings
-- ☐ `internal/auth`: Argon2id, sessions, CSRF, rate limit + lockout, roles, middleware, bootstrap admin
-- ☐ `internal/audit`: audit writer used by all admin mutations
-- ☐ `internal/api`: server, router, middleware chain (request id, recover, logging, security headers, CSP, body limits), JSON error format, health endpoints
-- ☐ `web/`: layout, theme (light/dark), navigation, login, users, sessions, system page skeleton, `app.js` (theme, SSE helper)
-- ☐ `cmd/noemad`, `cmd/noemactl` (`status`, `migrate up|down|status`, `user create`)
-- ☐ `deploy/`: compose (db + app), multi-stage Dockerfile
-- ☐ Tests: config precedence, migration up/down, auth hashing, session lifecycle, CSRF, lockout, role middleware
-- ☐ Commit(s)
+### Phase 1 – Foundation: config, logging, storage, migrations, auth, base UI ☑
+- ☑ `internal/config`: defaults → JSON file → env; validation; redaction
+- ☑ `internal/observability`: slog with redacting handler, Prometheus registry, `/metrics` (token-protected)
+- ☑ `pkg/ids`: UUIDv7
+- ☑ `internal/storage`: pgxpool with statement timeout, migration runner (advisory lock, checksums, up/down/status), per-test schema helper
+- ☑ `migrations/0001_foundation`: append-only guard trigger, users, sessions, api_tokens, recovery_codes, audit_log, settings
+- ☑ `internal/auth`: Argon2id, opaque hashed sessions with idle/absolute expiry, CSRF (token + Origin check), per-IP limiter, per-account lockout, roles, middleware, API tokens
+- ☑ `internal/audit`: audit writer and listing
+- ☑ `internal/api`: server, middleware chain (request id, recover, CSP/security headers, body limits, logging/metrics, auth), JSON error envelope, health, status, users, sessions, tokens, audit
+- ☑ `web/` + `internal/ui`: layout, light/dark theme, navigation, login, first-run setup, dashboard, system, users, account (sessions, tokens, password), audit, about; `app.js` (theme, CSRF fetch, SSE helper, keyboard shortcuts)
+- ☑ `cmd/noemad` (graceful shutdown, bootstrap admin, supervised background tasks), `cmd/noemactl` (`status`, `migrate up|down|status`, `user create`, exit codes)
+- ☑ `deploy/`: compose (pgvector db + app), multi-stage Dockerfile
+- ☑ Tests: config precedence, migration up/down + append-only trigger, hashing, session lifecycle, lockout, CSRF, roles, API envelope
+- ☐ TOTP + recovery codes (moved to Phase 16 with the rest of hardening)
 
 ### Phase 2 – Mind model, identity, personality, self-model
 - ☐ `migrations/0002_minds`: minds, mind_config, personalities, personality_versions (append-only), personality_templates, self_models

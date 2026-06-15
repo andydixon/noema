@@ -1,0 +1,36 @@
+{{define "content"}}
+<div class="pagehead"><h1>Users</h1><p class="muted">Operator accounts. Roles: observer (read), operator (act), administrator (configure).</p></div>
+<section class="grid cols-3-1">
+  <div class="card">
+    <table class="table">
+      <thead><tr><th>Username</th><th>Role</th><th>State</th><th>MFA</th><th>Created</th><th></th></tr></thead>
+      <tbody>{{range .Data.Users}}<tr>
+        <td><strong>{{.Username}}</strong>{{if eq .ID $.Principal.User.ID}} <span class="muted small">(you)</span>{{end}}</td>
+        <td>
+          <form method="post" action="/admin/users/{{.ID}}" class="inline"><input type="hidden" name="_csrf" value="{{$.CSRF}}">
+            <select name="role" aria-label="Role for {{.Username}}" {{if eq .ID $.Principal.User.ID}}disabled{{end}}>
+              {{range $r := roles}}<option value="{{$r}}" {{if eq $r .Role}}selected{{end}}>{{$r}}</option>{{end}}
+            </select>
+            {{if ne .ID $.Principal.User.ID}}<button class="btn small" type="submit" name="action" value="role">Set</button>{{end}}
+          </form>
+        </td>
+        <td>{{if .Disabled}}<span class="badge danger">disabled</span>{{else}}<span class="badge ok">active</span>{{end}}{{if .LockedUntil}} <span class="badge warn" title="Locked after failed logins">locked</span>{{end}}</td>
+        <td>{{if .TOTPEnabled}}<span class="badge ok">TOTP</span>{{else}}<span class="muted">off</span>{{end}}</td>
+        <td class="muted small nowrap">{{date .CreatedAt}}</td>
+        <td>{{if ne .ID $.Principal.User.ID}}<form method="post" action="/admin/users/{{.ID}}" class="inline"><input type="hidden" name="_csrf" value="{{$.CSRF}}">
+          {{if .Disabled}}<button class="btn small" name="action" value="enable">Enable</button>{{else}}<button class="btn small btn-danger" name="action" value="disable" data-confirm="Disable {{.Username}} and revoke their sessions?">Disable</button>{{end}}</form>{{end}}</td>
+      </tr>{{end}}</tbody>
+    </table>
+  </div>
+  <div class="card">
+    <h2>Create user</h2>
+    <form method="post" action="/admin/users" class="stack">
+      <input type="hidden" name="_csrf" value="{{.CSRF}}">
+      <label>Username <input name="username" required minlength="2" maxlength="64" autocomplete="off"></label>
+      <label>Password <input type="password" name="password" required minlength="12" autocomplete="new-password"></label>
+      <label>Role <select name="role">{{range roles}}<option value="{{.}}" {{if eq . "observer"}}selected{{end}}>{{.}}</option>{{end}}</select></label>
+      <button class="btn btn-primary" type="submit">Create</button>
+    </form>
+  </div>
+</section>
+{{end}}

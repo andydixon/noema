@@ -1,0 +1,28 @@
+{{define "content"}}
+<div class="pagehead"><h1>System</h1><p class="muted">Runtime, database and migration state.</p></div>
+{{$s := .Data}}
+<section class="grid cols-4">
+  <div class="card stat"><div class="stat-label">Version</div><div class="stat-value small">{{$s.Version}}</div><div class="muted small">{{$s.GoVersion}}</div></div>
+  <div class="card stat"><div class="stat-label">Uptime</div><div class="stat-value small">{{duration $s.UptimeSeconds}}</div></div>
+  <div class="card stat"><div class="stat-label">Goroutines</div><div class="stat-value small">{{$s.Goroutines}}</div><div class="muted small">{{$s.NumCPU}} CPUs</div></div>
+  <div class="card stat"><div class="stat-label">Memory</div><div class="stat-value small">{{bytes $s.HeapBytes}}</div><div class="muted small">heap · {{bytes $s.SysBytes}} from OS</div></div>
+</section>
+<section class="grid cols-2">
+  <div class="card">
+    <h2>Database</h2>
+    <dl class="kv">
+      <dt>Status</dt><dd>{{if $s.Database.OK}}<span class="badge ok">connected</span>{{else}}<span class="badge danger">error</span> {{$s.Database.Error}}{{end}}</dd>
+      <dt>Server</dt><dd class="small">{{$s.Database.Version}}</dd>
+      <dt>pgvector</dt><dd>{{if $s.Database.PGVector}}<span class="badge ok">available</span>{{else}}<span class="badge warn">not installed</span> <span class="muted small">semantic retrieval falls back to text and graph</span>{{end}}</dd>
+      <dt>Pool</dt><dd>{{$s.Database.PoolTotal}} open · {{$s.Database.PoolIdle}} idle · {{$s.Database.PoolMax}} max</dd>
+    </dl>
+  </div>
+  <div class="card">
+    <h2>Migrations</h2>
+    <table class="table compact">
+      <thead><tr><th>#</th><th>Name</th><th>State</th><th>Applied</th></tr></thead>
+      <tbody>{{range $s.Migrations}}<tr><td>{{printf "%04d" .Version}}</td><td><code>{{.Name}}</code></td><td>{{if .Drift}}<span class="badge danger">drift</span>{{else if .Applied}}<span class="badge ok">applied</span>{{else}}<span class="badge warn">pending</span>{{end}}</td><td class="muted small">{{.AppliedAt}}</td></tr>{{end}}</tbody>
+    </table>
+  </div>
+</section>
+{{end}}

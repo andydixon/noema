@@ -1,0 +1,15 @@
+{{define "content"}}
+<div class="card auth-card">
+  <div class="brand big"><span class="brand-mark" aria-hidden="true"></span>Noema</div>
+  <h1>First-run setup</h1>
+  <p class="muted">No accounts exist yet. Create the first administrator. This page disappears once an account exists.</p>
+  <form method="post" action="/setup" class="stack">
+    <input type="hidden" name="_csrf" value="{{.CSRF}}">
+    <label>Username <input name="username" autocomplete="username" required minlength="2" maxlength="64" autofocus></label>
+    <label>Password <input type="password" name="password" autocomplete="new-password" required minlength="12"></label>
+    <label>Confirm password <input type="password" name="confirm" autocomplete="new-password" required minlength="12"></label>
+    {{with .Data.Error}}<p class="error" role="alert">{{.}}</p>{{end}}
+    <button class="btn btn-primary" type="submit">Create administrator</button>
+  </form>
+</div>
+{{end}}
