@@ -14,6 +14,7 @@ import (
 	"github.com/andydixon/noema/internal/audit"
 	"github.com/andydixon/noema/internal/auth"
 	"github.com/andydixon/noema/internal/config"
+	"github.com/andydixon/noema/internal/minds"
 	"github.com/andydixon/noema/internal/observability"
 	"github.com/andydixon/noema/internal/storage"
 	"github.com/andydixon/noema/migrations"
@@ -26,7 +27,7 @@ func testServer(t *testing.T) (*httptest.Server, string) {
 	cfg.DatabaseURL = "postgres://test"
 	log := slog.New(slog.DiscardHandler)
 	deps := app.Deps{Config: cfg, Log: log, DB: pool, Auth: auth.NewService(pool, time.Hour, 2*time.Hour),
-		Audit: audit.New(pool, log), Metrics: observability.NewMetrics(), Migrations: migrations.FS, Started: time.Now()}
+		Audit: audit.New(pool, log), Metrics: observability.NewMetrics(), Minds: minds.NewStore(pool), Migrations: migrations.FS, Started: time.Now()}
 	ctx := context.Background()
 	u, err := deps.Auth.CreateUser(ctx, "admin", "administrator-pass", auth.RoleAdministrator)
 	if err != nil {

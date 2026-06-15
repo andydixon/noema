@@ -1,0 +1,87 @@
+{{define "content"}}
+{{$m := .Data.Mind}}
+<div class="pagehead mindhead">
+  <div><h1>{{$m.DisplayName}} <span class="muted mono small">{{$m.Slug}}</span></h1>
+  <p class="muted">{{$m.Personality.Identity.Role}}{{with $m.Personality.Identity.Description}} · {{.}}{{end}}</p></div>
+  <div class="row">{{template "status_badge" $m.Status}}</div>
+</div>
+<nav class="tabs" aria-label="Mind sections">
+  <a href="/minds/{{$m.Slug}}" aria-current="page">Overview</a>
+  <a href="/minds/{{$m.Slug}}/personality">Personality</a>
+  <a class="disabled" title="Phase 3">Thoughts</a><a class="disabled" title="Phase 4">Workspace</a><a class="disabled" title="Phase 5">Memory</a><a class="disabled" title="Phase 6">Beliefs</a><a class="disabled" title="Phase 8">Conversation</a>
+</nav>
+<section class="grid cols-3">
+  <div class="card">
+    <h2>Identity</h2>
+    <dl class="kv">
+      <dt>Name</dt><dd>{{$m.Personality.Identity.Name}}</dd>
+      <dt>Role</dt><dd>{{$m.Personality.Identity.Role}}</dd>
+      {{with $m.Personality.Identity.Pronouns}}<dt>Pronouns</dt><dd>{{.}}</dd>{{end}}
+      <dt>Created</dt><dd>{{date $m.CreatedAt}}</dd>
+      <dt>Personality</dt><dd>v{{$m.PersonalityVersion}} {{if $m.TemplateID}}<span class="badge accent">templated</span>{{end}} · <a href="/minds/{{$m.Slug}}/personality">edit</a></dd>
+      {{if $m.ClonedFromMind}}<dt>Cloned from</dt><dd class="mono small">{{$m.ClonedFromMind}}</dd>{{end}}
+      {{with $m.Notes}}<dt>Notes</dt><dd>{{.}}</dd>{{end}}
+    </dl>
+  </div>
+  <div class="card">
+    <h2>Current focus</h2>
+    <p class="muted">Working memory, workspace and narrative appear here once the cognitive runtime is online (phase 4).</p>
+  </div>
+  <div class="card">
+    <h2>Cognitive configuration</h2>
+    <dl class="kv">
+      <dt>Workspace capacity</dt><dd>{{$m.Config.WorkspaceCapacity}}</dd>
+      <dt>Working memory</dt><dd>{{$m.Config.WorkingMemoryCapacity}} items · decay {{$m.Config.WorkingMemoryDecay}}</dd>
+      <dt>Cycle interval</dt><dd>{{$m.Config.CycleMinInterval}} min · {{$m.Config.IdleCycleInterval}} idle · max {{$m.Config.MaxCyclesPerMinute}}/min</dd>
+      <dt>LLM per cycle</dt><dd>{{$m.Config.LLMCallsPerCycle}} calls · {{$m.Config.DailyTokenBudget}} tokens/day</dd>
+    </dl>
+  </div>
+</section>
+<section class="grid cols-2">
+  <div class="card">
+    <h2>Personality brief <span class="muted small">what cognitive prompts receive</span></h2>
+    <pre class="brief">{{.Data.Brief}}</pre>
+  </div>
+  <div class="card">
+    <h2>Self-model</h2>
+    {{$sm := .Data.SelfModel}}
+    <h3>Capabilities</h3>
+    {{if $sm.Capabilities}}<ul class="plain">{{range $sm.Capabilities}}<li><code>{{.Name}}</code> <span class="badge {{if eq .Policy "allow"}}ok{{else if eq .Policy "ask"}}warn{{else}}danger{{end}}">{{.Policy}}</span> <span class="muted small">{{.Description}}</span></li>{{end}}</ul>
+    {{else}}<p class="muted small">No capabilities granted. This mind cannot act on external systems.</p>{{end}}
+    <h3>Known limitations</h3>
+    <ul class="small">{{range $sm.Limitations}}<li>{{.}}</li>{{end}}</ul>
+    {{if $sm.KnowledgeGaps}}<h3>Knowledge gaps</h3><ul class="small">{{range $sm.KnowledgeGaps}}<li>{{.}}</li>{{end}}</ul>{{end}}
+    <p class="muted small">Updated {{ago $sm.UpdatedAt}}</p>
+  </div>
+</section>
+{{if .Principal.User.Role.AtLeast "administrator"}}
+<section class="grid cols-2">
+  <div class="card">
+    <h2>Lifecycle</h2>
+    <form method="post" action="/minds/{{$m.Slug}}/status" class="row">
+      <input type="hidden" name="_csrf" value="{{.CSRF}}">
+      {{if ne $m.Status "active"}}<button class="btn" name="status" value="active">Enable</button>{{end}}
+      {{if eq $m.Status "active"}}<button class="btn" name="status" value="disabled" data-confirm="Disable {{$m.DisplayName}}? Cognition stops; history is kept.">Disable</button>{{end}}
+      {{if ne $m.Status "archived"}}<button class="btn btn-danger" name="status" value="archived" data-confirm="Archive {{$m.DisplayName}}? It is hidden from lists but nothing is deleted.">Archive</button>{{end}}
+    </form>
+    <p class="muted small">Cognitive history is never hard-deleted by these actions.</p>
+    <form method="post" action="/minds/{{$m.Slug}}/notes" class="stack">
+      <input type="hidden" name="_csrf" value="{{.CSRF}}">
+      <label>Operator notes <textarea name="notes" rows="2">{{$m.Notes}}</textarea></label>
+      <div><button class="btn small" type="submit">Save notes</button></div>
+    </form>
+  </div>
+  <div class="card">
+    <h2>Clone</h2>
+    <p class="muted small">Same personality and configuration, fresh experience. Forking with memories arrives with snapshots.</p>
+    <form method="post" action="/minds/{{$m.Slug}}/clone" class="stack">
+      <input type="hidden" name="_csrf" value="{{.CSRF}}">
+      <label>New slug <input name="slug" required pattern="[a-z0-9][a-z0-9-]{0,62}" placeholder="{{$m.Slug}}-experiment"></label>
+      <label>Display name <input name="display_name"></label>
+      <div><button class="btn" type="submit">Clone</button></div>
+    </form>
+  </div>
+</section>
+{{end}}
+{{end}}
+{{define "status_badge"}}{{if eq . "active"}}<span class="badge ok">active</span>{{else if eq . "disabled"}}<span class="badge warn">disabled</span>{{else}}<span class="badge">archived</span>{{end}}{{end}}

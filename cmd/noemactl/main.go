@@ -40,6 +40,9 @@ type command struct {
 
 var commands []command
 
+// extraCommands are registered by other files in this package via init.
+var extraCommands []command
+
 func main() {
 	commands = []command{
 		{"status", "show daemon status", cmdStatus},
@@ -47,6 +50,7 @@ func main() {
 		{"user", "create <username> [-role r] – manage users (offline)", cmdUser},
 		{"version", "print version", func([]string) int { fmt.Println(version.Version); return exitOK }},
 	}
+	commands = append(commands, extraCommands...)
 	if len(os.Args) < 2 || os.Args[1] == "-h" || os.Args[1] == "--help" || os.Args[1] == "help" {
 		usage()
 		os.Exit(exitUsage)

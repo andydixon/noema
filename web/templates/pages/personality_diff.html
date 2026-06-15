@@ -1,0 +1,12 @@
+{{define "content"}}
+{{$m := .Data.Mind}}
+<div class="pagehead"><h1>{{$m.DisplayName}} <span class="muted small">personality v{{.Data.A}} → v{{.Data.B}}</span></h1><p class="muted"><a href="/minds/{{$m.Slug}}/personality">Back to editor</a></p></div>
+<div class="card">
+  {{if .Data.Changes}}
+  <table class="table">
+    <thead><tr><th>Field</th><th>v{{.Data.A}}</th><th>v{{.Data.B}}</th></tr></thead>
+    <tbody>{{range .Data.Changes}}<tr><td class="mono small">{{.Path}}</td><td class="diff-old">{{.Old}}</td><td class="diff-new">{{.New}}</td></tr>{{end}}</tbody>
+  </table>
+  {{else}}<p class="muted">No differences.</p>{{end}}
+</div>
+{{end}}

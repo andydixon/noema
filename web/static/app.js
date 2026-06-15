@@ -62,6 +62,12 @@
       if (el && !window.confirm(el.getAttribute("data-confirm"))) { ev.preventDefault(); ev.stopImmediatePropagation(); }
     }, true);
 
+    // Live value readouts for range inputs.
+    document.querySelectorAll("input[type=range][data-out]").forEach((el) => {
+      const out = el.parentElement.querySelector("output");
+      if (out) el.addEventListener("input", () => (out.value = el.value));
+    });
+
     // Auto-dismiss flashes.
     document.querySelectorAll(".flash").forEach((f) => setTimeout(() => f.remove(), 8000));
 

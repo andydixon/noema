@@ -17,6 +17,7 @@ import (
 
 	"github.com/andydixon/noema/internal/app"
 	"github.com/andydixon/noema/internal/auth"
+	"github.com/andydixon/noema/internal/minds"
 	"github.com/andydixon/noema/internal/version"
 	"github.com/andydixon/noema/web"
 )
@@ -72,10 +73,26 @@ func (u *UI) parse(fsys fs.FS) error {
 		"bytes":     humanBytes,
 		"pct":       func(f float64) string { return fmt.Sprintf("%.0f%%", f*100) },
 		"conf":      func(f float64) string { return fmt.Sprintf("%.2f", f) },
+		"inc":       func(i int) int { return i + 1 },
+		"title":     func(s string) string { s = strings.ReplaceAll(s, "_", " "); return strings.ToUpper(s[:1]) + s[1:] },
+		"valueKeys": func() []string { return minds.ValueKeys },
+		"traitKeys": func() []string { return minds.TraitKeys },
+		"dict": func(kv ...any) map[string]any {
+			m := map[string]any{}
+			for i := 0; i+1 < len(kv); i += 2 {
+				m[fmt.Sprint(kv[i])] = kv[i+1]
+			}
+			return m
+		},
 	}
 	base, err := template.New("base").Funcs(funcs).ParseFS(fsys, "layout.html")
 	if err != nil {
 		return fmt.Errorf("ui: parse layout: %w", err)
+	}
+	if partials, _ := fs.Glob(fsys, "partials/*.html"); len(partials) > 0 {
+		if _, err := base.ParseFS(fsys, partials...); err != nil {
+			return fmt.Errorf("ui: parse partials: %w", err)
+		}
 	}
 	pages, err := fs.Glob(fsys, "pages/*.html")
 	if err != nil {
@@ -180,8 +197,9 @@ func (u *UI) Register(m *http.ServeMux) {
 	m.Handle("POST /admin/users", u.require(auth.RoleAdministrator, u.usersCreate))
 	m.Handle("POST /admin/users/{id}", u.require(auth.RoleAdministrator, u.usersUpdate))
 
+	u.mindRoutes(m)
+
 	for _, p := range []struct{ path, title, note string }{
-		{"/minds", "Minds", "Mind management arrives in phase 2."},
 		{"/approvals", "Approvals", "The approval centre arrives with the capability system."},
 		{"/llm", "LLM", "Provider configuration arrives in phase 7."},
 		{"/prompts", "Prompts", "The prompt manager arrives in phase 7."},

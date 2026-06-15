@@ -1,0 +1,33 @@
+{{define "content"}}
+<div class="pagehead"><h1>Minds</h1><p class="muted">Independent cognitive entities. Each has its own personality, memory, beliefs and configuration.</p></div>
+<section class="grid cols-3-1">
+  <div class="card">
+    {{if .Data.Minds}}
+    <table class="table">
+      <thead><tr><th>Mind</th><th>Role</th><th>Status</th><th>Personality</th><th>Created</th></tr></thead>
+      <tbody>{{range .Data.Minds}}<tr>
+        <td><a href="/minds/{{.Slug}}"><strong>{{.DisplayName}}</strong></a> <span class="muted small mono">{{.Slug}}</span></td>
+        <td class="small">{{.Personality.Identity.Role}}</td>
+        <td>{{template "status_badge" .Status}}</td>
+        <td class="small muted">v{{.PersonalityVersion}}{{if .TemplateID}} · templated{{end}}</td>
+        <td class="small muted nowrap">{{date .CreatedAt}}</td>
+      </tr>{{end}}</tbody>
+    </table>
+    {{else}}<p class="muted">No minds yet. Create the first one.</p>{{end}}
+    <p class="small muted"><a href="/minds?include_archived=1">Show archived</a> · <a href="/personality-templates">Personality templates</a></p>
+  </div>
+  {{if .Principal.User.Role.AtLeast "administrator"}}
+  <div class="card">
+    <h2>Create mind</h2>
+    <form method="post" action="/minds" class="stack">
+      <input type="hidden" name="_csrf" value="{{.CSRF}}">
+      <label>Slug <input name="slug" required pattern="[a-z0-9][a-z0-9-]{0,62}" placeholder="dani" title="lowercase letters, digits, hyphens"></label>
+      <label>Display name <input name="display_name" placeholder="Dani"></label>
+      <label>Start from template <select name="template_id"><option value="">Neutral default</option>{{range .Data.Templates}}<option value="{{.ID}}">{{.Name}}</option>{{end}}</select></label>
+      <button class="btn btn-primary" type="submit">Create</button>
+    </form>
+  </div>
+  {{end}}
+</section>
+{{end}}
+{{define "status_badge"}}{{if eq . "active"}}<span class="badge ok">active</span>{{else if eq . "disabled"}}<span class="badge warn">disabled</span>{{else}}<span class="badge">archived</span>{{end}}{{end}}

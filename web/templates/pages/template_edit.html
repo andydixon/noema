@@ -1,0 +1,14 @@
+{{define "content"}}
+{{$t := .Data.Template}}
+<div class="pagehead"><h1>Template: {{$t.Name}}</h1><p class="muted"><a href="/personality-templates">All templates</a> · Editing a template does not change minds until an operator re-applies it.</p></div>
+<form method="post" action="/personality-templates/{{$t.ID}}" class="card stack">
+  <input type="hidden" name="_csrf" value="{{.CSRF}}">
+  <div class="grid cols-2 tight">
+    <label>Name <input name="name" value="{{$t.Name}}" required maxlength="80"></label>
+    <label>Description <input name="description" value="{{$t.Description}}" maxlength="200"></label>
+  </div>
+  {{template "personality_form" (dict "P" $t.Personality)}}
+  <div class="row"><button class="btn btn-primary" type="submit" {{if not (.Principal.User.Role.AtLeast "administrator")}}disabled{{end}}>Save template</button></div>
+</form>
+<div class="card"><h2>Brief</h2><pre class="brief">{{.Data.Brief}}</pre></div>
+{{end}}

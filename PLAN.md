@@ -50,13 +50,15 @@ An administrator can: start Noema → log in → create a mind → configure per
 - ☑ Tests: config precedence, migration up/down + append-only trigger, hashing, session lifecycle, lockout, CSRF, roles, API envelope
 - ☐ TOTP + recovery codes (moved to Phase 16 with the rest of hardening)
 
-### Phase 2 – Mind model, identity, personality, self-model
-- ☐ `migrations/0002_minds`: minds, mind_config, personalities, personality_versions (append-only), personality_templates, self_models
-- ☐ `internal/minds`: create/clone/disable/archive/list/inspect; structured identity, values, traits, communication style, behavioural preferences; free-form text; versions with diff/rollback; templates with overrides; export/import of personality
-- ☐ `internal/selfmodel`: capability inventory derived from policy, limitations, activities
-- ☐ API + UI: mind list, create, overview skeleton, personality editor (structured + text, preview, history, diff, rollback, templates), audit events
-- ☐ `noemactl mind list|create|inspect`
-- ☐ Tests: versioning, rollback, template overlay, audit emission
+### Phase 2 – Mind model, identity, personality, self-model ☑
+- ☑ `migrations/0002_minds`: minds, personality_templates, personality_versions (append-only), self_models
+- ☑ `internal/minds`: structured personality (identity, values, traits, communication, behaviour, free text) with normalisation, validation, deterministic brief, field diff, template overrides; cognitive config with defaults; self-model with structural limitations
+- ☑ Store: create/clone/update status/list/resolve by slug or id, versions with restore, templates CRUD with in-use protection, apply/detach template preserving overrides
+- ☑ API: minds, personality (get/put/brief/versions/diff/restore/template), templates, self-model
+- ☑ UI: minds list + create, mind overview (identity, brief, self-model, config, lifecycle, clone), personality editor (sliders, preview, history, diff, restore, template, import/export JSON), template editor
+- ☑ `noemactl mind list|create|inspect|clone|personality`, `noemactl template list`
+- ☑ Audit events for every change; docs/personality.md
+- ☑ Tests: brief determinism, diff/override round trip, normalisation, store lifecycle including append-only history
 
 ### Phase 3 – Immutable cognitive event store
 - ☐ `pkg/events`: types, categories, evidence refs, payload contracts

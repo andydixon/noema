@@ -51,6 +51,8 @@ func (s *Server) routes() {
 	m.Handle("GET /api/v1/me/tokens", require(auth.RoleObserver, s.myTokens))
 	m.Handle("DELETE /api/v1/me/tokens/{id}", require(auth.RoleObserver, s.myTokenRevoke))
 
+	s.mindRoutes()
+
 	m.HandleFunc("/api/", func(w http.ResponseWriter, r *http.Request) {
 		writeError(w, r, http.StatusNotFound, "not_found", "no such endpoint")
 	})

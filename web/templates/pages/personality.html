@@ -1,0 +1,60 @@
+{{define "content"}}
+{{$m := .Data.Mind}}
+<div class="pagehead mindhead">
+  <div><h1>{{$m.DisplayName}} <span class="muted small">personality</span></h1><p class="muted">Version {{$m.PersonalityVersion}}{{if .Data.Template}} · based on template <strong>{{.Data.Template.Name}}</strong>{{end}}. Every save creates a new version; nothing is overwritten.</p></div>
+  <div class="row"><a class="btn small" href="/minds/{{$m.Slug}}/personality.json">Export JSON</a></div>
+</div>
+<nav class="tabs" aria-label="Mind sections"><a href="/minds/{{$m.Slug}}">Overview</a><a href="/minds/{{$m.Slug}}/personality" aria-current="page">Personality</a></nav>
+{{$admin := .Principal.User.Role.AtLeast "administrator"}}
+<section class="grid cols-3-1">
+  <div>
+    <form method="post" action="/minds/{{$m.Slug}}/personality" class="card stack" id="pform">
+      <input type="hidden" name="_csrf" value="{{.CSRF}}">
+      {{template "personality_form" (dict "P" $m.Personality)}}
+      <div class="row">
+        <input name="change_note" placeholder="Change note (why)" maxlength="200" class="grow">
+        {{if $admin}}<button class="btn btn-primary" type="submit">Save as version {{inc $m.PersonalityVersion}}</button>{{end}}
+        <button class="btn" type="submit" formaction="/minds/{{$m.Slug}}/personality/preview" formmethod="post">Preview brief</button>
+      </div>
+    </form>
+    {{with .Data.Preview}}<div class="card highlight"><h2>Preview (unsaved)</h2><pre class="brief">{{.}}</pre></div>{{end}}
+  </div>
+  <div class="stack">
+    <div class="card">
+      <h2>Template</h2>
+      {{if $admin}}
+      <form method="post" action="/minds/{{$m.Slug}}/personality/template" class="stack">
+        <input type="hidden" name="_csrf" value="{{.CSRF}}">
+        <select name="template_id"><option value="">None (detach)</option>{{range .Data.Templates}}<option value="{{.ID}}" {{if and $.Data.Template (eq .ID $.Data.Template.ID)}}selected{{end}}>{{.Name}}</option>{{end}}</select>
+        <button class="btn small" type="submit">Apply template</button>
+      </form>
+      <p class="muted small">Mind-specific overrides are kept when a template is applied or re-applied.</p>
+      {{else}}<p class="muted small">{{if .Data.Template}}{{.Data.Template.Name}}{{else}}None{{end}}</p>{{end}}
+      {{if .Data.Overrides}}<h3>Overrides</h3><ul class="small mono">{{range $k, $v := .Data.Overrides}}<li>{{$k}}</li>{{end}}</ul>{{end}}
+    </div>
+    <div class="card">
+      <h2>History</h2>
+      <table class="table compact">
+        <thead><tr><th>v</th><th>Note</th><th>By</th><th></th></tr></thead>
+        <tbody>{{range .Data.Versions}}<tr>
+          <td>{{.Version}}{{if eq .Version $m.PersonalityVersion}} <span class="badge accent">current</span>{{end}}</td>
+          <td class="small">{{.ChangeNote}}<div class="muted">{{ago .CreatedAt}}</div></td>
+          <td class="small muted">{{.CreatedBy}}</td>
+          <td class="nowrap">{{if ne .Version $m.PersonalityVersion}}<a class="small" href="/minds/{{$m.Slug}}/personality/diff?a={{.Version}}&b={{$m.PersonalityVersion}}">diff</a>
+            {{if $admin}}<form method="post" action="/minds/{{$m.Slug}}/personality/versions/{{.Version}}/restore" class="inline"><input type="hidden" name="_csrf" value="{{$.CSRF}}"><button class="btn small" data-confirm="Restore version {{.Version}} as a new version?">restore</button></form>{{end}}{{end}}</td>
+        </tr>{{end}}</tbody>
+      </table>
+    </div>
+    {{if $admin}}
+    <div class="card">
+      <h2>Import JSON</h2>
+      <form method="post" action="/minds/{{$m.Slug}}/personality/import" class="stack">
+        <input type="hidden" name="_csrf" value="{{.CSRF}}">
+        <textarea name="json" rows="5" placeholder='{"identity":{...},"values":{...}}' required></textarea>
+        <button class="btn small" type="submit">Import as new version</button>
+      </form>
+    </div>
+    {{end}}
+  </div>
+</section>
+{{end}}

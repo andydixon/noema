@@ -18,6 +18,7 @@ import (
 	"github.com/andydixon/noema/internal/audit"
 	"github.com/andydixon/noema/internal/auth"
 	"github.com/andydixon/noema/internal/config"
+	"github.com/andydixon/noema/internal/minds"
 	"github.com/andydixon/noema/internal/observability"
 	"github.com/andydixon/noema/internal/scheduler"
 	"github.com/andydixon/noema/internal/storage"
@@ -73,7 +74,7 @@ func run() error {
 	metrics := observability.NewMetrics()
 	authSvc := auth.NewService(db, cfg.SessionIdleTTL, cfg.SessionAbsoluteTTL)
 	auditLog := audit.New(db, log)
-	deps := app.Deps{Config: cfg, Log: log, DB: db, Auth: authSvc, Audit: auditLog, Metrics: metrics, Migrations: migrations.FS, Started: time.Now()}
+	deps := app.Deps{Config: cfg, Log: log, DB: db, Auth: authSvc, Audit: auditLog, Metrics: metrics, Minds: minds.NewStore(db), Migrations: migrations.FS, Started: time.Now()}
 
 	if err := bootstrapAdmin(ctx, deps); err != nil {
 		return err

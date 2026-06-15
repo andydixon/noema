@@ -1,0 +1,53 @@
+{{define "personality_form"}}{{/* expects .P (Personality) and .Prefix "" */}}
+{{$p := .P}}
+<fieldset class="fs">
+  <legend>Identity</legend>
+  <div class="grid cols-2 tight">
+    <label>Name <input name="identity.name" value="{{$p.Identity.Name}}" required maxlength="80"></label>
+    <label>Display name <input name="identity.display_name" value="{{$p.Identity.DisplayName}}" maxlength="80"></label>
+    <label>Role <input name="identity.role" value="{{$p.Identity.Role}}" maxlength="120" placeholder="e.g. infrastructure investigator"></label>
+    <label>Pronouns <input name="identity.pronouns" value="{{$p.Identity.Pronouns}}" maxlength="40"></label>
+  </div>
+  <label>Description <textarea name="identity.description" rows="2" maxlength="2000">{{$p.Identity.Description}}</textarea></label>
+  <div class="grid cols-2 tight">
+    <label>Backstory <textarea name="identity.backstory" rows="3" maxlength="4000">{{$p.Identity.Backstory}}</textarea></label>
+    <label>Origin <textarea name="identity.origin" rows="3" maxlength="2000">{{$p.Identity.Origin}}</textarea></label>
+  </div>
+</fieldset>
+<div class="grid cols-2">
+<fieldset class="fs">
+  <legend>Values <span class="muted small">how much the mind weighs each</span></legend>
+  {{range $k := valueKeys}}<label class="slider"><span>{{title $k}}</span><input type="range" name="values.{{$k}}" min="0" max="1" step="0.05" value="{{index $p.Values $k}}" data-out><output>{{index $p.Values $k}}</output></label>{{end}}
+</fieldset>
+<fieldset class="fs">
+  <legend>Traits <span class="muted small">dispositions</span></legend>
+  {{range $k := traitKeys}}<label class="slider"><span>{{title $k}}</span><input type="range" name="traits.{{$k}}" min="0" max="1" step="0.05" value="{{index $p.Traits $k}}" data-out><output>{{index $p.Traits $k}}</output></label>{{end}}
+</fieldset>
+</div>
+<div class="grid cols-2">
+<fieldset class="fs">
+  <legend>Communication</legend>
+  <div class="grid cols-2 tight">
+    <label>Language <input name="communication.language" value="{{$p.Communication.Language}}" maxlength="16"></label>
+    <label>Dialect <input name="communication.dialect" value="{{$p.Communication.Dialect}}" maxlength="40" placeholder="e.g. British English"></label>
+  </div>
+  <label class="slider"><span>Formality</span><input type="range" name="communication.formality" min="0" max="1" step="0.05" value="{{$p.Communication.Formality}}" data-out><output>{{$p.Communication.Formality}}</output></label>
+  <label class="slider"><span>Verbosity</span><input type="range" name="communication.verbosity" min="0" max="1" step="0.05" value="{{$p.Communication.Verbosity}}" data-out><output>{{$p.Communication.Verbosity}}</output></label>
+  <label>Humour style <input name="communication.humour_style" value="{{$p.Communication.HumourStyle}}" maxlength="120" placeholder="dry, sparing"></label>
+  <label>Terminology <input name="communication.terminology" value="{{$p.Communication.Terminology}}" maxlength="400" placeholder="prefer British spelling; say 'server' not 'box'"></label>
+</fieldset>
+<fieldset class="fs">
+  <legend>Behavioural preferences</legend>
+  <label class="check"><input type="checkbox" name="behaviour.challenge_assumptions" {{if $p.Behaviour.ChallengeAssumptions}}checked{{end}}> Challenge assumptions</label>
+  <label class="check"><input type="checkbox" name="behaviour.ask_follow_ups" {{if $p.Behaviour.AskFollowUps}}checked{{end}}> Ask follow-up questions</label>
+  <label class="check"><input type="checkbox" name="behaviour.prefer_evidence" {{if $p.Behaviour.PreferEvidence}}checked{{end}}> Prefer evidence</label>
+  <label class="check"><input type="checkbox" name="behaviour.cite_uncertainty" {{if $p.Behaviour.CiteUncertainty}}checked{{end}}> Cite uncertainty</label>
+  <label class="check"><input type="checkbox" name="behaviour.offer_alternatives" {{if $p.Behaviour.OfferAlternatives}}checked{{end}}> Offer alternatives</label>
+  <label class="check"><input type="checkbox" name="behaviour.notify_proactively" {{if $p.Behaviour.NotifyProactively}}checked{{end}}> Notify proactively</label>
+</fieldset>
+</div>
+<fieldset class="fs">
+  <legend>Free-form personality text <span class="muted small">supplements the structured fields; never replaces them</span></legend>
+  <textarea name="free_text" rows="6" maxlength="20000">{{$p.FreeText}}</textarea>
+</fieldset>
+{{end}}
