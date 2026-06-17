@@ -4,7 +4,7 @@
   <div><h1>{{$m.DisplayName}} <span class="muted small">personality</span></h1><p class="muted">Version {{$m.PersonalityVersion}}{{if .Data.Template}} · based on template <strong>{{.Data.Template.Name}}</strong>{{end}}. Every save creates a new version; nothing is overwritten.</p></div>
   <div class="row"><a class="btn small" href="/minds/{{$m.Slug}}/personality.json">Export JSON</a></div>
 </div>
-<nav class="tabs" aria-label="Mind sections"><a href="/minds/{{$m.Slug}}">Overview</a><a href="/minds/{{$m.Slug}}/personality" aria-current="page">Personality</a></nav>
+{{template "mind_tabs" (dict "M" $m "Active" "personality")}}
 {{$admin := .Principal.User.Role.AtLeast "administrator"}}
 <section class="grid cols-3-1">
   <div>

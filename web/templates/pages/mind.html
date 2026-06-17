@@ -5,11 +5,7 @@
   <p class="muted">{{$m.Personality.Identity.Role}}{{with $m.Personality.Identity.Description}} · {{.}}{{end}}</p></div>
   <div class="row">{{template "status_badge" $m.Status}}</div>
 </div>
-<nav class="tabs" aria-label="Mind sections">
-  <a href="/minds/{{$m.Slug}}" aria-current="page">Overview</a>
-  <a href="/minds/{{$m.Slug}}/personality">Personality</a>
-  <a class="disabled" title="Phase 3">Thoughts</a><a class="disabled" title="Phase 4">Workspace</a><a class="disabled" title="Phase 5">Memory</a><a class="disabled" title="Phase 6">Beliefs</a><a class="disabled" title="Phase 8">Conversation</a>
-</nav>
+{{template "mind_tabs" (dict "M" $m "Active" "overview")}}
 <section class="grid cols-3">
   <div class="card">
     <h2>Identity</h2>
@@ -24,8 +20,17 @@
     </dl>
   </div>
   <div class="card">
-    <h2>Current focus</h2>
-    <p class="muted">Working memory, workspace and narrative appear here once the cognitive runtime is online (phase 4).</p>
+    <h2>Recent activity</h2>
+    {{$st := .Data.Stats}}
+    <div class="stat-value small">{{$st.Total}} <span class="muted small">events in 24h</span></div>
+    <div class="cats small">{{range $k, $v := $st.ByCategory}}<span class="etype cat-{{$k}}">{{$k}} {{$v}}</span> {{end}}</div>
+    <p class="small"><a href="/minds/{{$m.Slug}}/thoughts">Open thought stream</a></p>
+    {{if .Principal.User.Role.AtLeast "operator"}}
+    <form method="post" action="/minds/{{$m.Slug}}/observe" class="stack" style="margin-top:.75rem">
+      <input type="hidden" name="_csrf" value="{{.CSRF}}">
+      <label>Inject observation <span class="muted small">as operator</span> <textarea name="text" rows="2" maxlength="20000" placeholder="e.g. server-01 reported SMART CRC errors at 09:12" required></textarea></label>
+      <div><button class="btn small" type="submit">Observe</button></div>
+    </form>{{end}}
   </div>
   <div class="card">
     <h2>Cognitive configuration</h2>

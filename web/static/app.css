@@ -130,3 +130,24 @@ label.check { flex-direction: row; align-items: center; gap: .5rem; font-weight:
 .grow { flex: 1; }
 ul.plain { list-style: none; padding: 0; margin: 0; }
 .diff-old { color: var(--danger); text-decoration: line-through; } .diff-new { color: var(--ok); }
+
+/* Event stream */
+.filterbar { display: flex; flex-wrap: wrap; gap: .6rem 1rem; align-items: flex-end; margin-bottom: 1rem; }
+.filterbar label { font-size: .8rem; }
+.filterbar input, .filterbar select { padding: .35rem .5rem; font-size: .88rem; }
+.table .num { text-align: right; font-variant-numeric: tabular-nums; }
+.table td.summary { max-width: 60ch; }
+.etype { display: inline-block; font-family: var(--mono); font-size: .74rem; padding: .05rem .4rem; border-radius: 4px; background: var(--surface-2); color: var(--muted); white-space: nowrap; border-left: 3px solid var(--muted); }
+.etype.cat-perception { border-left-color: #0ea5a4; } .etype.cat-cognition { border-left-color: var(--accent); } .etype.cat-memory { border-left-color: #8b5cf6; }
+.etype.cat-belief { border-left-color: #d97706; } .etype.cat-prediction { border-left-color: #db2777; } .etype.cat-goal { border-left-color: #16a34a; }
+.etype.cat-affect { border-left-color: #e11d48; } .etype.cat-action { border-left-color: #b45309; } .etype.cat-llm { border-left-color: #64748b; }
+.etype.cat-operator { border-left-color: #0f766e; } .etype.cat-system { border-left-color: var(--border); }
+tr.fresh { animation: fresh 2.5s ease-out; }
+@keyframes fresh { from { background: var(--accent-soft); } to { background: transparent; } }
+body.stream-offline [data-stream-status] { background: var(--danger-soft); color: var(--danger); }
+pre.json { background: var(--surface-2); padding: .75rem; border-radius: 8px; overflow-x: auto; font-size: .82rem; margin: 0; max-height: 28rem; }
+.chain-node { padding: .5rem .7rem; border: 1px solid var(--border); border-radius: 8px; margin: .2rem 0; }
+.chain-node.current { border-color: var(--accent); background: var(--accent-soft); }
+.chain-arrow { text-align: center; color: var(--muted); }
+ol.corr li.current { font-weight: 600; }
+.cats { display: flex; flex-wrap: wrap; gap: .3rem; margin: .4rem 0; }

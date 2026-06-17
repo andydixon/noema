@@ -60,14 +60,14 @@ An administrator can: start Noema → log in → create a mind → configure per
 - ☑ Audit events for every change; docs/personality.md
 - ☑ Tests: brief determinism, diff/override round trip, normalisation, store lifecycle including append-only history
 
-### Phase 3 – Immutable cognitive event store
-- ☐ `pkg/events`: types, categories, evidence refs, payload contracts
-- ☐ `migrations/0003_events`: cognitive_events (append-only trigger, indexes), mind_cursors
-- ☐ `internal/events`: store (append single/batch in tx), query (cursor, filters), bus (bounded fan-out), SSE endpoint with Last-Event-ID resume
-- ☐ API: list/inspect events, causal navigation (cause, parents, children, evidence)
-- ☐ UI: event explorer (forensic view, filters, navigation), live thought stream page
-- ☐ `noemactl event inspect`
-- ☐ Tests: immutability trigger, ordering, cursor resume, bus backpressure, filters
+### Phase 3 – Immutable cognitive event store ☑
+- ☑ `pkg/events`: closed type vocabulary with categories, evidence refs, observation payload with trust levels and credibility
+- ☑ `migrations/0003_events`: cognitive_events (append-only trigger, seq, indexes on mind/type/correlation/causation/parents/evidence), mind_cursors
+- ☑ `internal/events`: validating append (single tx or caller tx + publish after commit), filtered queries with seq cursors, causal navigation (cause, parents, children, cited, derived, correlated), bounded fan-out bus, durable cursors, stats, operator-action helper
+- ☑ API: list/filter, stats, get, forensic context, SSE stream (per mind and global) with Last-Event-ID replay, filter matching and heartbeats, operator observation injection
+- ☑ UI: live thought stream with filters/paging, forensic event page (causal chain, evidence, derived, correlation, payload), dashboard important events, mind overview activity + observe form; operator changes recorded as `operator_action` events
+- ☑ `noemactl event inspect|list|tail`, `noemactl observe`
+- ☑ Tests: bus bounds and filtering, append validation, immutability, filters, cursors, causal lookups, SSE end to end
 
 ### Phase 4 – Working memory, global workspace, attention
 - ☐ `internal/brain`: `BrainState`, `Process` interface, registry, cycle loop, bounded pool, per-mind runtime lifecycle, modes, cursor advance, loop detector

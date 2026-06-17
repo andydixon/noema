@@ -1,0 +1,36 @@
+{{define "content"}}
+{{$m := .Data.Mind}}
+<div class="pagehead mindhead">
+  <div><h1>{{$m.DisplayName}} <span class="muted small">thought stream</span></h1><p class="muted">Every cognitive event, newest first. <span data-stream-status class="badge">connecting…</span></p></div>
+  <div class="row"><label class="check small"><input type="checkbox" data-live-toggle checked> Live</label></div>
+</div>
+{{template "mind_tabs" (dict "M" $m "Active" "thoughts")}}
+<form method="get" class="card filterbar" data-filter-form>
+  <label>Category <select name="category"><option value="">all</option>{{range .Data.Categories}}<option value="{{.}}" {{if eq (index $.Data.Q "category") (print .)}}selected{{end}}>{{.}}</option>{{end}}</select></label>
+  <label>Type <select name="type"><option value="">all</option>{{range .Data.Types}}<option value="{{.}}" {{if eq (index $.Data.Q "type") (print .)}}selected{{end}}>{{.}}</option>{{end}}</select></label>
+  <label>Source <input name="source" value="{{index .Data.Q "source"}}" placeholder="process or integration" size="14"></label>
+  <label>Min salience <input name="min_salience" type="number" min="0" max="1" step="0.1" value="{{index .Data.Q "min_salience"}}" size="4"></label>
+  <label>Min confidence <input name="min_confidence" type="number" min="0" max="1" step="0.1" value="{{index .Data.Q "min_confidence"}}" size="4"></label>
+  <label>Since <select name="since"><option value="">any</option>{{range $k, $v := .Data.Windows}}<option value="{{$k}}" {{if eq (index $.Data.Q "since") $k}}selected{{end}}>{{$v}}</option>{{end}}</select></label>
+  <label>Search <input name="q" value="{{index .Data.Q "q"}}" placeholder="summary contains" size="18"></label>
+  <button class="btn" type="submit">Apply</button> <a class="btn btn-ghost" href="/minds/{{$m.Slug}}/thoughts">Reset</a>
+</form>
+<div class="card">
+  <table class="table compact stream" data-stream="/api/v1/minds/{{$m.Slug}}/events/stream{{.Data.StreamQuery}}" data-stream-after="{{.Data.TopSeq}}">
+    <thead><tr><th class="nowrap">Time</th><th>Event</th><th>Source</th><th>Summary</th><th class="num">Sal</th><th class="num">Conf</th><th></th></tr></thead>
+    <tbody data-stream-target>
+      {{range .Data.Events}}{{template "event_row" .}}{{else}}<tr data-empty><td colspan="7" class="muted">No events yet. Operator actions, observations and cognition will appear here.</td></tr>{{end}}
+    </tbody>
+  </table>
+  {{with .Data.NextBefore}}<p><a class="btn" href="/minds/{{$m.Slug}}/thoughts?{{$.Data.RawQuery}}&before={{.}}">Older</a></p>{{end}}
+</div>
+{{end}}
+{{define "event_row"}}<tr data-seq="{{.Seq}}" data-id="{{.ID}}" class="cat-{{.Category}}">
+  <td class="nowrap muted small mono" title="{{.OccurredAt}}">{{.OccurredAt.Local.Format "15:04:05"}}</td>
+  <td><span class="etype cat-{{.Category}}">{{.Type}}</span></td>
+  <td class="small muted">{{.Source}}</td>
+  <td class="summary"><a href="/events/{{.ID}}">{{.Summary}}</a></td>
+  <td class="num small">{{conf .Salience}}</td>
+  <td class="num small">{{conf .Confidence}}</td>
+  <td class="small muted nowrap">{{if .CausationID}}<a href="/events/{{.CausationID}}" title="caused by">↑</a>{{end}}{{if .Evidence}} <span title="{{len .Evidence}} evidence refs">◉{{len .Evidence}}</span>{{end}}</td>
+</tr>{{end}}

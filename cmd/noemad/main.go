@@ -18,6 +18,7 @@ import (
 	"github.com/andydixon/noema/internal/audit"
 	"github.com/andydixon/noema/internal/auth"
 	"github.com/andydixon/noema/internal/config"
+	evstore "github.com/andydixon/noema/internal/events"
 	"github.com/andydixon/noema/internal/minds"
 	"github.com/andydixon/noema/internal/observability"
 	"github.com/andydixon/noema/internal/scheduler"
@@ -25,6 +26,7 @@ import (
 	"github.com/andydixon/noema/internal/ui"
 	"github.com/andydixon/noema/internal/version"
 	"github.com/andydixon/noema/migrations"
+	"github.com/andydixon/noema/pkg/ids"
 )
 
 func main() {
@@ -74,14 +76,15 @@ func run() error {
 	metrics := observability.NewMetrics()
 	authSvc := auth.NewService(db, cfg.SessionIdleTTL, cfg.SessionAbsoluteTTL)
 	auditLog := audit.New(db, log)
-	deps := app.Deps{Config: cfg, Log: log, DB: db, Auth: authSvc, Audit: auditLog, Metrics: metrics, Minds: minds.NewStore(db), Migrations: migrations.FS, Started: time.Now()}
+	deps := app.Deps{Config: cfg, Log: log, DB: db, Auth: authSvc, Audit: auditLog, Metrics: metrics, Minds: minds.NewStore(db), Events: evstore.NewStore(db, evstore.NewBus(200), metrics), Migrations: migrations.FS, Started: time.Now()}
 
 	if err := bootstrapAdmin(ctx, deps); err != nil {
 		return err
 	}
 
 	var srv *api.Server
-	uiHandler, err := ui.New(deps, func(r *http.Request) any { return srv.Status(r.Context()) })
+	uiHandler, err := ui.New(deps, func(r *http.Request) any { return srv.Status(r.Context()) },
+		func(r *http.Request, id ids.ID) (api.EventContext, error) { return srv.Context(r, id) })
 	if err != nil {
 		return err
 	}

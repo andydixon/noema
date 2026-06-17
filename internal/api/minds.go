@@ -2,6 +2,7 @@ package api
 
 import (
 	"errors"
+	"fmt"
 	"net/http"
 	"strconv"
 
@@ -119,6 +120,9 @@ func (s *Server) mindPatch(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.deps.Audit.Log(r.Context(), "mind.update", "mind", m.ID.String(), in)
+	if in.Status != nil {
+		s.deps.Events.OperatorAction(r.Context(), m.ID, actor(r), "mind.status", "Operator "+actor(r)+" set status to "+string(*in.Status), map[string]any{"status": *in.Status})
+	}
 	writeJSON(w, http.StatusOK, out)
 }
 
@@ -195,6 +199,7 @@ func (s *Server) personalityPut(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.deps.Audit.Log(r.Context(), "personality.update", "mind", m.ID.String(), map[string]any{"version": v.Version, "note": in.ChangeNote, "changes": minds.Diff(m.Personality, v.Personality)})
+	s.deps.Events.OperatorAction(r.Context(), m.ID, actor(r), "personality.update", fmt.Sprintf("Operator %s updated personality to version %d: %s", actor(r), v.Version, in.ChangeNote), map[string]any{"version": v.Version, "changes": minds.Diff(m.Personality, v.Personality)})
 	writeJSON(w, http.StatusOK, v)
 }
 
@@ -245,6 +250,7 @@ func (s *Server) personalityRestore(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.deps.Audit.Log(r.Context(), "personality.restore", "mind", m.ID.String(), map[string]any{"restored": n, "version": v.Version})
+	s.deps.Events.OperatorAction(r.Context(), m.ID, actor(r), "personality.restore", fmt.Sprintf("Operator %s restored personality version %d as version %d", actor(r), n, v.Version), map[string]any{"restored": n, "version": v.Version})
 	writeJSON(w, http.StatusOK, v)
 }
 
@@ -290,6 +296,7 @@ func (s *Server) personalityTemplate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.deps.Audit.Log(r.Context(), "personality.template", "mind", m.ID.String(), map[string]any{"template_id": in.TemplateID, "version": v.Version})
+	s.deps.Events.OperatorAction(r.Context(), m.ID, actor(r), "personality.template", "Operator "+actor(r)+": "+v.ChangeNote, map[string]any{"version": v.Version})
 	writeJSON(w, http.StatusOK, v)
 }
 

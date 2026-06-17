@@ -1,11 +1,16 @@
 {{define "content"}}
 <div class="pagehead"><h1>Dashboard</h1><p class="muted">System overview. Minds, cognition and approvals appear here as they come online.</p></div>
 <section class="grid cols-3">
-  <div class="card stat"><div class="stat-label">Running minds</div><div class="stat-value">{{.Data.Minds}}</div><div class="muted small">No minds yet. Create one under Minds.</div></div>
+  <div class="card stat"><div class="stat-label">Active minds</div><div class="stat-value">{{len .Data.Minds}}</div><div class="muted small">{{range .Data.Minds}}<a href="/minds/{{.Slug}}">{{.DisplayName}}</a> {{else}}No minds yet. Create one under Minds.{{end}}</div></div>
   <div class="card stat"><div class="stat-label">System health</div><div class="stat-value">{{if .Data.Status.Database.OK}}<span class="ok">Healthy</span>{{else}}<span class="danger">Degraded</span>{{end}}</div><div class="muted small">Database {{if .Data.Status.Database.OK}}connected{{else}}unavailable{{end}} · up {{duration .Data.Status.UptimeSeconds}}</div></div>
   <div class="card stat"><div class="stat-label">Outstanding approvals</div><div class="stat-value">0</div><div class="muted small">Capability layer arrives in a later phase.</div></div>
 </section>
 <section class="grid cols-2">
+  <div class="card">
+    <h2>Recent important events <span class="muted small">salience ≥ 0.6, all minds</span></h2>
+    {{if .Data.Events}}<table class="table compact"><tbody>{{range .Data.Events}}<tr><td class="nowrap muted small mono">{{.OccurredAt.Local.Format "15:04:05"}}</td><td><span class="etype cat-{{.Category}}">{{.Type}}</span></td><td><a href="/events/{{.ID}}">{{.Summary}}</a></td><td class="small muted">{{index $.Data.MindNames .MindID}}</td></tr>{{end}}</tbody></table>
+    {{else}}<p class="muted">Nothing yet.</p>{{end}}
+  </div>
   <div class="card">
     <h2>Recent administrative activity</h2>
     {{if .Data.Audit}}

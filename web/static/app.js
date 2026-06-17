@@ -49,7 +49,55 @@
     return { close: () => es && es.close() };
   }
 
+  // Escape text for safe HTML insertion when building rows from JSON.
+  const esc = (s) => String(s == null ? "" : s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+  const f2 = (n) => (typeof n === "number" ? n.toFixed(2) : "");
+  const hms = (iso) => { const d = new Date(iso); return isNaN(d) ? "" : d.toTimeString().slice(0, 8); };
+
+  function eventRow(ev) {
+    const tr = document.createElement("tr");
+    tr.dataset.seq = ev.seq; tr.dataset.id = ev.id; tr.className = "cat-" + ev.category + " fresh";
+    const evid = (ev.evidence && ev.evidence.length) ? ` <span title="${ev.evidence.length} evidence refs">◉${ev.evidence.length}</span>` : "";
+    const cause = ev.causation_id ? `<a href="/events/${esc(ev.causation_id)}" title="caused by">↑</a>` : "";
+    tr.innerHTML = `<td class="nowrap muted small mono" title="${esc(ev.occurred_at)}">${hms(ev.occurred_at)}</td>` +
+      `<td><span class="etype cat-${esc(ev.category)}">${esc(ev.type)}</span></td>` +
+      `<td class="small muted">${esc(ev.source)}</td>` +
+      `<td class="summary"><a href="/events/${esc(ev.id)}">${esc(ev.summary)}</a></td>` +
+      `<td class="num small">${f2(ev.salience)}</td><td class="num small">${f2(ev.confidence)}</td>` +
+      `<td class="small muted nowrap">${cause}${evid}</td>`;
+    return tr;
+  }
+
+  // Live event tables: <table data-stream="url" data-stream-after="seq"><tbody data-stream-target>
+  function attachStreams() {
+    document.querySelectorAll("table[data-stream]").forEach((table) => {
+      const body = table.querySelector("[data-stream-target]");
+      const status = document.querySelector("[data-stream-status]");
+      const toggle = document.querySelector("[data-live-toggle]");
+      let url = table.dataset.stream;
+      const after = table.dataset.streamAfter;
+      if (after && after !== "0") url += (url.includes("?") ? "&" : "?") + "after=" + encodeURIComponent(after);
+      let handle = null;
+      const start = () => {
+        handle = stream(url, {
+          cognitive_event: (ev) => {
+            const empty = body.querySelector("[data-empty]"); if (empty) empty.remove();
+            if (body.querySelector(`tr[data-seq="${ev.seq}"]`)) return;
+            body.insertBefore(eventRow(ev), body.firstChild);
+            while (body.children.length > 300) body.removeChild(body.lastChild);
+            if (status) status.textContent = "live";
+          },
+        });
+        if (status) status.textContent = "live";
+      };
+      const stop = () => { if (handle) handle.close(); handle = null; if (status) status.textContent = "paused"; };
+      if (!toggle || toggle.checked) start();
+      if (toggle) toggle.addEventListener("change", () => (toggle.checked ? start() : stop()));
+    });
+  }
+
   document.addEventListener("DOMContentLoaded", () => {
+    attachStreams();
     const tt = document.querySelector("[data-theme-toggle]");
     if (tt) tt.addEventListener("click", cycleTheme);
     const nt = document.querySelector("[data-nav-toggle]");

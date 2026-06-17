@@ -1,0 +1,53 @@
+{{define "content"}}
+{{$c := .Data.Ctx}}{{$e := $c.Event}}
+<div class="pagehead">
+  <p class="muted small"><a href="/minds/{{.Data.Mind.Slug}}">{{.Data.Mind.DisplayName}}</a> › <a href="/minds/{{.Data.Mind.Slug}}/thoughts">thoughts</a> › event #{{$e.Seq}}</p>
+  <h1><span class="etype cat-{{$e.Category}}">{{$e.Type}}</span> {{$e.Summary}}</h1>
+  <p class="muted">{{$e.OccurredAt.Local.Format "2006-01-02 15:04:05.000"}} · source <strong>{{$e.Source}}</strong> · salience {{conf $e.Salience}} · confidence {{conf $e.Confidence}}{{if $e.Valence}} · valence {{conf (deref $e.Valence)}}{{end}}{{if $e.Arousal}} · arousal {{conf (deref $e.Arousal)}}{{end}}</p>
+</div>
+<section class="grid cols-3-1">
+  <div class="stack">
+    <div class="card">
+      <h2>Causal chain</h2>
+      <div class="chain">
+        {{if $c.Cause}}<div class="chain-node"><span class="muted small">caused by</span><br><span class="etype cat-{{$c.Cause.Category}}">{{$c.Cause.Type}}</span> <a href="/events/{{$c.Cause.ID}}">{{$c.Cause.Summary}}</a></div><div class="chain-arrow">↓</div>{{end}}
+        <div class="chain-node current"><span class="etype cat-{{$e.Category}}">{{$e.Type}}</span> {{$e.Summary}}</div>
+        {{if $c.Children}}<div class="chain-arrow">↓</div>{{range $c.Children}}<div class="chain-node"><span class="etype cat-{{.Category}}">{{.Type}}</span> <a href="/events/{{.ID}}">{{.Summary}}</a> <span class="muted small">{{.Source}}</span></div>{{end}}{{else}}<div class="muted small" style="margin-top:.5rem">No downstream events yet.</div>{{end}}
+      </div>
+    </div>
+    <div class="card">
+      <h2>Evidence <span class="muted small">what this event rests on</span></h2>
+      {{if $c.EvidenceAll}}<table class="table compact"><thead><tr><th>Kind</th><th>Reference</th><th>Note</th></tr></thead><tbody>
+        {{range $c.EvidenceAll}}<tr><td><span class="badge">{{.Kind}}</span></td><td class="mono small">{{if eq .Kind "event"}}<a href="/events/{{.ID}}">{{.ID}}</a>{{else if eq .Kind "memory"}}<a href="/minds/{{$.Data.Mind.Slug}}/memory/{{.ID}}">{{.ID}}</a>{{else if eq .Kind "belief"}}<a href="/minds/{{$.Data.Mind.Slug}}/beliefs/{{.ID}}">{{.ID}}</a>{{else}}{{.ID}}{{end}}</td><td class="small">{{.Note}}</td></tr>{{end}}
+      </tbody></table>
+      {{if $c.Evidence}}<h3>Cited events</h3><ul class="plain">{{range $c.Evidence}}<li><span class="etype cat-{{.Category}}">{{.Type}}</span> <a href="/events/{{.ID}}">{{.Summary}}</a></li>{{end}}</ul>{{end}}
+      {{else}}<p class="muted">No evidence references. {{if eq $e.Category "perception"}}Observations are primary evidence themselves.{{end}}</p>{{end}}
+    </div>
+    <div class="card">
+      <h2>Payload</h2>
+      <pre class="json">{{.Data.Payload}}</pre>
+      {{if $e.Metadata}}<h3>Metadata</h3><pre class="json">{{.Data.Metadata}}</pre>{{end}}
+    </div>
+  </div>
+  <div class="stack">
+    <div class="card">
+      <h2>Identifiers</h2>
+      <dl class="kv small">
+        <dt>Event</dt><dd class="mono">{{$e.ID}}</dd>
+        <dt>Seq</dt><dd>{{$e.Seq}}</dd>
+        <dt>Recorded</dt><dd>{{$e.RecordedAt.Local.Format "15:04:05.000"}}</dd>
+        {{if $e.CorrelationID}}<dt>Correlation</dt><dd class="mono"><a href="/minds/{{.Data.Mind.Slug}}/thoughts?correlation={{$e.CorrelationID}}">{{$e.CorrelationID}}</a></dd>{{end}}
+        {{if $e.ParentIDs}}<dt>Parents</dt><dd class="mono">{{range $e.ParentIDs}}<a href="/events/{{.}}">{{.}}</a><br>{{end}}</dd>{{end}}
+      </dl>
+    </div>
+    <div class="card">
+      <h2>Derived from this <span class="muted small">events citing it as evidence</span></h2>
+      {{if $c.Derived}}<ul class="plain small">{{range $c.Derived}}<li><span class="etype cat-{{.Category}}">{{.Type}}</span> <a href="/events/{{.ID}}">{{.Summary}}</a></li>{{end}}</ul>{{else}}<p class="muted small">Nothing yet.</p>{{end}}
+    </div>
+    {{if $c.Correlated}}<div class="card">
+      <h2>Same correlation <span class="muted small">{{len $c.Correlated}} events</span></h2>
+      <ol class="small corr">{{range $c.Correlated}}<li {{if eq .ID $e.ID}}class="current"{{end}}><span class="etype cat-{{.Category}}">{{.Type}}</span> <a href="/events/{{.ID}}">{{.Summary}}</a></li>{{end}}</ol>
+    </div>{{end}}
+  </div>
+</section>
+{{end}}

@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/andydixon/noema/internal/auth"
 	"github.com/andydixon/noema/internal/minds"
@@ -92,7 +93,8 @@ func (u *UI) mindOverview(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	sm, _ := u.deps.Minds.GetSelfModel(r.Context(), m.ID)
-	u.render(w, r, "mind", m.DisplayName, map[string]any{"Mind": m, "Brief": m.Personality.Brief(), "SelfModel": sm})
+	st, _ := u.deps.Events.Stats(r.Context(), m.ID, time.Now().Add(-24*time.Hour))
+	u.render(w, r, "mind", m.DisplayName, map[string]any{"Mind": m, "Brief": m.Personality.Brief(), "SelfModel": sm, "Stats": st})
 }
 
 func (u *UI) mindStatus(w http.ResponseWriter, r *http.Request) {
@@ -106,6 +108,7 @@ func (u *UI) mindStatus(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	u.deps.Audit.Log(r.Context(), "mind.status", "mind", m.ID.String(), map[string]any{"status": st})
+	u.deps.Events.OperatorAction(r.Context(), m.ID, username(r), "mind.status", "Operator "+username(r)+" set status to "+string(st), map[string]any{"status": st})
 	u.flash(w, r, "ok", "Mind is now "+string(st)+".", "/minds/"+m.Slug)
 }
 
@@ -232,6 +235,7 @@ func (u *UI) personalitySave(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	u.deps.Audit.Log(r.Context(), "personality.update", "mind", m.ID.String(), map[string]any{"version": v.Version, "note": v.ChangeNote, "changes": minds.Diff(m.Personality, v.Personality)})
+	u.deps.Events.OperatorAction(r.Context(), m.ID, username(r), "personality.update", "Operator "+username(r)+" updated personality to version "+strconv.Itoa(v.Version)+": "+v.ChangeNote, map[string]any{"version": v.Version, "changes": minds.Diff(m.Personality, v.Personality)})
 	u.flash(w, r, "ok", "Saved as version "+strconv.Itoa(v.Version)+".", "/minds/"+m.Slug+"/personality")
 }
 
@@ -278,6 +282,7 @@ func (u *UI) personalityImport(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	u.deps.Audit.Log(r.Context(), "personality.import", "mind", m.ID.String(), map[string]any{"version": v.Version})
+	u.deps.Events.OperatorAction(r.Context(), m.ID, username(r), "personality.import", "Operator "+username(r)+" imported personality as version "+strconv.Itoa(v.Version), map[string]any{"version": v.Version})
 	u.flash(w, r, "ok", "Imported as version "+strconv.Itoa(v.Version)+".", "/minds/"+m.Slug+"/personality")
 }
 
@@ -301,6 +306,7 @@ func (u *UI) personalityTemplate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	u.deps.Audit.Log(r.Context(), "personality.template", "mind", m.ID.String(), map[string]any{"template_id": tid, "version": v.Version})
+	u.deps.Events.OperatorAction(r.Context(), m.ID, username(r), "personality.template", "Operator "+username(r)+": "+v.ChangeNote, map[string]any{"version": v.Version})
 	u.flash(w, r, "ok", v.ChangeNote+" (version "+strconv.Itoa(v.Version)+").", "/minds/"+m.Slug+"/personality")
 }
 
@@ -320,6 +326,7 @@ func (u *UI) personalityRestore(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	u.deps.Audit.Log(r.Context(), "personality.restore", "mind", m.ID.String(), map[string]any{"restored": n, "version": v.Version})
+	u.deps.Events.OperatorAction(r.Context(), m.ID, username(r), "personality.restore", "Operator "+username(r)+" restored personality version "+strconv.Itoa(n)+" as version "+strconv.Itoa(v.Version), map[string]any{"restored": n, "version": v.Version})
 	u.flash(w, r, "ok", "Restored version "+strconv.Itoa(n)+" as version "+strconv.Itoa(v.Version)+".", "/minds/"+m.Slug+"/personality")
 }
 

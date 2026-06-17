@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/andydixon/noema/internal/auth"
+	evstore "github.com/andydixon/noema/internal/events"
 	"github.com/andydixon/noema/internal/storage"
 	"github.com/andydixon/noema/pkg/ids"
 )
@@ -97,7 +98,13 @@ func (u *UI) setupSubmit(w http.ResponseWriter, r *http.Request) {
 
 func (u *UI) dashboard(w http.ResponseWriter, r *http.Request) {
 	entries, _ := u.deps.Audit.List(r.Context(), 0, 8, "", "")
-	u.render(w, r, "dashboard", "Dashboard", map[string]any{"Minds": 0, "Status": u.statusF(r), "Audit": entries})
+	mindsList, _ := u.deps.Minds.List(r.Context(), false)
+	names := map[ids.ID]string{}
+	for _, m := range mindsList {
+		names[m.ID] = m.DisplayName
+	}
+	evs, _ := u.deps.Events.Query(r.Context(), evstore.Filter{MinSalience: 0.6, Limit: 12})
+	u.render(w, r, "dashboard", "Dashboard", map[string]any{"Minds": mindsList, "MindNames": names, "Events": evs, "Status": u.statusF(r), "Audit": entries})
 }
 
 func (u *UI) system(w http.ResponseWriter, r *http.Request) {
