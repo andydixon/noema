@@ -6,6 +6,7 @@ package ui
 import (
 	"bytes"
 	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"html/template"
 	"io/fs"
@@ -17,6 +18,7 @@ import (
 
 	"github.com/andydixon/noema/internal/api"
 	"github.com/andydixon/noema/internal/app"
+	"github.com/andydixon/noema/internal/attention"
 	"github.com/andydixon/noema/internal/auth"
 	"github.com/andydixon/noema/internal/minds"
 	"github.com/andydixon/noema/internal/version"
@@ -31,6 +33,7 @@ type UI struct {
 	static  fs.FS
 	statusF func(r *http.Request) any                                  // system status provider injected by api
 	ctxF    func(r *http.Request, id ids.ID) (api.EventContext, error) // event forensic context, shared with api
+	wsF     func(r *http.Request, m minds.Mind) (api.WorkspaceView, error)
 }
 
 // View is the data passed to every template.
@@ -51,7 +54,7 @@ const flashCookie = "noema_flash"
 
 // New parses templates. In development, when ./web exists on disk, templates
 // and static files are read from disk so edits show without a rebuild.
-func New(deps app.Deps, statusF func(r *http.Request) any, ctxF func(r *http.Request, id ids.ID) (api.EventContext, error)) (*UI, error) {
+func New(deps app.Deps, statusF func(r *http.Request) any, ctxF func(r *http.Request, id ids.ID) (api.EventContext, error), wsF func(r *http.Request, m minds.Mind) (api.WorkspaceView, error)) (*UI, error) {
 	tmplFS, staticFS := web.Templates(), web.Static()
 	if !deps.Config.Production() {
 		if st, err := os.Stat("web/templates"); err == nil && st.IsDir() {
@@ -59,7 +62,7 @@ func New(deps app.Deps, statusF func(r *http.Request) any, ctxF func(r *http.Req
 			deps.Log.Info("ui: serving templates and static files from ./web (development)")
 		}
 	}
-	u := &UI{deps: deps, static: staticFS, statusF: statusF, ctxF: ctxF}
+	u := &UI{deps: deps, static: staticFS, statusF: statusF, ctxF: ctxF, wsF: wsF}
 	if err := u.parse(tmplFS); err != nil {
 		return nil, err
 	}
@@ -85,6 +88,35 @@ func (u *UI) parse(fsys fs.FS) error {
 		},
 		"title":     func(s string) string { s = strings.ReplaceAll(s, "_", " "); return strings.ToUpper(s[:1]) + s[1:] },
 		"valueKeys": func() []string { return minds.ValueKeys },
+		"features":  func() []string { return minds.AttentionFeatures },
+		"trunc": func(s string, n int) string {
+			if len(s) > n {
+				return s[:n] + "…"
+			}
+			return s
+		},
+		"candSummary": func(s string) string {
+			if i := strings.Index(s, "] "); i > 0 && strings.HasPrefix(s, "[") {
+				return s[i+2:]
+			}
+			return s
+		},
+		"payloadField": func(raw json.RawMessage, field string) string {
+			var m map[string]any
+			if json.Unmarshal(raw, &m) != nil {
+				return ""
+			}
+			return fmt.Sprint(m[field])
+		},
+		"breakdownOf": func(raw json.RawMessage) *attention.Breakdown {
+			var p struct {
+				Breakdown attention.Breakdown `json:"breakdown"`
+			}
+			if json.Unmarshal(raw, &p) != nil || len(p.Breakdown.Terms) == 0 {
+				return nil
+			}
+			return &p.Breakdown
+		},
 		"traitKeys": func() []string { return minds.TraitKeys },
 		"dict": func(kv ...any) map[string]any {
 			m := map[string]any{}

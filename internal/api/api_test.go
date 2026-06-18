@@ -13,10 +13,12 @@ import (
 	"github.com/andydixon/noema/internal/app"
 	"github.com/andydixon/noema/internal/audit"
 	"github.com/andydixon/noema/internal/auth"
+	"github.com/andydixon/noema/internal/brain"
 	"github.com/andydixon/noema/internal/config"
 	evstore "github.com/andydixon/noema/internal/events"
 	"github.com/andydixon/noema/internal/minds"
 	"github.com/andydixon/noema/internal/observability"
+	"github.com/andydixon/noema/internal/scheduler"
 	"github.com/andydixon/noema/internal/storage"
 	"github.com/andydixon/noema/migrations"
 )
@@ -30,6 +32,9 @@ func testServer(t *testing.T) (*httptest.Server, string) {
 	deps := app.Deps{Config: cfg, Log: log, DB: pool, Auth: auth.NewService(pool, time.Hour, 2*time.Hour),
 		Audit: audit.New(pool, log), Metrics: observability.NewMetrics(), Minds: minds.NewStore(pool), Events: evstore.NewStore(pool, evstore.NewBus(50), nil), Migrations: migrations.FS, Started: time.Now()}
 	ctx := context.Background()
+	group := scheduler.NewGroup(ctx, log)
+	t.Cleanup(func() { group.Stop() })
+	deps.Brain = brain.NewManager(brain.Config{DB: pool, Events: deps.Events, Minds: deps.Minds, Registry: brain.NewRegistry(), Pool: scheduler.NewPool(2), Log: log, Metrics: deps.Metrics}, group)
 	u, err := deps.Auth.CreateUser(ctx, "admin", "administrator-pass", auth.RoleAdministrator)
 	if err != nil {
 		t.Fatal(err)

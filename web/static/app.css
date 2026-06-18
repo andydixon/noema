@@ -151,3 +151,12 @@ pre.json { background: var(--surface-2); padding: .75rem; border-radius: 8px; ov
 .chain-arrow { text-align: center; color: var(--muted); }
 ol.corr li.current { font-weight: 600; }
 .cats { display: flex; flex-wrap: wrap; gap: .3rem; margin: .4rem 0; }
+
+/* Workspace */
+.bd { display: flex; height: 10px; width: 160px; background: var(--surface-2); border-radius: 3px; overflow: hidden; }
+.bd-term { display: block; height: 100%; } .bd-term i { display: block; height: 100%; }
+.f-salience { background: #0ea5a4; } .f-urgency { background: #e11d48; } .f-novelty { background: #8b5cf6; } .f-affect { background: #f472b6; } .f-goal_relevance { background: #16a34a; }
+.f-consequence { background: #d97706; } .f-confidence { background: #64748b; } .f-contradiction { background: #b91c1c; } .f-operator_priority { background: #2563eb; } .f-context_relevance { background: #0891b2; }
+ul.wm li { padding: .45rem 0; border-bottom: 1px solid var(--border); } ul.wm li:last-child { border-bottom: 0; }
+.weights { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: .5rem; }
+.weights label { font-size: .8rem; }

@@ -3,6 +3,6 @@
   <a href="/minds/{{$m.Slug}}" {{if eq $a "overview"}}aria-current="page"{{end}}>Overview</a>
   <a href="/minds/{{$m.Slug}}/thoughts" {{if eq $a "thoughts"}}aria-current="page"{{end}}>Thoughts</a>
   <a href="/minds/{{$m.Slug}}/personality" {{if eq $a "personality"}}aria-current="page"{{end}}>Personality</a>
-  <a class="disabled" title="Phase 4">Workspace</a><a class="disabled" title="Phase 5">Memory</a><a class="disabled" title="Phase 6">Beliefs</a><a class="disabled" title="Phase 8">Conversation</a>
+  <a href="/minds/{{$m.Slug}}/workspace" {{if eq $a "workspace"}}aria-current="page"{{end}}>Workspace</a><a class="disabled" title="Phase 5">Memory</a><a class="disabled" title="Phase 6">Beliefs</a><a class="disabled" title="Phase 8">Conversation</a>
 </nav>
 {{end}}

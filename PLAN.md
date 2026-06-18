@@ -69,13 +69,16 @@ An administrator can: start Noema → log in → create a mind → configure per
 - ☑ `noemactl event inspect|list|tail`, `noemactl observe`
 - ☑ Tests: bus bounds and filtering, append validation, immutability, filters, cursors, causal lookups, SSE end to end
 
-### Phase 4 – Working memory, global workspace, attention
-- ☐ `internal/brain`: `BrainState`, `Process` interface, registry, cycle loop, bounded pool, per-mind runtime lifecycle, modes, cursor advance, loop detector
-- ☐ `internal/attention`: feature extraction, weights, deterministic scorer, admission
-- ☐ `internal/workspace`: capacity-limited workspace + working memory with decay, persistence in `workspace_states`
-- ☐ `migrations/0004_workspace`
-- ☐ UI: workspace page (contents, candidates, scores, why won/lost), working memory panel
-- ☐ Tests: determinism, capacity, decay, cancellation, pool bounds, loop detection, restart continuity
+### Phase 4 – Working memory, global workspace, attention ☑
+- ☑ `internal/attention`: ten named features, per-mind weights, normalised weighted sum with per-term breakdown, total ordering by (score, id)
+- ☑ `internal/workspace`: capacity-limited workspace with refresh-by-subject, decayed competition, explained outcomes; working memory with activation decay and least-active eviction; token overlap for context relevance
+- ☑ `internal/brain`: `Process` interface and registry, per-mind runtime with debounced wake-ups, idle timer, settle window, cursor advance only on read events, bounded concurrent Observe with isolation and timeouts, deterministic scoring, loop detector with metacognition warning, executive dispatch by thought kind, single transaction per cycle with publish after commit, persisted snapshot, operator commands (cycle, pause, resume, reset, reload), cycle rate budget; manager reconciling active minds and waking on bus events (own output never re-triggers)
+- ☑ `internal/cognition/attend`: deterministic attention candidates from external events (urgency lexicon, novelty vs context, trust-based operator priority)
+- ☑ `migrations/0004_workspace`
+- ☑ API: workspace view, cycle now, mode, reset; config changes reload runtimes
+- ☑ UI: workspace page (contents with score breakdown bars, working memory, last cycle candidates with fate and reason, controls, attention weight editor) refreshing live on broadcasts
+- ☑ `noemactl workspace show|cycle|pause|resume|reset`
+- ☑ Tests: scoring determinism and bounds, ranking order, admission/refresh/capacity/decay/prune, provenance chain across a cycle, restart continuity, no self-triggered cycles, loop suppression, pause/reset/cancellation
 
 ### Phase 5 – Episodic and semantic memory
 - ☐ `migrations/0005_memory`: memories (kinds, tsvector), memory_relationships, memory_embeddings (conditional pgvector)

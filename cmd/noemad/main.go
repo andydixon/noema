@@ -17,6 +17,8 @@ import (
 	"github.com/andydixon/noema/internal/app"
 	"github.com/andydixon/noema/internal/audit"
 	"github.com/andydixon/noema/internal/auth"
+	"github.com/andydixon/noema/internal/brain"
+	"github.com/andydixon/noema/internal/cognition"
 	"github.com/andydixon/noema/internal/config"
 	evstore "github.com/andydixon/noema/internal/events"
 	"github.com/andydixon/noema/internal/minds"
@@ -82,15 +84,23 @@ func run() error {
 		return err
 	}
 
+	group := scheduler.NewGroup(ctx, log)
+	registry := brain.NewRegistry().AddProcess(cognition.Attend{})
+	deps.Brain = brain.NewManager(brain.Config{DB: db, Events: deps.Events, Minds: deps.Minds, Registry: registry, Pool: scheduler.NewPool(cfg.MaxWorkers),
+		Log: log, Metrics: metrics, Services: brain.Services{Events: deps.Events}}, group)
+	if err := deps.Brain.Start(ctx); err != nil {
+		return fmt.Errorf("start minds: %w", err)
+	}
+
 	var srv *api.Server
 	uiHandler, err := ui.New(deps, func(r *http.Request) any { return srv.Status(r.Context()) },
-		func(r *http.Request, id ids.ID) (api.EventContext, error) { return srv.Context(r, id) })
+		func(r *http.Request, id ids.ID) (api.EventContext, error) { return srv.Context(r, id) },
+		func(r *http.Request, m minds.Mind) (api.WorkspaceView, error) { return srv.Workspace(r.Context(), m) })
 	if err != nil {
 		return err
 	}
 	srv = api.New(deps, uiHandler)
 
-	group := scheduler.NewGroup(ctx, log)
 	httpSrv := &http.Server{Addr: cfg.HTTPAddr, Handler: srv.Handler(), ReadHeaderTimeout: 10 * time.Second,
 		ReadTimeout: 30 * time.Second, IdleTimeout: 120 * time.Second, MaxHeaderBytes: 64 << 10}
 	group.Go("http", func(ctx context.Context) error {

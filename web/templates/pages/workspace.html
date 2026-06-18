@@ -1,0 +1,90 @@
+{{define "content"}}
+{{$m := .Data.Mind}}{{$v := .Data.View}}{{$st := $v.State}}
+<div class="pagehead mindhead">
+  <div><h1>{{$m.DisplayName}} <span class="muted small">global workspace</span></h1>
+  <p class="muted">What the mind is holding and why it won attention. Every candidate's score is arithmetic you can check. <span data-stream-status class="badge">connecting…</span></p></div>
+  <div class="row">{{template "mode_badge" $st.Mode}}{{if not $v.Running}}<span class="badge danger">runtime not running</span>{{end}}</div>
+</div>
+{{template "mind_tabs" (dict "M" $m "Active" "workspace")}}
+<div id="ws-live" data-refresh-on="workspace_broadcast,mode_changed,operator_action" data-refresh-url="/minds/{{$m.Slug}}/workspace" data-stream="/api/v1/minds/{{$m.Slug}}/events/stream?category=cognition,system,operator">
+<section class="grid cols-4">
+  <div class="card stat"><div class="stat-label">Cycle</div><div class="stat-value small">{{$st.Cycle}}</div><div class="muted small">{{if $st.LastCycleAt.IsZero}}never run{{else}}last {{ago $st.LastCycleAt}}{{end}}</div></div>
+  <div class="card stat"><div class="stat-label">Workspace</div><div class="stat-value small">{{len $st.Workspace}} <span class="muted">/ {{$m.Config.WorkspaceCapacity}}</span></div><div class="muted small">thoughts held</div></div>
+  <div class="card stat"><div class="stat-label">Working memory</div><div class="stat-value small">{{len $st.WorkingMemory}} <span class="muted">/ {{$m.Config.WorkingMemoryCapacity}}</span></div><div class="muted small">decay ×{{$m.Config.WorkingMemoryDecay}} per cycle</div></div>
+  <div class="card stat"><div class="stat-label">Last stimulus</div><div class="stat-value small">{{if $st.LastStimulus.IsZero}}—{{else}}{{ago $st.LastStimulus}}{{end}}</div><div class="muted small">external input</div></div>
+</section>
+<section class="grid cols-2">
+  <div class="card">
+    <h2>Workspace contents <span class="muted small">ranked by score × activation</span></h2>
+    {{if $st.Workspace}}
+    <table class="table compact">
+      <thead><tr><th>#</th><th>Thought</th><th>Process</th><th class="num">Score</th><th class="num">Act.</th><th>Why</th></tr></thead>
+      <tbody>{{range $i, $t := $st.Workspace}}<tr>
+        <td class="muted">{{inc $i}}</td>
+        <td>{{if $t.EventID}}<a href="/events/{{$t.EventID}}">{{$t.Summary}}</a>{{else}}{{$t.Summary}}{{end}}<div class="muted small">{{$t.Kind}} · cycle {{$t.AdmittedCycle}}{{if $t.Subject}} · <span class="mono">{{trunc $t.Subject 18}}</span>{{end}}</div></td>
+        <td class="small muted">{{$t.Process}}</td>
+        <td class="num">{{conf $t.Score}}</td>
+        <td class="num">{{conf $t.Activation}}</td>
+        <td>{{template "breakdown" $t.Breakdown}}</td>
+      </tr>{{end}}</tbody>
+    </table>
+    {{else}}<p class="muted">Empty. Inject an observation or talk to the mind to give it something to attend to.</p>{{end}}
+  </div>
+  <div class="card">
+    <h2>Working memory <span class="muted small">actively maintained items</span></h2>
+    {{if $st.WorkingMemory}}
+    <ul class="plain wm">{{range $st.WorkingMemory}}<li><div class="conf"><span class="conf-bar" title="activation {{conf .Activation}}"><i style="width:{{pct .Activation}}"></i></span> <span class="badge">{{.Kind}}</span></div><div>{{.Content}}</div><div class="muted small">since cycle {{.AddedCycle}} · {{ago .TouchedAt}}{{if .SourceEvent}} · <a href="/events/{{.SourceEvent}}">source</a>{{end}}</div></li>{{end}}</ul>
+    {{else}}<p class="muted">Nothing held.</p>{{end}}
+  </div>
+</section>
+<section class="card">
+  <h2>Last cycle: candidates and their fate <span class="muted small">{{len $v.Candidates}} scored{{if $st.LastCycleID}} · <a href="/minds/{{$m.Slug}}/thoughts?correlation={{$st.LastCycleID}}">all events of this cycle</a>{{end}}</span></h2>
+  {{if $v.Candidates}}
+  <table class="table compact">
+    <thead><tr><th>Fate</th><th>Candidate</th><th>Process</th><th class="num">Total</th><th>Breakdown</th><th>Reason</th></tr></thead>
+    <tbody>{{range $v.Candidates}}{{$fate := index .Metadata "fate"}}<tr>
+      <td><span class="badge {{if eq $fate "admitted"}}ok{{else if eq $fate "suppressed"}}danger{{else}}warn{{end}}">{{$fate}}</span></td>
+      <td><a href="/events/{{.ID}}">{{candSummary .Summary}}</a></td>
+      <td class="small muted">{{index .Metadata "process"}} · {{index .Metadata "kind"}}</td>
+      <td class="num">{{conf .Salience}}</td>
+      <td>{{template "breakdown_json" .Payload}}</td>
+      <td class="small muted">{{payloadField .Payload "reason"}}</td>
+    </tr>{{end}}</tbody>
+  </table>
+  {{else}}<p class="muted">No candidates scored yet.</p>{{end}}
+</section>
+</div>
+{{if .Principal.User.Role.AtLeast "operator"}}
+<section class="grid cols-2">
+  <div class="card">
+    <h2>Controls</h2>
+    <form method="post" action="/minds/{{$m.Slug}}/workspace/control" class="row">
+      <input type="hidden" name="_csrf" value="{{.CSRF}}">
+      <button class="btn" name="action" value="cycle" {{if not $v.Running}}disabled{{end}}>Run cycle now</button>
+      {{if eq $st.Mode "paused"}}<button class="btn" name="action" value="resume" {{if not $v.Running}}disabled{{end}}>Resume cognition</button>{{else}}<button class="btn" name="action" value="pause" {{if not $v.Running}}disabled{{end}}>Pause cognition</button>{{end}}
+      <button class="btn btn-danger" name="action" value="reset" data-confirm="Clear the workspace and working memory? Events, memories and beliefs are untouched." {{if not $v.Running}}disabled{{end}}>Reset transient state</button>
+    </form>
+    <p class="muted small">Pausing stops cycles; events still accumulate and are processed on resume. Reset clears only transient state and is recorded as an operator action.</p>
+  </div>
+  {{if .Principal.User.Role.AtLeast "administrator"}}
+  <div class="card">
+    <h2>Attention weights <span class="muted small">per feature; score = Σ value×weight / Σ weight</span></h2>
+    <form method="post" action="/minds/{{$m.Slug}}/workspace/weights" class="stack">
+      <input type="hidden" name="_csrf" value="{{.CSRF}}">
+      <div class="weights">{{range $f := features}}<label>{{title $f}} <input type="number" name="w.{{$f}}" min="0" max="5" step="0.1" value="{{index $m.Config.AttentionWeights $f}}"></label>{{end}}</div>
+      <div class="grid cols-2 tight">
+        <label>Workspace capacity <input type="number" name="workspace_capacity" min="1" max="32" value="{{$m.Config.WorkspaceCapacity}}"></label>
+        <label>Working memory capacity <input type="number" name="working_memory_capacity" min="1" max="64" value="{{$m.Config.WorkingMemoryCapacity}}"></label>
+        <label>Decay per cycle <input type="number" name="working_memory_decay" min="0.1" max="0.99" step="0.01" value="{{$m.Config.WorkingMemoryDecay}}"></label>
+        <label>Loop threshold <input type="number" name="loop_detect_threshold" min="2" max="50" value="{{$m.Config.LoopDetectThreshold}}"></label>
+      </div>
+      <div><button class="btn btn-primary" type="submit">Save configuration</button></div>
+    </form>
+  </div>
+  {{end}}
+</section>
+{{end}}
+{{end}}
+{{define "mode_badge"}}{{if eq . "awake"}}<span class="badge ok">awake</span>{{else if eq . "paused"}}<span class="badge warn">paused</span>{{else if eq . "idle"}}<span class="badge">idle</span>{{else}}<span class="badge accent">{{.}}</span>{{end}}{{end}}
+{{define "breakdown"}}<div class="bd">{{range .Terms}}{{if gt .Contribution 0.0}}<span class="bd-term" title="{{.Feature}}: {{.Value}} × {{.Weight}} → {{.Contribution}}" style="width:{{pct .Contribution}}"><i class="f-{{.Feature}}"></i></span>{{end}}{{end}}</div>{{end}}
+{{define "breakdown_json"}}{{with breakdownOf .}}{{template "breakdown" .}}{{end}}{{end}}

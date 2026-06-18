@@ -96,8 +96,32 @@
     });
   }
 
+  // Live sections: <div id="x" data-refresh-on="type1,type2" data-refresh-url="/page" data-stream="/api/.../stream?...">
+  // On a matching event the page is re-fetched and the section swapped in place.
+  function attachRefreshers() {
+    document.querySelectorAll("[data-refresh-on][data-stream]").forEach((el) => {
+      const types = el.dataset.refreshOn.split(",");
+      const status = document.querySelector("[data-stream-status]");
+      let timer = null;
+      const refresh = () => fetch(el.dataset.refreshUrl, { credentials: "same-origin" }).then((r) => r.text()).then((html) => {
+        const doc = new DOMParser().parseFromString(html, "text/html");
+        const fresh = doc.getElementById(el.id);
+        if (fresh) el.innerHTML = fresh.innerHTML;
+      }).catch(() => {});
+      stream(el.dataset.stream, {
+        cognitive_event: (ev) => {
+          if (status) status.textContent = "live";
+          if (!types.includes(ev.type)) return;
+          clearTimeout(timer); timer = setTimeout(refresh, 400);
+        },
+      });
+      if (status) status.textContent = "live";
+    });
+  }
+
   document.addEventListener("DOMContentLoaded", () => {
     attachStreams();
+    attachRefreshers();
     const tt = document.querySelector("[data-theme-toggle]");
     if (tt) tt.addEventListener("click", cycleTheme);
     const nt = document.querySelector("[data-nav-toggle]");

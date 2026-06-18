@@ -29,6 +29,9 @@ func (u *UI) mindRoutes(m *http.ServeMux) {
 	m.Handle("POST /minds/{mind}/personality/template", u.require(auth.RoleAdministrator, u.personalityTemplate))
 	m.Handle("POST /minds/{mind}/personality/versions/{n}/restore", u.require(auth.RoleAdministrator, u.personalityRestore))
 	m.Handle("GET /minds/{mind}/personality/diff", u.require(auth.RoleObserver, u.personalityDiff))
+	m.Handle("GET /minds/{mind}/workspace", u.require(auth.RoleObserver, u.workspacePage))
+	m.Handle("POST /minds/{mind}/workspace/control", u.require(auth.RoleOperator, u.workspaceControl))
+	m.Handle("POST /minds/{mind}/workspace/weights", u.require(auth.RoleAdministrator, u.workspaceWeights))
 	m.Handle("GET /personality-templates", u.require(auth.RoleObserver, u.templates))
 	m.Handle("POST /personality-templates", u.require(auth.RoleAdministrator, u.templateCreate))
 	m.Handle("GET /personality-templates/{id}", u.require(auth.RoleObserver, u.templateEdit))
@@ -109,6 +112,7 @@ func (u *UI) mindStatus(w http.ResponseWriter, r *http.Request) {
 	}
 	u.deps.Audit.Log(r.Context(), "mind.status", "mind", m.ID.String(), map[string]any{"status": st})
 	u.deps.Events.OperatorAction(r.Context(), m.ID, username(r), "mind.status", "Operator "+username(r)+" set status to "+string(st), map[string]any{"status": st})
+	u.deps.Brain.Reconcile(r.Context()) //nolint:errcheck
 	u.flash(w, r, "ok", "Mind is now "+string(st)+".", "/minds/"+m.Slug)
 }
 
@@ -418,4 +422,74 @@ func (u *UI) templateDelete(w http.ResponseWriter, r *http.Request) {
 	}
 	u.deps.Audit.Log(r.Context(), "template.delete", "personality_template", t.ID.String(), map[string]any{"name": t.Name})
 	u.flash(w, r, "ok", "Template deleted.", "/personality-templates")
+}
+
+func (u *UI) workspacePage(w http.ResponseWriter, r *http.Request) {
+	m, ok := u.mind(w, r)
+	if !ok {
+		return
+	}
+	v, err := u.wsF(r, m)
+	if err != nil {
+		u.errorPage(w, r, 500, "Could not load workspace: "+err.Error())
+		return
+	}
+	u.render(w, r, "workspace", m.DisplayName+" · Workspace", map[string]any{"Mind": m, "View": v})
+}
+
+func (u *UI) workspaceControl(w http.ResponseWriter, r *http.Request) {
+	m, ok := u.mind(w, r)
+	if !ok {
+		return
+	}
+	action := r.PostFormValue("action")
+	var err error
+	switch action {
+	case "cycle", "pause", "resume":
+		err = u.deps.Brain.Command(r.Context(), m.ID, action, nil)
+	case "reset":
+		err = u.deps.Brain.Command(r.Context(), m.ID, "reset", map[string]bool{"workspace": true, "working_memory": true, "loops": true})
+	default:
+		err = errors.New("unknown action")
+	}
+	if err != nil {
+		u.flash(w, r, "error", err.Error(), "/minds/"+m.Slug+"/workspace")
+		return
+	}
+	u.deps.Audit.Log(r.Context(), "mind."+action, "mind", m.ID.String(), nil)
+	u.flash(w, r, "ok", "Done: "+action+".", "/minds/"+m.Slug+"/workspace")
+}
+
+func (u *UI) workspaceWeights(w http.ResponseWriter, r *http.Request) {
+	m, ok := u.mind(w, r)
+	if !ok {
+		return
+	}
+	r.ParseForm() //nolint:errcheck
+	cfg := m.Config
+	for _, f := range minds.AttentionFeatures {
+		if v, err := strconv.ParseFloat(r.PostFormValue("w."+f), 64); err == nil {
+			cfg.AttentionWeights[f] = v
+		}
+	}
+	if v, err := strconv.Atoi(r.PostFormValue("workspace_capacity")); err == nil {
+		cfg.WorkspaceCapacity = v
+	}
+	if v, err := strconv.Atoi(r.PostFormValue("working_memory_capacity")); err == nil {
+		cfg.WorkingMemoryCapacity = v
+	}
+	if v, err := strconv.ParseFloat(r.PostFormValue("working_memory_decay"), 64); err == nil {
+		cfg.WorkingMemoryDecay = v
+	}
+	if v, err := strconv.Atoi(r.PostFormValue("loop_detect_threshold")); err == nil {
+		cfg.LoopDetectThreshold = v
+	}
+	if _, err := u.deps.Minds.Update(r.Context(), m.ID, minds.UpdateParams{Config: &cfg}); err != nil {
+		u.flash(w, r, "error", err.Error(), "/minds/"+m.Slug+"/workspace")
+		return
+	}
+	u.deps.Audit.Log(r.Context(), "mind.config", "mind", m.ID.String(), map[string]any{"weights": cfg.AttentionWeights, "workspace_capacity": cfg.WorkspaceCapacity})
+	u.deps.Events.OperatorAction(r.Context(), m.ID, username(r), "mind.config", "Operator "+username(r)+" changed attention weights and capacities", map[string]any{"weights": cfg.AttentionWeights})
+	u.deps.Brain.Command(r.Context(), m.ID, "reload", nil) //nolint:errcheck // not running is fine
+	u.flash(w, r, "ok", "Configuration saved and applied.", "/minds/"+m.Slug+"/workspace")
 }

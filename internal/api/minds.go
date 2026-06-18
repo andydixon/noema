@@ -122,6 +122,10 @@ func (s *Server) mindPatch(w http.ResponseWriter, r *http.Request) {
 	s.deps.Audit.Log(r.Context(), "mind.update", "mind", m.ID.String(), in)
 	if in.Status != nil {
 		s.deps.Events.OperatorAction(r.Context(), m.ID, actor(r), "mind.status", "Operator "+actor(r)+" set status to "+string(*in.Status), map[string]any{"status": *in.Status})
+		s.deps.Brain.Reconcile(r.Context()) //nolint:errcheck // periodic reconcile also covers it
+	}
+	if in.Config != nil {
+		s.deps.Brain.Command(r.Context(), m.ID, "reload", nil) //nolint:errcheck
 	}
 	writeJSON(w, http.StatusOK, out)
 }
