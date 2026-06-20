@@ -160,3 +160,11 @@ ol.corr li.current { font-weight: 600; }
 ul.wm li { padding: .45rem 0; border-bottom: 1px solid var(--border); } ul.wm li:last-child { border-bottom: 0; }
 .weights { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: .5rem; }
 .weights label { font-size: .8rem; }
+
+/* Memory */
+.memtext { font-size: 1.1rem; max-width: 80ch; }
+.comp { display: inline-block; background: var(--surface-2); border-radius: 4px; padding: 0 .35rem; margin: .1rem 0; font-family: var(--mono); font-size: .72rem; }
+tr.dayrow td { background: var(--surface-2); font-weight: 600; font-size: .78rem; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); }
+.badge.k-episodic { background: #e0f2fe; color: #0369a1; } .badge.k-semantic { background: #ede9fe; color: #6d28d9; } .badge.k-procedural { background: #dcfce7; color: #15803d; } .badge.k-autobiographical { background: #fef3c7; color: #b45309; }
+:root[data-theme="dark"] .badge.k-episodic, :root:not([data-theme="light"]) .badge.k-episodic { background: #0c2a3a; color: #7dd3fc; }
+:root[data-theme="dark"] .badge.k-semantic { background: #2a1f4d; color: #c4b5fd; } :root[data-theme="dark"] .badge.k-procedural { background: #12331d; color: #86efac; } :root[data-theme="dark"] .badge.k-autobiographical { background: #3a2a0a; color: #fcd34d; }

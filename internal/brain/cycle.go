@@ -469,7 +469,7 @@ func (r *Runtime) cycle(ctx context.Context, tx pgx.Tx, trigger string, start ti
 		}
 		c.Emit(events.New{Type: events.ThoughtCandidate, Source: "brain." + cand.Process, Summary: fmt.Sprintf("[%s %.2f] %s", fate, sc.Breakdown.Total, cand.Summary),
 			Salience: sc.Breakdown.Total, Confidence: cand.Confidence, CausationID: causation, ParentIDs: cand.SourceEvents, Evidence: cand.Evidence,
-			Metadata: map[string]any{"candidate_id": cand.ID, "process": cand.Process, "kind": cand.Kind, "subject": cand.Subject, "fate": fate, "rank": o.Rank},
+			Metadata: map[string]any{"candidate_id": string(cand.ID), "process": cand.Process, "kind": cand.Kind, "subject": cand.Subject, "fate": fate, "rank": o.Rank},
 			Payload:  map[string]any{"candidate_id": cand.ID, "kind": cand.Kind, "subject": cand.Subject, "features": cand.Features, "breakdown": sc.Breakdown, "fate": fate, "reason": reason, "rank": o.Rank, "content": cand.Content}})
 	}
 	if err := c.flush(ctx); err != nil {
@@ -478,9 +478,7 @@ func (r *Runtime) cycle(ctx context.Context, tx pgx.Tx, trigger string, start ti
 	candidateEvent := map[ids.ID]ids.ID{}
 	for _, ev := range c.emitted {
 		if ev.Type == events.ThoughtCandidate {
-			if cid, ok := ev.Metadata["candidate_id"].(ids.ID); ok {
-				candidateEvent[cid] = ev.ID
-			} else if s, ok := ev.Metadata["candidate_id"].(string); ok {
+			if s, ok := ev.Metadata["candidate_id"].(string); ok {
 				candidateEvent[ids.ID(s)] = ev.ID
 			}
 		}
@@ -502,7 +500,7 @@ func (r *Runtime) cycle(ctx context.Context, tx pgx.Tx, trigger string, start ti
 		}
 		c.Emit(events.New{Type: events.ThoughtSelected, Source: "brain.workspace", Summary: t.Summary, Salience: t.Score, Confidence: t.Confidence,
 			CausationID: firstOr(parents, ids.Nil), ParentIDs: parents, Evidence: t.Evidence,
-			Metadata: map[string]any{"candidate_id": t.ID, "process": t.Process, "kind": t.Kind, "subject": t.Subject, "rank": outcomeByID[t.ID].Rank},
+			Metadata: map[string]any{"candidate_id": string(t.ID), "process": t.Process, "kind": t.Kind, "subject": t.Subject, "rank": outcomeByID[t.ID].Rank},
 			Payload:  map[string]any{"thought": t, "why": fmt.Sprintf("rank %d of %d with score %.2f; %s", outcomeByID[t.ID].Rank, len(scored), t.Score, outcomeByID[t.ID].Reason)}})
 		if r.metrics != nil {
 			r.metrics.Admissions.Inc()
@@ -617,6 +615,15 @@ func (r *Runtime) observe(ctx context.Context, st *State) []Candidate {
 		all = append(all, rs...)
 	}
 	return all
+}
+
+// Events exposes the event store to handlers.
+func (r *Runtime) Events() *evstore.Store { return r.events }
+
+// Hold places an item in working memory using the mind's configured capacity.
+// It must only be called from handlers (on the loop goroutine).
+func (r *Runtime) Hold(it workspace.Item) {
+	r.state.Hold(it, r.mind.Config.WorkingMemoryCapacity, r.state.Cycle, r.now())
 }
 
 // defaultHandler places an admitted thought into working memory.

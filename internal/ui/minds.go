@@ -97,7 +97,8 @@ func (u *UI) mindOverview(w http.ResponseWriter, r *http.Request) {
 	}
 	sm, _ := u.deps.Minds.GetSelfModel(r.Context(), m.ID)
 	st, _ := u.deps.Events.Stats(r.Context(), m.ID, time.Now().Add(-24*time.Hour))
-	u.render(w, r, "mind", m.DisplayName, map[string]any{"Mind": m, "Brief": m.Personality.Brief(), "SelfModel": sm, "Stats": st})
+	ms, _ := u.deps.Memory.Stats(r.Context(), m.ID)
+	u.render(w, r, "mind", m.DisplayName, map[string]any{"Mind": m, "Brief": m.Personality.Brief(), "SelfModel": sm, "Stats": st, "MemStats": ms})
 }
 
 func (u *UI) mindStatus(w http.ResponseWriter, r *http.Request) {

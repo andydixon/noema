@@ -1,0 +1,61 @@
+{{define "content"}}
+{{$m := .Data.Mind}}{{$d := .Data.Detail}}{{$mm := $d.Memory}}
+<div class="pagehead">
+  <p class="muted small"><a href="/minds/{{$m.Slug}}">{{$m.DisplayName}}</a> › <a href="/minds/{{$m.Slug}}/memory">memory</a> › {{$mm.Kind}}</p>
+  <h1><span class="badge k-{{$mm.Kind}}">{{$mm.Kind}}</span> <span class="badge">{{$mm.Epistemic}}</span> {{if ne $mm.Status "active"}}<span class="badge danger">{{$mm.Status}}</span>{{end}}</h1>
+  <p class="memtext">{{$mm.Content}}</p>
+</div>
+<section class="grid cols-3-1">
+  <div class="stack">
+    <div class="card">
+      <h2>Provenance</h2>
+      <dl class="kv">
+        <dt>Source</dt><dd>{{$mm.Source}} · trust <strong>{{$mm.Trust}}</strong> (credibility {{conf $mm.Credibility}})</dd>
+        <dt>Occurred</dt><dd>{{$mm.OccurredAt.Local.Format "2006-01-02 15:04:05"}}</dd>
+        <dt>Encoded</dt><dd>{{$mm.CreatedAt.Local.Format "2006-01-02 15:04:05"}}</dd>
+        {{if $d.Origin}}<dt>Origin event</dt><dd><span class="etype cat-{{$d.Origin.Category}}">{{$d.Origin.Type}}</span> <a href="/events/{{$d.Origin.ID}}">{{$d.Origin.Summary}}</a></dd>{{end}}
+        {{if $mm.Supersedes}}<dt>Supersedes</dt><dd><a href="/minds/{{$m.Slug}}/memory/{{$mm.Supersedes}}">{{$mm.Supersedes}}</a></dd>{{end}}
+        {{range $k, $v := $mm.Detail}}{{if $v}}<dt>{{$k}}</dt><dd class="small">{{$v}}</dd>{{end}}{{end}}
+      </dl>
+    </div>
+    <div class="card">
+      <h2>Events referencing this memory <span class="muted small">{{len $d.Events}}</span></h2>
+      {{if $d.Events}}<table class="table compact"><tbody>{{range $d.Events}}<tr><td class="nowrap muted small mono">{{.OccurredAt.Local.Format "01-02 15:04:05"}}</td><td><span class="etype cat-{{.Category}}">{{.Type}}</span></td><td><a href="/events/{{.ID}}">{{.Summary}}</a></td></tr>{{end}}</tbody></table>{{else}}<p class="muted small">None yet.</p>{{end}}
+    </div>
+    <div class="card">
+      <h2>Relationships <span class="muted small">{{len $d.Relationships}}</span></h2>
+      {{if $d.Relationships}}<table class="table compact"><tbody>{{range $d.Relationships}}<tr><td class="small">{{if eq .Direction "out"}}this <strong>{{.Relation}}</strong>{{else}}<strong>{{.Relation}}</strong> this{{end}}</td><td><a href="/minds/{{$m.Slug}}/memory/{{.Other.ID}}">{{trunc .Other.Content 120}}</a></td><td class="small muted">{{conf .Confidence}} · {{.Source}}</td></tr>{{end}}</tbody></table>{{else}}<p class="muted small">None.</p>{{end}}
+      {{if .Principal.User.Role.AtLeast "operator"}}
+      <form method="post" action="/minds/{{$m.Slug}}/memory/{{$mm.ID}}/relate" class="row">
+        <input type="hidden" name="_csrf" value="{{.CSRF}}">
+        <input name="to" placeholder="other memory id" size="38" required>
+        <select name="relation">{{range relations}}<option value="{{.}}">{{.}}</option>{{end}}</select>
+        <button class="btn small" type="submit">Link</button>
+      </form>{{end}}
+    </div>
+  </div>
+  <div class="stack">
+    <div class="card">
+      <h2>Strength</h2>
+      <dl class="kv">
+        <dt>Confidence</dt><dd><span class="conf"><span class="conf-bar"><i style="width:{{pct $mm.Confidence}}"></i></span> {{conf $mm.Confidence}}</span></dd>
+        <dt>Importance</dt><dd><span class="conf"><span class="conf-bar"><i style="width:{{pct $mm.Importance}}"></i></span> {{conf $mm.Importance}}</span></dd>
+        <dt>Activation</dt><dd><span class="conf"><span class="conf-bar"><i style="width:{{pct $mm.Activation}}"></i></span> {{conf $mm.Activation}}</span></dd>
+        <dt>Retrieved</dt><dd>{{$mm.RetrievalCount}}× {{if $mm.LastRetrievedAt}}· last {{ago $mm.LastRetrievedAt}}{{end}}</dd>
+        {{if $mm.Valence}}<dt>Valence</dt><dd>{{conf (deref $mm.Valence)}}</dd>{{end}}
+      </dl>
+    </div>
+    {{if and (.Principal.User.Role.AtLeast "operator") (eq $mm.Status "active")}}
+    <div class="card">
+      <h2>Correct</h2>
+      <form method="post" action="/minds/{{$m.Slug}}/memory/{{$mm.ID}}/retract" class="stack">
+        <input type="hidden" name="_csrf" value="{{.CSRF}}">
+        <label>Reason <input name="reason" placeholder="why this memory is inaccurate" maxlength="500"></label>
+        <div><button class="btn btn-danger" type="submit" data-confirm="Mark this memory inaccurate? It stays in history but leaves normal recall.">This memory is inaccurate</button></div>
+      </form>
+    </div>
+    {{end}}
+    <div class="card small"><dt class="muted">ID</dt><dd class="mono small">{{$mm.ID}}</dd></div>
+  </div>
+</section>
+{{end}}

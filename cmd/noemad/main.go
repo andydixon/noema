@@ -21,6 +21,7 @@ import (
 	"github.com/andydixon/noema/internal/cognition"
 	"github.com/andydixon/noema/internal/config"
 	evstore "github.com/andydixon/noema/internal/events"
+	"github.com/andydixon/noema/internal/memory"
 	"github.com/andydixon/noema/internal/minds"
 	"github.com/andydixon/noema/internal/observability"
 	"github.com/andydixon/noema/internal/scheduler"
@@ -28,6 +29,7 @@ import (
 	"github.com/andydixon/noema/internal/ui"
 	"github.com/andydixon/noema/internal/version"
 	"github.com/andydixon/noema/migrations"
+	"github.com/andydixon/noema/pkg/events"
 	"github.com/andydixon/noema/pkg/ids"
 )
 
@@ -85,9 +87,13 @@ func run() error {
 	}
 
 	group := scheduler.NewGroup(ctx, log)
-	registry := brain.NewRegistry().AddProcess(cognition.Attend{})
+	deps.Memory = memory.NewStore(ctx, db, nil)
+	registry := brain.NewRegistry().AddProcess(cognition.Attend{}).AddProcess(cognition.Retrieve{})
+	cognition.Handlers{Memory: deps.Memory}.Register(registry)
 	deps.Brain = brain.NewManager(brain.Config{DB: db, Events: deps.Events, Minds: deps.Minds, Registry: registry, Pool: scheduler.NewPool(cfg.MaxWorkers),
-		Log: log, Metrics: metrics, Services: brain.Services{Events: deps.Events}}, group)
+		Log: log, Metrics: metrics, Services: brain.Services{Events: deps.Events, Memory: deps.Memory}}, group)
+	group.Every("memory.decay", 6*time.Hour, func(ctx context.Context) error { return decayMemories(ctx, deps) })
+	group.Every("memory.embed", time.Minute, func(ctx context.Context) error { _, err := deps.Memory.EmbedMissing(ctx, 50); return err })
 	if err := deps.Brain.Start(ctx); err != nil {
 		return fmt.Errorf("start minds: %w", err)
 	}
@@ -95,7 +101,8 @@ func run() error {
 	var srv *api.Server
 	uiHandler, err := ui.New(deps, func(r *http.Request) any { return srv.Status(r.Context()) },
 		func(r *http.Request, id ids.ID) (api.EventContext, error) { return srv.Context(r, id) },
-		func(r *http.Request, m minds.Mind) (api.WorkspaceView, error) { return srv.Workspace(r.Context(), m) })
+		func(r *http.Request, m minds.Mind) (api.WorkspaceView, error) { return srv.Workspace(r.Context(), m) },
+		func(r *http.Request, mind, id ids.ID) (api.MemoryDetail, error) { return srv.MemoryDetail(r, mind, id) })
 	if err != nil {
 		return err
 	}
@@ -143,5 +150,25 @@ func bootstrapAdmin(ctx context.Context, d app.Deps) error {
 	}
 	d.Audit.Log(ctx, "user.bootstrap", "user", u.ID.String(), map[string]any{"username": u.Username, "via": "environment"})
 	d.Log.Info("created bootstrap administrator", "username", u.Username)
+	return nil
+}
+
+// decayMemories lowers activation of unused memories for every mind and leaves
+// one summary event per mind so the decay is visible without spamming.
+func decayMemories(ctx context.Context, d app.Deps) error {
+	list, err := d.Minds.List(ctx, false)
+	if err != nil {
+		return err
+	}
+	for _, m := range list {
+		n, err := d.Memory.Decay(ctx, m.ID, 14*24*time.Hour)
+		if err != nil {
+			return err
+		}
+		if n > 0 {
+			d.Events.Append(ctx, events.New{MindID: m.ID, Type: events.MemoryDecayed, Source: "memory.decay", Summary: fmt.Sprintf("activation decayed on %d memories", n), //nolint:errcheck
+				Salience: 0.05, Confidence: 1, Metadata: map[string]any{"count": n}})
+		}
+	}
 	return nil
 }

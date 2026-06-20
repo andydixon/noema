@@ -54,6 +54,7 @@ func (s *Server) routes() {
 	s.mindRoutes()
 	s.eventRoutes()
 	s.workspaceRoutes()
+	s.memoryRoutes()
 
 	m.HandleFunc("/api/", func(w http.ResponseWriter, r *http.Request) {
 		writeError(w, r, http.StatusNotFound, "not_found", "no such endpoint")

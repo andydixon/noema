@@ -85,7 +85,7 @@ func TestCycleRecordsProvenanceAndPersists(t *testing.T) {
 		t.Fatalf("echo called %d times", e.calls.Load())
 	}
 	st := rt.copyState()
-	if st.Cycle != 1 || len(st.Workspace) != 1 || st.Workspace[0].Subject != string(obs[0].ID) || len(st.WorkingMemory) != 1 {
+	if st.Cycle != 1 || len(st.Workspace) != 1 || st.Workspace[0].Subject != string(obs[0].ID) || len(st.WorkingMemory) != 1 || st.Workspace[0].EventID.IsZero() {
 		t.Fatalf("workspace wrong: %+v", st)
 	}
 	all, _ := es.Query(ctx, evstore.Filter{MindID: m.ID, Ascending: true})

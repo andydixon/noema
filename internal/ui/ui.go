@@ -22,6 +22,7 @@ import (
 	"github.com/andydixon/noema/internal/auth"
 	"github.com/andydixon/noema/internal/minds"
 	"github.com/andydixon/noema/internal/version"
+	"github.com/andydixon/noema/pkg/concepts"
 	"github.com/andydixon/noema/pkg/ids"
 	"github.com/andydixon/noema/web"
 )
@@ -34,6 +35,7 @@ type UI struct {
 	statusF func(r *http.Request) any                                  // system status provider injected by api
 	ctxF    func(r *http.Request, id ids.ID) (api.EventContext, error) // event forensic context, shared with api
 	wsF     func(r *http.Request, m minds.Mind) (api.WorkspaceView, error)
+	memF    func(r *http.Request, mind, id ids.ID) (api.MemoryDetail, error)
 }
 
 // View is the data passed to every template.
@@ -54,7 +56,7 @@ const flashCookie = "noema_flash"
 
 // New parses templates. In development, when ./web exists on disk, templates
 // and static files are read from disk so edits show without a rebuild.
-func New(deps app.Deps, statusF func(r *http.Request) any, ctxF func(r *http.Request, id ids.ID) (api.EventContext, error), wsF func(r *http.Request, m minds.Mind) (api.WorkspaceView, error)) (*UI, error) {
+func New(deps app.Deps, statusF func(r *http.Request) any, ctxF func(r *http.Request, id ids.ID) (api.EventContext, error), wsF func(r *http.Request, m minds.Mind) (api.WorkspaceView, error), memF func(r *http.Request, mind, id ids.ID) (api.MemoryDetail, error)) (*UI, error) {
 	tmplFS, staticFS := web.Templates(), web.Static()
 	if !deps.Config.Production() {
 		if st, err := os.Stat("web/templates"); err == nil && st.IsDir() {
@@ -62,7 +64,7 @@ func New(deps app.Deps, statusF func(r *http.Request) any, ctxF func(r *http.Req
 			deps.Log.Info("ui: serving templates and static files from ./web (development)")
 		}
 	}
-	u := &UI{deps: deps, static: staticFS, statusF: statusF, ctxF: ctxF, wsF: wsF}
+	u := &UI{deps: deps, static: staticFS, statusF: statusF, ctxF: ctxF, wsF: wsF, memF: memF}
 	if err := u.parse(tmplFS); err != nil {
 		return nil, err
 	}
@@ -86,9 +88,12 @@ func (u *UI) parse(fsys fs.FS) error {
 			}
 			return *f
 		},
-		"title":     func(s string) string { s = strings.ReplaceAll(s, "_", " "); return strings.ToUpper(s[:1]) + s[1:] },
-		"valueKeys": func() []string { return minds.ValueKeys },
-		"features":  func() []string { return minds.AttentionFeatures },
+		"title":          func(s string) string { s = strings.ReplaceAll(s, "_", " "); return strings.ToUpper(s[:1]) + s[1:] },
+		"valueKeys":      func() []string { return minds.ValueKeys },
+		"features":       func() []string { return minds.AttentionFeatures },
+		"memoryKinds":    func() []concepts.MemoryKind { return concepts.AllMemoryKinds },
+		"epistemicKinds": func() []concepts.Epistemic { return concepts.AllEpistemic },
+		"relations":      func() []concepts.Relation { return concepts.AllRelations },
 		"trunc": func(s string, n int) string {
 			if len(s) > n {
 				return s[:n] + "…"
@@ -240,6 +245,7 @@ func (u *UI) Register(m *http.ServeMux) {
 
 	u.mindRoutes(m)
 	u.eventRoutes(m)
+	u.memoryRoutes(m)
 
 	for _, p := range []struct{ path, title, note string }{
 		{"/approvals", "Approvals", "The approval centre arrives with the capability system."},

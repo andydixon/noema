@@ -1,0 +1,66 @@
+{{define "content"}}
+{{$m := .Data.Mind}}
+<div class="pagehead mindhead">
+  <div><h1>{{$m.DisplayName}} <span class="muted small">memory</span></h1><p class="muted">{{.Data.Stats.Total}} active memories · {{range $k, $v := .Data.Stats.ByKind}}<span class="badge">{{$k}} {{$v}}</span> {{end}}{{if .Data.Semantic}}<span class="badge ok">semantic search on</span>{{else}}<span class="badge" title="No embedding provider configured or pgvector unavailable">text + graph retrieval</span>{{end}}</p></div>
+</div>
+{{template "mind_tabs" (dict "M" $m "Active" "memory")}}
+<form method="get" class="card filterbar">
+  <label>Search <input name="q" value="{{index .Data.Q "q"}}" placeholder="what does it remember about…" size="28"></label>
+  <label>Kind <select name="kind"><option value="">all</option>{{range memoryKinds}}<option value="{{.}}" {{if eq (index $.Data.Q "kind") (print .)}}selected{{end}}>{{.}}</option>{{end}}</select></label>
+  <label>Epistemic <select name="epistemic"><option value="">all</option>{{range epistemicKinds}}<option value="{{.}}" {{if eq (index $.Data.Q "epistemic") (print .)}}selected{{end}}>{{.}}</option>{{end}}</select></label>
+  <label>Status <select name="status"><option value="">active</option><option value="retracted" {{if eq (index .Data.Q "status") "retracted"}}selected{{end}}>retracted</option><option value="superseded" {{if eq (index .Data.Q "status") "superseded"}}selected{{end}}>superseded</option><option value="active,retracted,superseded,archived" {{if eq (index .Data.Q "status") "active,retracted,superseded,archived"}}selected{{end}}>everything</option></select></label>
+  <label>Min confidence <input type="number" name="min_confidence" min="0" max="1" step="0.1" value="{{index .Data.Q "min_confidence"}}" size="4"></label>
+  <label>Min importance <input type="number" name="min_importance" min="0" max="1" step="0.1" value="{{index .Data.Q "min_importance"}}" size="4"></label>
+  <label class="check small"><input type="checkbox" name="strict" value="1" {{if eq (index .Data.Q "strict") "1"}}checked{{end}}> all terms</label>
+  <button class="btn" type="submit">Search</button> <a class="btn btn-ghost" href="/minds/{{$m.Slug}}/memory">Reset</a>
+</form>
+<section class="grid cols-3-1">
+  <div class="card">
+    {{if .Data.Hits}}
+    <h2>Recall for “{{index .Data.Q "q"}}” <span class="muted small">fused score: text, {{if .Data.Semantic}}vector, {{end}}recency, activation, importance, credibility</span></h2>
+    <table class="table compact">
+      <thead><tr><th class="num">Score</th><th>Memory</th><th>Why</th></tr></thead>
+      <tbody>{{range .Data.Hits}}{{$mm := .Memory}}<tr>
+        <td class="num"><strong>{{conf .Score}}</strong></td>
+        <td><a href="/minds/{{$m.Slug}}/memory/{{$mm.ID}}">{{trunc $mm.Content 140}}</a><div class="small muted"><span class="badge">{{$mm.Kind}}</span> <span class="badge">{{$mm.Epistemic}}</span> {{date $mm.OccurredAt}} · conf {{conf $mm.Confidence}} · imp {{conf $mm.Importance}}</div></td>
+        <td class="small muted">{{range $k, $v := .Components}}{{if gt $v 0.0}}<span class="comp">{{$k}} {{conf $v}}</span> {{end}}{{end}}</td>
+      </tr>{{end}}</tbody>
+    </table>
+    {{else if .Data.Memories}}
+    <h2>Timeline <span class="muted small">newest first</span></h2>
+    {{$day := ""}}
+    <table class="table compact">
+      <tbody>{{range .Data.Memories}}{{$d := date .OccurredAt | printf "%.10s"}}{{if ne $d $day}}{{$day = $d}}<tr class="dayrow"><td colspan="4">{{$d}}</td></tr>{{end}}<tr>
+        <td class="nowrap muted small mono">{{.OccurredAt.Local.Format "15:04"}}</td>
+        <td><span class="badge k-{{.Kind}}">{{.Kind}}</span> <span class="badge">{{.Epistemic}}</span>{{if ne .Status "active"}} <span class="badge danger">{{.Status}}</span>{{end}}</td>
+        <td><a href="/minds/{{$m.Slug}}/memory/{{.ID}}">{{trunc .Content 160}}</a><div class="muted small">{{.Source}} · trust {{.Trust}}</div></td>
+        <td class="small nowrap"><span class="conf" title="confidence"><span class="conf-bar"><i style="width:{{pct .Confidence}}"></i></span> {{conf .Confidence}}</span><br><span class="muted">imp {{conf .Importance}} · act {{conf .Activation}} · ×{{.RetrievalCount}}</span></td>
+      </tr>{{end}}</tbody>
+    </table>
+    {{with .Data.NextBefore}}<p><a class="btn" href="/minds/{{$m.Slug}}/memory?{{$.Data.RawQuery}}&before={{.}}">Older</a></p>{{end}}
+    {{else}}<p class="muted">No memories{{if index .Data.Q "q"}} match{{end}}. Memories form when the mind attends to observations and conversations.</p>{{end}}
+  </div>
+  <div class="stack">
+    {{if .Principal.User.Role.AtLeast "operator"}}
+    <div class="card">
+      <h2>Add knowledge <span class="muted small">as operator</span></h2>
+      <form method="post" action="/minds/{{$m.Slug}}/memory" class="stack">
+        <input type="hidden" name="_csrf" value="{{.CSRF}}">
+        <label>Content <textarea name="content" rows="3" required maxlength="20000" placeholder="e.g. Andy prefers Go for deployed services"></textarea></label>
+        <div class="grid cols-2 tight">
+          <label>Kind <select name="kind">{{range memoryKinds}}<option value="{{.}}" {{if eq . "semantic"}}selected{{end}}>{{.}}</option>{{end}}</select></label>
+          <label>Epistemic <select name="epistemic">{{range epistemicKinds}}<option value="{{.}}" {{if eq . "fact"}}selected{{end}}>{{.}}</option>{{end}}</select></label>
+          <label>Confidence <input type="number" name="confidence" min="0" max="1" step="0.05" value="0.8"></label>
+          <label>Importance <input type="number" name="importance" min="0" max="1" step="0.05" value="0.6"></label>
+        </div>
+        <div><button class="btn" type="submit">Store</button></div>
+      </form>
+    </div>
+    {{end}}
+    <div class="card small">
+      <h2>How retrieval works</h2>
+      <p class="muted">A cue (observation, message) is matched against memories by full-text rank{{if .Data.Semantic}}, embedding similarity{{end}}, recency, activation, importance and source credibility. The fused score competes for attention like any thought; admitted recalls are reinforced. Decay lowers activation of unused memories but never deletes them.</p>
+    </div>
+  </div>
+</section>
+{{end}}

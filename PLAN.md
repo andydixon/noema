@@ -80,13 +80,16 @@ An administrator can: start Noema → log in → create a mind → configure per
 - ☑ `noemactl workspace show|cycle|pause|resume|reset`
 - ☑ Tests: scoring determinism and bounds, ranking order, admission/refresh/capacity/decay/prune, provenance chain across a cycle, restart continuity, no self-triggered cycles, loop suppression, pause/reset/cancellation
 
-### Phase 5 – Episodic and semantic memory
-- ☐ `migrations/0005_memory`: memories (kinds, tsvector), memory_relationships, memory_embeddings (conditional pgvector)
-- ☐ `internal/memory`: typed stores, retrieval fusion with recorded component scores, reinforcement, decay job, isolation by mind
-- ☐ `internal/embeddings`: interface, pgvector adapter, none-adapter
-- ☐ Processes: memory retrieval, novelty detection
-- ☐ UI: memory explorer (search, timeline, filters, evidence, relationships)
-- ☐ Tests: retrieval scoring, decay, isolation, fallback without pgvector
+### Phase 5 – Episodic and semantic memory ☑
+- ☑ `pkg/concepts`: epistemic kinds, memory kinds, relation vocabulary
+- ☑ `migrations/0005_memory`: memories (kinds, epistemic status, trust/credibility, importance, activation, tsvector), memory_relationships, conditional pgvector memory_embeddings
+- ☑ `internal/embeddings`: interface, None fallback, pgvector formatting
+- ☑ `internal/memory`: mind-scoped store, fused retrieval with recorded components (text any-term/strict, vector, recency, activation, importance, credibility), reinforcement, decay without deletion, relationships, statuses, stats, embed-missing job
+- ☑ Processes and handlers: `retrieve` proposes recalls as candidates; `attend` handler encodes attended events as episodic/autobiographical memories; `retrieve` handler reinforces and records `memory_retrieved`
+- ☑ API: list/search, create (operator knowledge), detail with relationships and citing events, retract, relate, stats
+- ☑ UI: memory explorer (search with component scores, timeline, filters, add knowledge), memory detail (provenance, strength, relationships, correction)
+- ☑ `noemactl memory search|list|inspect|add`; decay and embedding background jobs; docs/memory.md
+- ☑ Tests: lifecycle, fused retrieval, cross-mind isolation (retrieve, get, relate), reinforcement, decay, retraction, stats
 
 ### Phase 6 – Beliefs, evidence, confidence, contradictions
 - ☐ `migrations/0006_beliefs`: beliefs, belief_versions (append-only), belief_evidence, corrections

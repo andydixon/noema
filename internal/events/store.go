@@ -67,6 +67,13 @@ func validate(n *events.New) error {
 	if n.OccurredAt.IsZero() {
 		n.OccurredAt = time.Now()
 	}
+	parents := n.ParentIDs[:0]
+	for _, p := range n.ParentIDs {
+		if !p.IsZero() {
+			parents = append(parents, p)
+		}
+	}
+	n.ParentIDs = parents
 	return nil
 }
 

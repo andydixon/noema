@@ -24,7 +24,7 @@
     {{$st := .Data.Stats}}
     <div class="stat-value small">{{$st.Total}} <span class="muted small">events in 24h</span></div>
     <div class="cats small">{{range $k, $v := $st.ByCategory}}<span class="etype cat-{{$k}}">{{$k}} {{$v}}</span> {{end}}</div>
-    <p class="small"><a href="/minds/{{$m.Slug}}/thoughts">Open thought stream</a></p>
+    <p class="small"><a href="/minds/{{$m.Slug}}/thoughts">Open thought stream</a> · <a href="/minds/{{$m.Slug}}/memory">{{.Data.MemStats.Total}} memories</a>{{range $k, $v := .Data.MemStats.ByKind}} <span class="badge k-{{$k}}">{{$k}} {{$v}}</span>{{end}}</p>
     {{if .Principal.User.Role.AtLeast "operator"}}
     <form method="post" action="/minds/{{$m.Slug}}/observe" class="stack" style="margin-top:.75rem">
       <input type="hidden" name="_csrf" value="{{.CSRF}}">

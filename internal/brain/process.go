@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/andydixon/noema/internal/attention"
+	"github.com/andydixon/noema/internal/memory"
 	"github.com/andydixon/noema/internal/minds"
 	"github.com/andydixon/noema/internal/workspace"
 	"github.com/andydixon/noema/pkg/events"
@@ -66,6 +67,7 @@ type State struct {
 // Services are read handles processes may use. Extended per phase.
 type Services struct {
 	Events EventReader
+	Memory *memory.Store
 }
 
 // EventReader is the subset of the event store processes may call.
