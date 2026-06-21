@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/andydixon/noema/internal/auth"
+	"github.com/andydixon/noema/internal/beliefs"
 	"github.com/andydixon/noema/internal/minds"
 	"github.com/andydixon/noema/internal/storage"
 	"github.com/andydixon/noema/pkg/ids"
@@ -98,7 +99,9 @@ func (u *UI) mindOverview(w http.ResponseWriter, r *http.Request) {
 	sm, _ := u.deps.Minds.GetSelfModel(r.Context(), m.ID)
 	st, _ := u.deps.Events.Stats(r.Context(), m.ID, time.Now().Add(-24*time.Hour))
 	ms, _ := u.deps.Memory.Stats(r.Context(), m.ID)
-	u.render(w, r, "mind", m.DisplayName, map[string]any{"Mind": m, "Brief": m.Personality.Brief(), "SelfModel": sm, "Stats": st, "MemStats": ms})
+	bs, _ := u.deps.Beliefs.Stats(r.Context(), m.ID)
+	top, _ := u.deps.Beliefs.List(r.Context(), m.ID, beliefs.Filter{Limit: 8})
+	u.render(w, r, "mind", m.DisplayName, map[string]any{"Mind": m, "Brief": m.Personality.Brief(), "SelfModel": sm, "Stats": st, "MemStats": ms, "BeliefStats": bs, "Beliefs": top})
 }
 
 func (u *UI) mindStatus(w http.ResponseWriter, r *http.Request) {

@@ -60,6 +60,32 @@ func (c *Cycle) Emit(n events.New) {
 	c.pending = append(c.pending, n)
 }
 
+// EmitNow appends one event immediately inside the cycle transaction and
+// returns it, for handlers that need the event id for provenance. It is still
+// published only after commit.
+func (c *Cycle) EmitNow(ctx context.Context, n events.New) (events.Event, error) {
+	if err := c.flush(ctx); err != nil {
+		return events.Event{}, err
+	}
+	n.MindID = c.State.Mind.ID
+	if n.CorrelationID.IsZero() {
+		n.CorrelationID = c.State.CycleID
+	}
+	if n.OccurredAt.IsZero() {
+		n.OccurredAt = c.State.Now
+	}
+	if n.Metadata == nil {
+		n.Metadata = map[string]any{}
+	}
+	n.Metadata["cycle"] = c.State.Cycle
+	evs, err := c.Runtime.events.AppendIn(ctx, c.Tx, n)
+	if err != nil {
+		return events.Event{}, err
+	}
+	c.emitted = append(c.emitted, evs...)
+	return evs[0], nil
+}
+
 // flush writes queued events inside the transaction and returns them.
 func (c *Cycle) flush(ctx context.Context) error {
 	if len(c.pending) == 0 {

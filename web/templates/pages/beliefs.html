@@ -1,0 +1,57 @@
+{{define "content"}}
+{{$m := .Data.Mind}}
+<div class="pagehead mindhead">
+  <div><h1>{{$m.DisplayName}} <span class="muted small">beliefs</span></h1><p class="muted">{{.Data.Stats.Total}} beliefs · {{range $k, $v := .Data.Stats.ByStatus}}<span class="badge st-{{$k}}">{{$k}} {{$v}}</span> {{end}}</p></div>
+</div>
+{{template "mind_tabs" (dict "M" $m "Active" "beliefs")}}
+<form method="get" class="card filterbar">
+  <label>Search <input name="q" value="{{index .Data.Q "q"}}" size="24" placeholder="proposition contains"></label>
+  <label>Status <select name="status"><option value="">all live</option>{{range beliefStatuses}}<option value="{{.}}" {{if eq (index $.Data.Q "status") (print .)}}selected{{end}}>{{.}}</option>{{end}}</select></label>
+  <label>Min confidence <input type="number" name="min_confidence" min="0" max="1" step="0.1" value="{{index .Data.Q "min_confidence"}}" size="4"></label>
+  <label>Max confidence <input type="number" name="max_confidence" min="0" max="1" step="0.1" value="{{index .Data.Q "max_confidence"}}" size="4"></label>
+  <button class="btn" type="submit">Filter</button> <a class="btn btn-ghost" href="/minds/{{$m.Slug}}/beliefs">Reset</a>
+</form>
+<section class="grid cols-3-1">
+  <div class="card">
+    {{if .Data.Beliefs}}
+    <table class="table compact">
+      <thead><tr><th>Status</th><th>Proposition</th><th class="num">Confidence</th><th>Kind</th><th>Evaluated</th></tr></thead>
+      <tbody>{{range .Data.Beliefs}}<tr>
+        <td><span class="badge st-{{.Status}}">{{.Status}}</span></td>
+        <td><a href="/minds/{{$m.Slug}}/beliefs/{{.ID}}">{{.Proposition}}</a>{{if .Subject}} <span class="muted small mono">{{.Subject}}</span>{{end}}</td>
+        <td class="num"><span class="conf"><span class="conf-bar"><i style="width:{{pct .Confidence}}"></i></span> {{conf .Confidence}}</span></td>
+        <td class="small muted">{{.Epistemic}} · v{{.Version}}</td>
+        <td class="small muted nowrap">{{ago .LastEvaluated}}</td>
+      </tr>{{end}}</tbody>
+    </table>
+    {{else}}<p class="muted">No beliefs yet. Hypotheses form from co-occurring observations; operators can assert knowledge on the right.</p>{{end}}
+  </div>
+  <div class="stack">
+    {{if .Principal.User.Role.AtLeast "operator"}}
+    <div class="card">
+      <h2>Assert a belief <span class="muted small">your statement is the evidence</span></h2>
+      <form method="post" action="/minds/{{$m.Slug}}/beliefs" class="stack">
+        <input type="hidden" name="_csrf" value="{{.CSRF}}">
+        <label>Proposition <textarea name="proposition" rows="2" required maxlength="2000"></textarea></label>
+        <div class="grid cols-2 tight">
+          <label>Subject <input name="subject" placeholder="server-01" maxlength="80"></label>
+          <label>Epistemic <select name="epistemic">{{range epistemicKinds}}<option value="{{.}}" {{if eq . "claim"}}selected{{end}}>{{.}}</option>{{end}}</select></label>
+        </div>
+        <label class="slider"><span>How firmly</span><input type="range" name="weight" min="0.1" max="1" step="0.1" value="0.7" data-out><output>0.7</output></label>
+        <div><button class="btn" type="submit">Assert</button></div>
+      </form>
+    </div>
+    <div class="card">
+      <h2>Do not infer</h2>
+      <form method="post" action="/minds/{{$m.Slug}}/corrections" class="stack">
+        <input type="hidden" name="_csrf" value="{{.CSRF}}">
+        <label>Statement the mind must not conclude <textarea name="statement" rows="2" required maxlength="2000"></textarea></label>
+        <label>Reason <input name="reason" maxlength="500"></label>
+        <div><button class="btn" type="submit">Forbid inference</button></div>
+      </form>
+    </div>
+    {{end}}
+    {{if .Data.Corrections}}<div class="card"><h2>Corrections <span class="muted small">{{len .Data.Corrections}}</span></h2><ul class="plain small">{{range .Data.Corrections}}<li><span class="badge">{{.Kind}}</span> {{.Statement}}<div class="muted">{{.Reason}} · {{.CreatedBy}} · {{ago .CreatedAt}}</div></li>{{end}}</ul></div>{{end}}
+  </div>
+</section>
+{{end}}

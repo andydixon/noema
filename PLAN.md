@@ -91,14 +91,14 @@ An administrator can: start Noema → log in → create a mind → configure per
 - ☑ `noemactl memory search|list|inspect|add`; decay and embedding background jobs; docs/memory.md
 - ☑ Tests: lifecycle, fused retrieval, cross-mind isolation (retrieve, get, relate), reinforcement, decay, retraction, stats
 
-### Phase 6 – Beliefs, evidence, confidence, contradictions
-- ☐ `migrations/0006_beliefs`: beliefs, belief_versions (append-only), belief_evidence, corrections
-- ☐ `internal/beliefs`: create/update/challenge/retract, deterministic confidence from evidence, statuses, alternatives, provenance
-- ☐ Processes: contradiction detection (deterministic first), hypothesis generation (LLM-assisted proposal, code-computed confidence)
-- ☐ Operator corrections (“belief wrong”, “memory inaccurate”, “do not infer again”) as events
-- ☐ UI: belief explorer with evidence for/against, alternatives, history; correction actions
-- ☐ `noemactl belief list|inspect`
-- ☐ Tests: confidence arithmetic, provenance, contradiction, corrections preserve history
+### Phase 6 – Beliefs, evidence, confidence, contradictions ☑
+- ☑ `migrations/0006_beliefs`: beliefs, belief_evidence, belief_alternatives, belief_links, append-only belief_versions and corrections
+- ☑ `internal/beliefs`: deterministic confidence (prior by epistemic kind, weight×credibility, single-source diversity discount, bounded sigmoid) with stored breakdown; derived statuses; create/add evidence/re-evaluate/retract/alternatives/links; deterministic contradiction detection (negation + Jaccard) with mutual counter-evidence; operator corrections including do-not-infer blocking; retracted-evidence propagation
+- ☑ Process `associate` (temporal co-occurrence hypotheses) and `hypothesis` handler creating beliefs with automatic alternatives; cycle `EmitNow` for atomic provenance
+- ☑ API: list, assert, detail (breakdown, evidence, versions, alternatives, links, events), evidence, alternatives, retract, corrections; memory retraction re-evaluates beliefs
+- ☑ UI: belief explorer with statuses and corrections, belief detail with arithmetic, evidence for/against, alternatives, contradictions, history, correction forms; overview shows important beliefs
+- ☑ `noemactl belief list|inspect|assert|wrong`; docs/beliefs.md
+- ☑ Tests: monotonic bounded confidence, diversity discount, status derivation, contradiction detection, lifecycle with provenance, append-only history, do-not-infer enforcement, isolation
 
 ### Phase 7 – LLM provider abstraction and configuration UI
 - ☐ `migrations/0007_llm`: llm_providers, llm_models, llm_roles, llm_calls, llm_usage, prompts, prompt_versions

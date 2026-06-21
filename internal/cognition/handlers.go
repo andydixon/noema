@@ -3,10 +3,14 @@ package cognition
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"strings"
 
+	"github.com/andydixon/noema/internal/beliefs"
 	"github.com/andydixon/noema/internal/brain"
 	"github.com/andydixon/noema/internal/memory"
+	"github.com/andydixon/noema/internal/storage"
 	"github.com/andydixon/noema/internal/workspace"
 	"github.com/andydixon/noema/pkg/concepts"
 	"github.com/andydixon/noema/pkg/events"
@@ -15,13 +19,62 @@ import (
 
 // Handlers are the executive actions for admitted thought kinds.
 type Handlers struct {
-	Memory *memory.Store
+	Memory  *memory.Store
+	Beliefs *beliefs.Store
 }
 
 // Register installs the handlers on a registry.
 func (h Handlers) Register(r *brain.Registry) {
 	r.Handle("attend", h.attend)
 	r.Handle("retrieve", h.retrieve)
+	r.Handle("hypothesis", h.hypothesis)
+}
+
+// emitter adapts the cycle to the beliefs store's Emitter.
+func emitter(c *brain.Cycle) beliefs.Emitter {
+	return func(ctx context.Context, _ storage.Querier, n events.New) (events.Event, error) {
+		return c.EmitNow(ctx, n)
+	}
+}
+
+// hypothesis turns an admitted hypothesis candidate into a belief whose
+// confidence is computed from the cited observations. Temporal co-occurrence
+// is weak evidence, so weights are small and the result stays a hypothesis
+// until independent support arrives.
+func (h Handlers) hypothesis(ctx context.Context, c *brain.Cycle, t workspace.Thought) error {
+	if h.Beliefs == nil {
+		return nil
+	}
+	prop, _ := t.Content["proposition"].(string)
+	if prop == "" {
+		prop = strings.TrimPrefix(t.Summary, "hypothesis: ")
+	}
+	var ev []beliefs.EvidenceInput
+	for _, ref := range t.Evidence {
+		if ref.Kind != "event" {
+			continue
+		}
+		cred := 0.6
+		if e, err := c.Runtime.Events().Get(ctx, ids.ID(ref.ID)); err == nil {
+			var p events.ObservationPayload
+			if json.Unmarshal(e.Payload, &p) == nil && p.Trust.Valid() {
+				cred = p.Trust.Credibility()
+			}
+		}
+		ev = append(ev, beliefs.EvidenceInput{Direction: "for", Kind: "event", RefID: ref.ID, Source: "co-occurrence:" + ref.ID, Weight: 0.15, Credibility: cred, Note: "temporal co-occurrence (" + ref.Note + ")"})
+	}
+	res, err := h.Beliefs.Create(ctx, c.Tx, emitter(c), beliefs.New{MindID: c.State.Mind.ID, Proposition: prop, Epistemic: concepts.Hypothesis, Source: "brain.associate",
+		Evidence: ev, Alternatives: []string{"coincidence: the two events are unrelated", "a third factor caused both"}, OriginEvent: t.EventID, Causation: t.EventID, Correlation: c.State.CycleID,
+		Detail: map[string]any{"cause_event": t.Content["cause_event"], "effect_event": t.Content["effect_event"], "gap_seconds": t.Content["gap_seconds"]}})
+	if err != nil {
+		if errors.Is(err, beliefs.ErrBlocked) {
+			c.Emit(events.New{Type: events.Metacognition, Source: "brain.executive", Summary: "hypothesis blocked by operator correction: " + prop, Salience: 0.3, Confidence: 1, Metadata: map[string]any{"check": "do_not_infer"}})
+			return nil
+		}
+		return err
+	}
+	c.Runtime.Hold(workspace.Item{Key: "belief:" + string(res.Belief.ID), Content: "hypothesis (" + fmt.Sprintf("%.2f", res.Belief.Confidence) + "): " + prop, Kind: "thought", Ref: string(res.Belief.ID), SourceEvent: t.EventID})
+	return nil
 }
 
 // attend encodes the attended event as a memory and holds it in working

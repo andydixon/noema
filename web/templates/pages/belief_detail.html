@@ -1,0 +1,72 @@
+{{define "content"}}
+{{$m := .Data.Mind}}{{$d := .Data.Detail}}{{$b := $d.Belief}}{{$bd := $d.Breakdown}}
+<div class="pagehead">
+  <p class="muted small"><a href="/minds/{{$m.Slug}}">{{$m.DisplayName}}</a> › <a href="/minds/{{$m.Slug}}/beliefs">beliefs</a></p>
+  <h1><span class="badge st-{{$b.Status}}">{{$b.Status}}</span> {{$b.Proposition}}</h1>
+  <p class="muted">{{$b.Epistemic}} · version {{$b.Version}} · first {{date $b.FirstCreated}} · evaluated {{$b.Evaluations}}× · source {{$b.Source}}{{if $b.Subject}} · subject <span class="mono">{{$b.Subject}}</span>{{end}}{{if $b.PinnedStatus}} · <span class="badge warn">status pinned by operator</span>{{end}}</p>
+</div>
+<section class="grid cols-3-1">
+  <div class="stack">
+    <div class="card">
+      <h2>Confidence {{conf $b.Confidence}} <span class="muted small">how it was computed</span></h2>
+      <div class="conf big"><span class="conf-bar wide"><i style="width:{{pct $b.Confidence}}"></i></span></div>
+      <dl class="kv small">
+        <dt>Prior</dt><dd>{{conf $bd.Prior}} <span class="muted">({{$b.Epistemic}})</span></dd>
+        <dt>Support</dt><dd>{{conf $bd.For}} <span class="muted">Σ weight × credibility over {{$bd.SourcesFor}} source(s); diversity scale {{conf $bd.DiversityScale}}</span></dd>
+        <dt>Opposition</dt><dd>{{conf $bd.Against}}</dd>
+        <dt>Log-odds</dt><dd>{{conf $bd.LogOdds}}</dd>
+        <dt>Formula</dt><dd class="mono">{{$bd.Formula}}</dd>
+        {{range $bd.Notes}}<dt>Note</dt><dd class="warn">{{.}}</dd>{{end}}
+      </dl>
+    </div>
+    <div class="grid cols-2">
+      <div class="card">
+        <h2>Evidence for</h2>
+        <ul class="plain ev">{{range $d.Evidence}}{{if eq .Direction "for"}}<li class="{{if .Retracted}}retracted{{end}}"><div><strong>{{conf .Weight}}</strong> × cred {{conf .Credibility}} <span class="badge">{{.Kind}}</span> {{if .Retracted}}<span class="badge danger">retracted</span>{{end}}</div><div>{{.Note}}</div><div class="muted small">{{.Source}} · {{ago .CreatedAt}} {{if and (eq .Kind "event") .RefID}}· <a href="/events/{{.RefID}}">event</a>{{else if and (eq .Kind "memory") .RefID}}· <a href="/minds/{{$m.Slug}}/memory/{{.RefID}}">memory</a>{{else if and (eq .Kind "belief") .RefID}}· <a href="/minds/{{$m.Slug}}/beliefs/{{.RefID}}">belief</a>{{end}}</div></li>{{end}}{{else}}<li class="muted">None.</li>{{end}}</ul>
+      </div>
+      <div class="card">
+        <h2>Evidence against</h2>
+        <ul class="plain ev">{{range $d.Evidence}}{{if eq .Direction "against"}}<li class="{{if .Retracted}}retracted{{end}}"><div><strong>{{conf .Weight}}</strong> × cred {{conf .Credibility}} <span class="badge">{{.Kind}}</span></div><div>{{.Note}}</div><div class="muted small">{{.Source}} · {{ago .CreatedAt}} {{if and (eq .Kind "belief") .RefID}}· <a href="/minds/{{$m.Slug}}/beliefs/{{.RefID}}">belief</a>{{else if and (eq .Kind "event") .RefID}}· <a href="/events/{{.RefID}}">event</a>{{end}}</div></li>{{end}}{{else}}<li class="muted">None.</li>{{end}}</ul>
+      </div>
+    </div>
+    <div class="card">
+      <h2>Alternative explanations</h2>
+      {{if $d.Alternatives}}<ul class="plain">{{range $d.Alternatives}}<li>{{.Proposition}} <span class="muted small">({{.Status}}{{if .Note}} · {{.Note}}{{end}})</span></li>{{end}}</ul>{{else}}<p class="muted small">None recorded.</p>{{end}}
+      {{if .Principal.User.Role.AtLeast "operator"}}<form method="post" action="/minds/{{$m.Slug}}/beliefs/{{$b.ID}}/alternatives" class="row"><input type="hidden" name="_csrf" value="{{.CSRF}}"><input name="proposition" placeholder="another explanation" size="40" required><button class="btn small" type="submit">Add</button></form>{{end}}
+    </div>
+    {{if $d.Links}}<div class="card"><h2>Contradictions and links</h2><ul class="plain">{{range $d.Links}}<li><span class="badge danger">{{.Relation}}</span> <a href="/minds/{{$m.Slug}}/beliefs/{{.Other.ID}}">{{.Other.Proposition}}</a> <span class="muted small">({{.Other.Status}}, {{conf .Other.Confidence}})</span></li>{{end}}</ul></div>{{end}}
+    <div class="card">
+      <h2>History <span class="muted small">append-only</span></h2>
+      <table class="table compact"><thead><tr><th>v</th><th>Status</th><th class="num">Conf</th><th>Reason</th><th>When</th><th></th></tr></thead>
+        <tbody>{{range $d.Versions}}<tr><td>{{.Version}}</td><td><span class="badge st-{{.Status}}">{{.Status}}</span></td><td class="num">{{conf .Confidence}}</td><td class="small">{{.Reason}}</td><td class="small muted nowrap">{{.CreatedAt.Local.Format "01-02 15:04:05"}}</td><td>{{if .EventID}}<a class="small" href="/events/{{.EventID}}">event</a>{{end}}</td></tr>{{end}}</tbody></table>
+    </div>
+  </div>
+  <div class="stack">
+    {{if .Principal.User.Role.AtLeast "operator"}}
+    <div class="card">
+      <h2>Add evidence</h2>
+      <form method="post" action="/minds/{{$m.Slug}}/beliefs/{{$b.ID}}/evidence" class="stack">
+        <input type="hidden" name="_csrf" value="{{.CSRF}}">
+        <label>Direction <select name="direction"><option value="for">for</option><option value="against">against</option></select></label>
+        <label>Note <input name="note" required maxlength="500" placeholder="what you observed"></label>
+        <label class="slider"><span>Weight</span><input type="range" name="weight" min="0.1" max="1" step="0.1" value="0.5" data-out><output>0.5</output></label>
+        <div><button class="btn small" type="submit">Add</button></div>
+      </form>
+    </div>
+    {{if ne $b.Status "rejected"}}
+    <div class="card">
+      <h2>Correct</h2>
+      <form method="post" action="/minds/{{$m.Slug}}/beliefs/{{$b.ID}}/retract" class="stack">
+        <input type="hidden" name="_csrf" value="{{.CSRF}}">
+        <label>Why it is wrong <input name="reason" required maxlength="500"></label>
+        <label class="check"><input type="checkbox" name="do_not_infer" value="1"> Do not infer this again</label>
+        <div><button class="btn btn-danger" type="submit" data-confirm="Mark this belief wrong? History is kept.">This belief is wrong</button></div>
+      </form>
+    </div>
+    {{end}}
+    {{end}}
+    <div class="card"><h2>Events</h2>{{if $d.Origin}}<p class="small">Origin: <a href="/events/{{$d.Origin.ID}}">{{$d.Origin.Summary}}</a></p>{{end}}{{if $d.Events}}<ul class="plain small">{{range $d.Events}}<li><span class="etype cat-{{.Category}}">{{.Type}}</span> <a href="/events/{{.ID}}">{{.Summary}}</a></li>{{end}}</ul>{{else}}<p class="muted small">None.</p>{{end}}</div>
+    <div class="card small"><span class="muted">ID</span> <span class="mono">{{$b.ID}}</span></div>
+  </div>
+</section>
+{{end}}

@@ -17,6 +17,7 @@ import (
 	"github.com/andydixon/noema/internal/app"
 	"github.com/andydixon/noema/internal/audit"
 	"github.com/andydixon/noema/internal/auth"
+	"github.com/andydixon/noema/internal/beliefs"
 	"github.com/andydixon/noema/internal/brain"
 	"github.com/andydixon/noema/internal/cognition"
 	"github.com/andydixon/noema/internal/config"
@@ -88,10 +89,11 @@ func run() error {
 
 	group := scheduler.NewGroup(ctx, log)
 	deps.Memory = memory.NewStore(ctx, db, nil)
-	registry := brain.NewRegistry().AddProcess(cognition.Attend{}).AddProcess(cognition.Retrieve{})
-	cognition.Handlers{Memory: deps.Memory}.Register(registry)
+	deps.Beliefs = beliefs.NewStore(db)
+	registry := brain.NewRegistry().AddProcess(cognition.Attend{}).AddProcess(cognition.Retrieve{}).AddProcess(cognition.Associate{})
+	cognition.Handlers{Memory: deps.Memory, Beliefs: deps.Beliefs}.Register(registry)
 	deps.Brain = brain.NewManager(brain.Config{DB: db, Events: deps.Events, Minds: deps.Minds, Registry: registry, Pool: scheduler.NewPool(cfg.MaxWorkers),
-		Log: log, Metrics: metrics, Services: brain.Services{Events: deps.Events, Memory: deps.Memory}}, group)
+		Log: log, Metrics: metrics, Services: brain.Services{Events: deps.Events, Memory: deps.Memory, Beliefs: deps.Beliefs}}, group)
 	group.Every("memory.decay", 6*time.Hour, func(ctx context.Context) error { return decayMemories(ctx, deps) })
 	group.Every("memory.embed", time.Minute, func(ctx context.Context) error { _, err := deps.Memory.EmbedMissing(ctx, 50); return err })
 	if err := deps.Brain.Start(ctx); err != nil {
@@ -102,7 +104,9 @@ func run() error {
 	uiHandler, err := ui.New(deps, func(r *http.Request) any { return srv.Status(r.Context()) },
 		func(r *http.Request, id ids.ID) (api.EventContext, error) { return srv.Context(r, id) },
 		func(r *http.Request, m minds.Mind) (api.WorkspaceView, error) { return srv.Workspace(r.Context(), m) },
-		func(r *http.Request, mind, id ids.ID) (api.MemoryDetail, error) { return srv.MemoryDetail(r, mind, id) })
+		func(r *http.Request, mind, id ids.ID) (api.MemoryDetail, error) { return srv.MemoryDetail(r, mind, id) },
+		func(r *http.Request, mind, id ids.ID) (api.BeliefDetail, error) { return srv.BeliefDetail(r, mind, id) },
+		func() beliefs.Emitter { return srv.Emitter() })
 	if err != nil {
 		return err
 	}

@@ -13,6 +13,7 @@ import (
 	"github.com/andydixon/noema/internal/app"
 	"github.com/andydixon/noema/internal/audit"
 	"github.com/andydixon/noema/internal/auth"
+	"github.com/andydixon/noema/internal/beliefs"
 	"github.com/andydixon/noema/internal/brain"
 	"github.com/andydixon/noema/internal/config"
 	evstore "github.com/andydixon/noema/internal/events"
@@ -31,7 +32,7 @@ func testServer(t *testing.T) (*httptest.Server, string) {
 	cfg.DatabaseURL = "postgres://test"
 	log := slog.New(slog.DiscardHandler)
 	deps := app.Deps{Config: cfg, Log: log, DB: pool, Auth: auth.NewService(pool, time.Hour, 2*time.Hour),
-		Audit: audit.New(pool, log), Metrics: observability.NewMetrics(), Minds: minds.NewStore(pool), Memory: memory.NewStore(context.Background(), pool, nil), Events: evstore.NewStore(pool, evstore.NewBus(50), nil), Migrations: migrations.FS, Started: time.Now()}
+		Audit: audit.New(pool, log), Metrics: observability.NewMetrics(), Minds: minds.NewStore(pool), Beliefs: beliefs.NewStore(pool), Memory: memory.NewStore(context.Background(), pool, nil), Events: evstore.NewStore(pool, evstore.NewBus(50), nil), Migrations: migrations.FS, Started: time.Now()}
 	ctx := context.Background()
 	group := scheduler.NewGroup(ctx, log)
 	t.Cleanup(func() { group.Stop() })

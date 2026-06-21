@@ -20,6 +20,7 @@ import (
 	"github.com/andydixon/noema/internal/app"
 	"github.com/andydixon/noema/internal/attention"
 	"github.com/andydixon/noema/internal/auth"
+	"github.com/andydixon/noema/internal/beliefs"
 	"github.com/andydixon/noema/internal/minds"
 	"github.com/andydixon/noema/internal/version"
 	"github.com/andydixon/noema/pkg/concepts"
@@ -36,6 +37,8 @@ type UI struct {
 	ctxF    func(r *http.Request, id ids.ID) (api.EventContext, error) // event forensic context, shared with api
 	wsF     func(r *http.Request, m minds.Mind) (api.WorkspaceView, error)
 	memF    func(r *http.Request, mind, id ids.ID) (api.MemoryDetail, error)
+	belF    func(r *http.Request, mind, id ids.ID) (api.BeliefDetail, error)
+	emitF   func() beliefs.Emitter
 }
 
 // View is the data passed to every template.
@@ -56,7 +59,7 @@ const flashCookie = "noema_flash"
 
 // New parses templates. In development, when ./web exists on disk, templates
 // and static files are read from disk so edits show without a rebuild.
-func New(deps app.Deps, statusF func(r *http.Request) any, ctxF func(r *http.Request, id ids.ID) (api.EventContext, error), wsF func(r *http.Request, m minds.Mind) (api.WorkspaceView, error), memF func(r *http.Request, mind, id ids.ID) (api.MemoryDetail, error)) (*UI, error) {
+func New(deps app.Deps, statusF func(r *http.Request) any, ctxF func(r *http.Request, id ids.ID) (api.EventContext, error), wsF func(r *http.Request, m minds.Mind) (api.WorkspaceView, error), memF func(r *http.Request, mind, id ids.ID) (api.MemoryDetail, error), belF func(r *http.Request, mind, id ids.ID) (api.BeliefDetail, error), emitF func() beliefs.Emitter) (*UI, error) {
 	tmplFS, staticFS := web.Templates(), web.Static()
 	if !deps.Config.Production() {
 		if st, err := os.Stat("web/templates"); err == nil && st.IsDir() {
@@ -64,7 +67,7 @@ func New(deps app.Deps, statusF func(r *http.Request) any, ctxF func(r *http.Req
 			deps.Log.Info("ui: serving templates and static files from ./web (development)")
 		}
 	}
-	u := &UI{deps: deps, static: staticFS, statusF: statusF, ctxF: ctxF, wsF: wsF, memF: memF}
+	u := &UI{deps: deps, static: staticFS, statusF: statusF, ctxF: ctxF, wsF: wsF, memF: memF, belF: belF, emitF: emitF}
 	if err := u.parse(tmplFS); err != nil {
 		return nil, err
 	}
@@ -94,6 +97,9 @@ func (u *UI) parse(fsys fs.FS) error {
 		"memoryKinds":    func() []concepts.MemoryKind { return concepts.AllMemoryKinds },
 		"epistemicKinds": func() []concepts.Epistemic { return concepts.AllEpistemic },
 		"relations":      func() []concepts.Relation { return concepts.AllRelations },
+		"beliefStatuses": func() []beliefs.Status {
+			return []beliefs.Status{beliefs.StatusHypothesis, beliefs.StatusTentative, beliefs.StatusLikely, beliefs.StatusAccepted, beliefs.StatusContested, beliefs.StatusRejected, beliefs.StatusSuperseded}
+		},
 		"trunc": func(s string, n int) string {
 			if len(s) > n {
 				return s[:n] + "…"
@@ -246,6 +252,7 @@ func (u *UI) Register(m *http.ServeMux) {
 	u.mindRoutes(m)
 	u.eventRoutes(m)
 	u.memoryRoutes(m)
+	u.beliefRoutes(m)
 
 	for _, p := range []struct{ path, title, note string }{
 		{"/approvals", "Approvals", "The approval centre arrives with the capability system."},

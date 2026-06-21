@@ -232,6 +232,7 @@ func (s *Server) memoryRetract(w http.ResponseWriter, r *http.Request) {
 	}
 	s.deps.Events.OperatorAction(r.Context(), m.ID, actor(r), "memory.retract", "Operator "+actor(r)+" marked a memory inaccurate: "+in.Reason, map[string]any{"memory_id": id, "reason": in.Reason})
 	s.deps.Audit.Log(r.Context(), "memory.retract", "memory", id.String(), map[string]any{"reason": in.Reason})
+	s.propagateMemoryRetraction(r, m.ID, id)
 	w.WriteHeader(http.StatusNoContent)
 }
 
@@ -271,4 +272,19 @@ func trunc(s string, n int) string {
 		return s[:n-1] + "…"
 	}
 	return s
+}
+
+// propagateMemoryRetraction stops a retracted memory counting as belief
+// evidence and re-evaluates the beliefs that cited it.
+func (s *Server) propagateMemoryRetraction(r *http.Request, mind, memoryID ids.ID) {
+	affected, err := s.deps.Beliefs.RetractEvidence(r.Context(), s.deps.DB, mind, "memory", string(memoryID))
+	if err != nil {
+		logger(r).Warn("retract evidence failed", "err", err)
+		return
+	}
+	for _, bid := range affected {
+		if _, err := s.deps.Beliefs.Reevaluate(r.Context(), s.deps.DB, s.Emitter(), mind, bid, "supporting memory retracted by operator"); err != nil {
+			logger(r).Warn("re-evaluate failed", "belief", bid, "err", err)
+		}
+	}
 }

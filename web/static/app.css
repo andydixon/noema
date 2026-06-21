@@ -168,3 +168,10 @@ tr.dayrow td { background: var(--surface-2); font-weight: 600; font-size: .78rem
 .badge.k-episodic { background: #e0f2fe; color: #0369a1; } .badge.k-semantic { background: #ede9fe; color: #6d28d9; } .badge.k-procedural { background: #dcfce7; color: #15803d; } .badge.k-autobiographical { background: #fef3c7; color: #b45309; }
 :root[data-theme="dark"] .badge.k-episodic, :root:not([data-theme="light"]) .badge.k-episodic { background: #0c2a3a; color: #7dd3fc; }
 :root[data-theme="dark"] .badge.k-semantic { background: #2a1f4d; color: #c4b5fd; } :root[data-theme="dark"] .badge.k-procedural { background: #12331d; color: #86efac; } :root[data-theme="dark"] .badge.k-autobiographical { background: #3a2a0a; color: #fcd34d; }
+
+/* Beliefs */
+.badge.st-hypothesis { background: var(--surface-2); color: var(--muted); } .badge.st-tentative { background: #fef3c7; color: #b45309; } .badge.st-likely { background: #dbeafe; color: #1d4ed8; }
+.badge.st-accepted { background: var(--ok-soft); color: var(--ok); } .badge.st-contested { background: #fde68a; color: #92400e; } .badge.st-rejected { background: var(--danger-soft); color: var(--danger); } .badge.st-superseded { background: var(--surface-2); color: var(--muted); text-decoration: line-through; }
+:root[data-theme="dark"] .badge.st-tentative { background: #3a2a0a; color: #fcd34d; } :root[data-theme="dark"] .badge.st-likely { background: #172554; color: #93c5fd; } :root[data-theme="dark"] .badge.st-contested { background: #3d2e05; color: #fbbf24; }
+.conf.big .conf-bar.wide { width: 100%; height: 10px; margin: .3rem 0 .8rem; }
+ul.ev li { padding: .4rem 0; border-bottom: 1px solid var(--border); } ul.ev li:last-child { border-bottom: 0; } ul.ev li.retracted { opacity: .55; }

@@ -12,6 +12,7 @@ import (
 
 	"github.com/andydixon/noema/internal/audit"
 	"github.com/andydixon/noema/internal/auth"
+	"github.com/andydixon/noema/internal/beliefs"
 	"github.com/andydixon/noema/internal/brain"
 	"github.com/andydixon/noema/internal/config"
 	"github.com/andydixon/noema/internal/events"
@@ -32,6 +33,7 @@ type Deps struct {
 	Events     *events.Store
 	Brain      *brain.Manager
 	Memory     *memory.Store
+	Beliefs    *beliefs.Store
 	Migrations fs.FS
 	Started    time.Time
 }
