@@ -1,0 +1,5 @@
+{{define "content"}}
+<div class="pagehead"><p class="muted small"><a href="/prompts/{{.Data.Name}}">{{.Data.Name}}</a> › diff</p><h1>v{{.Data.A.Version}} → v{{.Data.B.Version}}</h1></div>
+<div class="card"><h2>Lines</h2><pre class="json diff">{{range .Data.Lines}}<span class="{{.Class}}">{{.Text}}</span>
+{{end}}</pre></div>
+{{end}}

@@ -100,15 +100,18 @@ An administrator can: start Noema → log in → create a mind → configure per
 - ☑ `noemactl belief list|inspect|assert|wrong`; docs/beliefs.md
 - ☑ Tests: monotonic bounded confidence, diversity discount, status derivation, contradiction detection, lifecycle with provenance, append-only history, do-not-infer enforcement, isolation
 
-### Phase 7 – LLM provider abstraction and configuration UI
-- ☐ `migrations/0007_llm`: llm_providers, llm_models, llm_roles, llm_calls, llm_usage, prompts, prompt_versions
-- ☐ `internal/security/secrets`: `env:`, `file:`, `enc:` references, AES-GCM
-- ☐ `internal/security/httpclient`: SSRF-safe client
-- ☐ `internal/llm`: interfaces, request/response types, recorder, budgets, fallbacks, providers: openai-compatible, anthropic, ollama; fake provider for tests
-- ☐ `internal/llm/prompts`: versioned prompts, rendering with data blocks, test-run
-- ☐ UI: providers, models, role assignment, fallbacks, connectivity test, usage and cost, prompt manager (edit, clone, history, diff, restore, test)
-- ☐ `noemactl provider test`
-- ☐ Tests: provider wire formats via httptest, budgets, fallbacks, recorder, secret redaction
+### Phase 7 – LLM provider abstraction and configuration UI ☑
+- ☑ `internal/security/secrets`: env:/file:/enc: references, AES-256-GCM under the master key, description without disclosure
+- ☑ `internal/security/httpclient`: dial-time private-range refusal, bounded redirects, body caps
+- ☑ `internal/llm`: roles, provider-neutral Request/Response, LanguageModel, provider kinds, scripted Fake
+- ☑ `internal/llm/providers`: OpenAI-compatible, Anthropic, Ollama (chat + embeddings), scrubbed errors, fenced-JSON parsing
+- ☑ `internal/llm/router`: providers/models/roles/calls store, role routing with fallbacks, role and model parameter defaults, global and per-mind daily budgets, concurrency pool, call recording with request hash, replay from recordings, connectivity test, embedder for the embed role
+- ☑ `internal/llm/prompts`: versioned prompts (append-only), data blocks, rendering to requests with schema, seeded defaults (perceive, respond, hypothesise, summarise, judge, narrate), clone/restore
+- ☑ `migrations/0007_llm`
+- ☑ API: providers (create/update/delete/test), models, roles, calls, usage, prompts (save/versions/restore/clone/test)
+- ☑ UI: LLM page (providers, models, role matrix, usage, errors, budgets, add provider with encrypted key), provider page, prompt list, prompt editor with test runner, history and line diff
+- ☑ `noemactl provider list|test`, `noemactl prompt list|show`; embedder wired into memory; docs/llm-providers.md
+- ☑ Tests: secret references, SSRF dialer, wire formats for all three providers, error scrubbing, private endpoint refusal, router routing/budget/recording/replay, prompt data-block escaping, defaults, versioning
 
 ### Phase 8 – Conversation (completes M1)
 - ☐ `migrations/0008_conversations`: conversations, messages

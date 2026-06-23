@@ -1,0 +1,31 @@
+{{define "content"}}
+{{$p := .Data.Provider}}
+<div class="pagehead"><p class="muted small"><a href="/llm">Language models</a> › provider</p><h1>{{$p.Name}} <span class="muted small">{{$p.Kind}}</span></h1></div>
+{{$admin := .Principal.User.Role.AtLeast "administrator"}}
+<section class="grid cols-2">
+  <form method="post" action="/llm/providers/{{$p.ID}}" class="card stack">
+    <input type="hidden" name="_csrf" value="{{.CSRF}}">
+    <label>Name <input name="name" value="{{$p.Name}}" required maxlength="64" {{if not $admin}}disabled{{end}}></label>
+    <label>Kind <select name="kind" {{if not $admin}}disabled{{end}}><option value="openai" {{if eq $p.Kind "openai"}}selected{{end}}>OpenAI-compatible</option><option value="anthropic" {{if eq $p.Kind "anthropic"}}selected{{end}}>Anthropic</option><option value="ollama" {{if eq $p.Kind "ollama"}}selected{{end}}>Ollama</option></select></label>
+    <label>Endpoint <input name="endpoint" value="{{$p.Endpoint}}" {{if not $admin}}disabled{{end}}></label>
+    <label>API key <span class="muted small">currently: {{$p.KeyDescribed}}</span> <input type="password" name="api_key" autocomplete="off" placeholder="leave blank to keep" {{if not $admin}}disabled{{end}}></label>
+    <label>Timeout (ms) <input type="number" name="timeout_ms" value="{{$p.Timeout.Milliseconds}}" min="1000" {{if not $admin}}disabled{{end}}></label>
+    <label class="check"><input type="checkbox" name="allow_private" {{if $p.AllowPrivate}}checked{{end}} {{if not $admin}}disabled{{end}}> Allow private addresses</label>
+    <label class="check"><input type="checkbox" name="enabled" {{if $p.Enabled}}checked{{end}} {{if not $admin}}disabled{{end}}> Enabled</label>
+    {{if $admin}}<div class="row"><button class="btn btn-primary" type="submit">Save</button>
+      <button class="btn" type="submit" formaction="/llm/providers/{{$p.ID}}/clear-key" data-confirm="Remove the stored key reference?">Clear key</button>
+      <button class="btn btn-danger" type="submit" formaction="/llm/providers/{{$p.ID}}/delete" data-confirm="Delete provider {{$p.Name}} and its models?">Delete</button></div>{{end}}
+  </form>
+  <div class="stack">
+    <div class="card">
+      <h2>Connectivity</h2>
+      <p class="small">{{if $p.LastTestAt}}Last test {{ago $p.LastTestAt}}: {{if deref $p.LastTestOK}}<span class="badge ok">ok</span>{{else}}<span class="badge danger">failed</span>{{end}} <span class="muted">{{$p.LastTestMsg}}</span>{{else}}<span class="muted">Never tested.</span>{{end}}</p>
+      <form method="post" action="/llm/providers/{{$p.ID}}/test" class="row"><input type="hidden" name="_csrf" value="{{.CSRF}}"><input name="model" placeholder="model to test (optional)" size="20"><button class="btn" type="submit">Run test</button></form>
+    </div>
+    <div class="card">
+      <h2>Models on this provider</h2>
+      {{if .Data.Models}}<ul class="plain">{{range .Data.Models}}<li><code>{{.Name}}</code> <span class="badge">{{.Kind}}</span></li>{{end}}</ul>{{else}}<p class="muted small">None. Add models on the <a href="/llm">LLM page</a>.</p>{{end}}
+    </div>
+  </div>
+</section>
+{{end}}

@@ -5,6 +5,7 @@ All notable changes to Noema are recorded here. Format follows Keep a Changelog;
 ## [Unreleased]
 
 ### Added
+- Phase 7 LLM layer: provider-neutral router with roles and fallbacks, OpenAI-compatible/Anthropic/Ollama providers, encrypted secret references, SSRF-safe HTTP client, budgets, full call recording with replay, versioned prompts with untrusted data blocks, configuration and prompt manager UI, CLI.
 - Phase 6 beliefs: evidence-derived confidence with inspectable arithmetic, statuses, alternatives, append-only history, deterministic contradiction detection, temporal-association hypotheses, operator corrections (wrong, do-not-infer, inaccurate memory), belief explorer and CLI.
 - Phase 5 memory: episodic/semantic/procedural/autobiographical memory with epistemic status, fused retrieval with inspectable component scores, optional pgvector embeddings, decay without deletion, attention-gated encoding, retrieval process, memory explorer and CLI.
 - Phase 4 cognition core: deterministic attention scoring with inspectable breakdowns, global workspace and working memory with decay, per-mind cognitive runtime with bounded concurrent processes, loop detection, operator controls, live workspace page and CLI.

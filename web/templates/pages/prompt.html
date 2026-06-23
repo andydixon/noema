@@ -1,0 +1,36 @@
+{{define "content"}}
+{{$p := .Data.Prompt}}{{$admin := .Principal.User.Role.AtLeast "administrator"}}
+<div class="pagehead mindhead"><div><p class="muted small"><a href="/prompts">Prompts</a> › {{$p.Name}}</p><h1><code>{{$p.Name}}</code> <span class="badge">{{$p.Role}}</span> <span class="muted small">v{{$p.CurrentVersion}}</span></h1><p class="muted">{{$p.Description}}</p></div>
+  {{if $admin}}<form method="post" action="/prompts/{{$p.Name}}/clone" class="row"><input type="hidden" name="_csrf" value="{{.CSRF}}"><input name="name" placeholder="clone as…" size="16" required><button class="btn small">Clone</button></form>{{end}}</div>
+<section class="grid cols-3-1">
+  <div class="stack">
+    <form method="post" action="/prompts/{{$p.Name}}" class="card stack" id="promptform">
+      <input type="hidden" name="_csrf" value="{{.CSRF}}">
+      <label>Description <input name="description" value="{{$p.Description}}" {{if not $admin}}disabled{{end}}></label>
+      <label>System <textarea name="system" rows="6" class="mono" {{if not $admin}}readonly{{end}}>{{$p.System}}</textarea></label>
+      <label>Template <span class="muted small">Go text/template; use <code>{{"{{"}}data "label" .Field{{"}}"}}</code> for untrusted text</span> <textarea name="template" rows="14" class="mono" required {{if not $admin}}readonly{{end}}>{{$p.Template}}</textarea></label>
+      <label>JSON schema <span class="muted small">optional; when set the model must answer with matching JSON</span> <textarea name="schema" rows="4" class="mono" {{if not $admin}}readonly{{end}}>{{printf "%s" $p.Schema}}</textarea></label>
+      <div class="row"><input name="note" placeholder="change note" class="grow" maxlength="200">{{if $admin}}<button class="btn btn-primary" type="submit">Save as v{{inc $p.CurrentVersion}}</button>{{end}}</div>
+    </form>
+    <div class="card">
+      <h2>Test</h2>
+      <form method="post" action="/prompts/{{$p.Name}}/test" class="stack">
+        <input type="hidden" name="_csrf" value="{{.CSRF}}">
+        <label>Sample data (JSON object) <textarea name="data" rows="5" class="mono">{{.Data.Sample}}</textarea></label>
+        <div class="row"><button class="btn" type="submit" name="run" value="0">Render only</button><button class="btn" type="submit" name="run" value="1" {{if not .Data.RoleAvailable}}disabled title="No model assigned to this role"{{end}}>Render and run model</button></div>
+      </form>
+      {{with .Data.Test}}
+        {{with .Error}}<p class="error">{{.}}</p>{{end}}
+        <h3>Rendered system</h3><pre class="json">{{.Rendered.System}}</pre>
+        <h3>Rendered user message</h3><pre class="json">{{(index .Rendered.Messages 0).Content}}</pre>
+        {{with .Response}}<h3>Model response <span class="muted small">{{.Provider}}/{{.Model}} · {{.Usage.TotalTokens}} tokens · {{.Latency.Milliseconds}} ms</span></h3><pre class="json">{{.Text}}</pre>{{end}}
+      {{end}}
+    </div>
+  </div>
+  <div class="card">
+    <h2>History</h2>
+    <table class="table compact"><thead><tr><th>v</th><th>Note</th><th>By</th><th></th></tr></thead><tbody>{{range .Data.Versions}}<tr><td>{{.Version}}{{if eq .Version $p.CurrentVersion}} <span class="badge accent">current</span>{{end}}</td><td class="small">{{.Note}}<div class="muted">{{ago .CreatedAt}}</div></td><td class="small muted">{{.CreatedBy}}</td>
+      <td class="nowrap">{{if ne .Version $p.CurrentVersion}}<a class="small" href="/prompts/{{$p.Name}}/diff?a={{.Version}}&b={{$p.CurrentVersion}}">diff</a> {{if $admin}}<form method="post" action="/prompts/{{$p.Name}}/versions/{{.Version}}/restore" class="inline"><input type="hidden" name="_csrf" value="{{$.CSRF}}"><button class="btn small">restore</button></form>{{end}}{{end}}</td></tr>{{end}}</tbody></table>
+  </div>
+</section>
+{{end}}

@@ -1,0 +1,18 @@
+---
+role: narrate
+description: Write the mind's concise internal narrative from its current state.
+system: |
+  You write a short first-person status note for a cognitive system, strictly from the state provided. No speculation beyond it; no claims of feelings as facts, describe state values as state.
+---
+Write at most 120 words covering: what I am doing, why, what happened recently, what I am trying to resolve, what might happen next.
+
+Workspace:
+{{range .Workspace}}- {{.}}
+{{end}}
+Recent events:
+{{range .Recent}}- {{.}}
+{{end}}
+Active goals:
+{{range .Goals}}- {{.}}
+{{end}}
+Open contradictions: {{.Contradictions}}

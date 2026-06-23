@@ -1,0 +1,94 @@
+{{define "content"}}
+<div class="pagehead"><h1>Language models</h1><p class="muted">Providers are cognitive service suppliers. Roles decide which model does which job; minds keep their identity whatever you change here.</p></div>
+{{$admin := .Principal.User.Role.AtLeast "administrator"}}
+<section class="grid cols-3-1">
+  <div class="stack">
+    <div class="card">
+      <h2>Providers</h2>
+      {{if .Data.Providers}}
+      <table class="table compact">
+        <thead><tr><th>Name</th><th>Kind</th><th>Endpoint</th><th>Key</th><th>Status</th><th>Last test</th><th></th></tr></thead>
+        <tbody>{{range .Data.Providers}}<tr>
+          <td><a href="/llm/providers/{{.ID}}"><strong>{{.Name}}</strong></a></td><td class="small">{{.Kind}}</td><td class="small mono">{{.Endpoint}}</td>
+          <td class="small">{{.KeyDescribed}}</td>
+          <td>{{if .Enabled}}<span class="badge ok">enabled</span>{{else}}<span class="badge">disabled</span>{{end}}{{if .AllowPrivate}} <span class="badge warn" title="May reach private addresses">private ok</span>{{end}}</td>
+          <td class="small">{{if .LastTestAt}}{{if deref .LastTestOK}}<span class="badge ok">ok</span>{{else}}<span class="badge danger">failed</span>{{end}} <span class="muted">{{trunc .LastTestMsg 60}}</span>{{else}}<span class="muted">never</span>{{end}}</td>
+          <td class="nowrap"><form method="post" action="/llm/providers/{{.ID}}/test" class="inline"><input type="hidden" name="_csrf" value="{{$.CSRF}}"><button class="btn small">Test</button></form></td>
+        </tr>{{end}}</tbody>
+      </table>
+      {{else}}<p class="muted">No providers yet. Add one on the right; local Ollama needs “allow private addresses”.</p>{{end}}
+    </div>
+    <div class="card">
+      <h2>Models</h2>
+      {{if .Data.Models}}
+      <table class="table compact">
+        <thead><tr><th>Provider</th><th>Model</th><th>Kind</th><th>Context</th><th>Cost in/out per M</th><th>State</th><th></th></tr></thead>
+        <tbody>{{range .Data.Models}}<tr>
+          <td class="small">{{.Provider}}</td><td><code>{{.Name}}</code></td><td class="small">{{.Kind}}{{if .Dims}} ({{.Dims}}d){{end}}</td><td class="small">{{if .ContextWindow}}{{.ContextWindow}}{{else}}—{{end}}</td>
+          <td class="small">${{.InputCostPerM}} / ${{.OutputCostPerM}}</td>
+          <td>{{if .Enabled}}<span class="badge ok">on</span>{{else}}<span class="badge">off</span>{{end}}</td>
+          <td>{{if $admin}}<form method="post" action="/llm/models/{{.ID}}/delete" class="inline"><input type="hidden" name="_csrf" value="{{$.CSRF}}"><button class="btn small btn-danger" data-confirm="Remove model {{.Name}}?">Remove</button></form>{{end}}</td>
+        </tr>{{end}}</tbody>
+      </table>
+      {{else}}<p class="muted">No models yet.</p>{{end}}
+      {{if and $admin .Data.Providers}}
+      <form method="post" action="/llm/models" class="row">
+        <input type="hidden" name="_csrf" value="{{.CSRF}}">
+        <select name="provider_id" aria-label="Provider">{{range .Data.Providers}}<option value="{{.ID}}">{{.Name}}</option>{{end}}</select>
+        <input name="name" placeholder="model name, e.g. gpt-4o-mini" required size="22">
+        <select name="kind" aria-label="Kind"><option value="chat">chat</option><option value="embedding">embedding</option></select>
+        <input name="context_window" type="number" placeholder="context" size="7" min="0">
+        <input name="input_cost_per_m" type="number" step="0.01" placeholder="$in/M" size="6" min="0">
+        <input name="output_cost_per_m" type="number" step="0.01" placeholder="$out/M" size="6" min="0">
+        <button class="btn small" type="submit">Add model</button>
+      </form>
+      {{end}}
+    </div>
+    <div class="card">
+      <h2>Roles <span class="muted small">which model does which cognitive job</span></h2>
+      <table class="table compact">
+        <thead><tr><th>Role</th><th>Purpose</th><th>Primary</th><th>Fallbacks</th><th>Temp</th><th>Max tokens</th>{{if $admin}}<th></th>{{end}}</tr></thead>
+        <tbody>{{range .Data.Roles}}{{$a := .Assignment}}<tr>
+          <form method="post" action="/llm/roles/{{.Info.Role}}">
+          <td><strong>{{.Info.Role}}</strong></td><td class="small muted">{{.Info.Description}} <em>({{.Info.Suggested}})</em></td>
+          <td><input type="hidden" name="_csrf" value="{{$.CSRF}}"><select name="model_id" {{if not $admin}}disabled{{end}}><option value="">— none —</option>{{range $.Data.Models}}<option value="{{.ID}}" {{if and $a.ModelID (eq (print .ID) (print (deref_id $a.ModelID)))}}selected{{end}}>{{.Provider}} / {{.Name}}</option>{{end}}</select></td>
+          <td><select name="fallback_ids" multiple size="2" {{if not $admin}}disabled{{end}}>{{range $.Data.Models}}<option value="{{.ID}}" {{if has_id $a.FallbackIDs .ID}}selected{{end}}>{{.Provider}} / {{.Name}}</option>{{end}}</select></td>
+          <td><input name="temperature" type="number" step="0.05" min="0" max="2" size="4" value="{{if $a.Temperature}}{{deref $a.Temperature}}{{end}}" {{if not $admin}}disabled{{end}}></td>
+          <td><input name="max_tokens" type="number" min="1" size="6" value="{{if $a.MaxTokens}}{{deref_int $a.MaxTokens}}{{end}}" {{if not $admin}}disabled{{end}}></td>
+          {{if $admin}}<td><button class="btn small" type="submit">Save</button></td>{{end}}
+          </form>
+        </tr>{{end}}</tbody>
+      </table>
+    </div>
+    <div class="card">
+      <h2>Usage <span class="muted small">last 24 hours</span></h2>
+      {{if .Data.Usage}}<table class="table compact"><thead><tr><th>Provider</th><th>Model</th><th>Role</th><th class="num">Calls</th><th class="num">Errors</th><th class="num">Tokens in</th><th class="num">Tokens out</th><th class="num">Cost</th><th class="num">Avg ms</th></tr></thead>
+        <tbody>{{range .Data.Usage}}<tr><td>{{.Provider}}</td><td><code>{{.Model}}</code></td><td>{{.Role}}</td><td class="num">{{.Calls}}</td><td class="num {{if .Errors}}danger{{end}}">{{.Errors}}</td><td class="num">{{.PromptTokens}}</td><td class="num">{{.OutputTokens}}</td><td class="num">${{printf "%.4f" .Cost}}</td><td class="num">{{printf "%.0f" .AvgLatencyMS}}</td></tr>{{end}}</tbody></table>
+      {{else}}<p class="muted">No calls yet.</p>{{end}}
+      {{if .Data.Errors}}<h3>Recent errors</h3><ul class="plain small">{{range .Data.Errors}}<li><span class="muted mono">{{.CreatedAt.Local.Format "01-02 15:04:05"}}</span> {{.Provider}}/{{.Model}} ({{.Role}}): <span class="danger">{{trunc .Error 160}}</span></li>{{end}}</ul>{{end}}
+    </div>
+  </div>
+  <div class="stack">
+    {{if $admin}}
+    <div class="card">
+      <h2>Add provider</h2>
+      <form method="post" action="/llm/providers" class="stack">
+        <input type="hidden" name="_csrf" value="{{.CSRF}}">
+        <label>Name <input name="name" required maxlength="64" placeholder="openai-main"></label>
+        <label>Kind <select name="kind"><option value="openai">OpenAI-compatible (OpenAI, llama.cpp, vLLM, LM Studio)</option><option value="anthropic">Anthropic</option><option value="ollama">Ollama (native)</option></select></label>
+        <label>Endpoint <input name="endpoint" placeholder="leave blank for the kind's default"></label>
+        <label>API key <input type="password" name="api_key" autocomplete="off" placeholder="paste a key, or env:OPENAI_API_KEY"></label>
+        <p class="muted small">Pasted keys are encrypted with the master key and never shown again. References (env:, file:) are resolved at call time.</p>
+        <label class="check"><input type="checkbox" name="allow_private"> Allow private addresses (local Ollama / llama.cpp)</label>
+        <div><button class="btn btn-primary" type="submit">Add provider</button></div>
+      </form>
+    </div>
+    {{end}}
+    <div class="card small">
+      <h2>Budgets</h2>
+      <dl class="kv"><dt>Global</dt><dd>{{.Data.GlobalBudget}} tokens/day</dd><dt>Used today</dt><dd>{{.Data.UsedToday}}</dd><dt>Concurrency</dt><dd>{{.Data.MaxConcurrent}} calls</dd></dl>
+      <p class="muted">Per-mind budgets are in each mind's configuration. When a budget is exhausted, deterministic cognition continues and model-assisted steps are skipped.</p>
+    </div>
+  </div>
+</section>
+{{end}}

@@ -1,0 +1,23 @@
+{{define "content"}}
+<div class="pagehead"><h1>Prompts</h1><p class="muted">Named, versioned templates. Structured data is injected; untrusted text always travels inside data blocks.</p></div>
+<section class="grid cols-3-1">
+  <div class="card">
+    <table class="table compact">
+      <thead><tr><th>Name</th><th>Role</th><th>Description</th><th>Version</th><th>Updated</th></tr></thead>
+      <tbody>{{range .Data.Prompts}}<tr><td><a href="/prompts/{{.Name}}"><code>{{.Name}}</code></a></td><td><span class="badge">{{.Role}}</span></td><td class="small">{{.Description}}</td><td class="small">v{{.CurrentVersion}}{{if .Schema}} · JSON{{end}}</td><td class="small muted">{{ago .UpdatedAt}}</td></tr>{{else}}<tr><td colspan="5" class="muted">No prompts.</td></tr>{{end}}</tbody>
+    </table>
+  </div>
+  {{if .Principal.User.Role.AtLeast "administrator"}}
+  <div class="card">
+    <h2>New prompt</h2>
+    <form method="post" action="/prompts" class="stack">
+      <input type="hidden" name="_csrf" value="{{.CSRF}}">
+      <label>Name <input name="name" required pattern="[A-Za-z0-9._-]+" placeholder="respond.terse"></label>
+      <label>Role <select name="role">{{range llmRoles}}<option value="{{.Role}}">{{.Role}}</option>{{end}}</select></label>
+      <label>Description <input name="description"></label>
+      <button class="btn btn-primary" type="submit">Create (then edit)</button>
+    </form>
+  </div>
+  {{end}}
+</section>
+{{end}}

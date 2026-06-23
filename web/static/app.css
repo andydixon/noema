@@ -175,3 +175,7 @@ tr.dayrow td { background: var(--surface-2); font-weight: 600; font-size: .78rem
 :root[data-theme="dark"] .badge.st-tentative { background: #3a2a0a; color: #fcd34d; } :root[data-theme="dark"] .badge.st-likely { background: #172554; color: #93c5fd; } :root[data-theme="dark"] .badge.st-contested { background: #3d2e05; color: #fbbf24; }
 .conf.big .conf-bar.wide { width: 100%; height: 10px; margin: .3rem 0 .8rem; }
 ul.ev li { padding: .4rem 0; border-bottom: 1px solid var(--border); } ul.ev li:last-child { border-bottom: 0; } ul.ev li.retracted { opacity: .55; }
+
+/* Prompts */
+textarea.mono { font-family: var(--mono); font-size: .85rem; }
+pre.diff .add { color: var(--ok); } pre.diff .del { color: var(--danger); } pre.diff .ctx { color: var(--muted); }

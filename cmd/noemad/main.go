@@ -22,10 +22,13 @@ import (
 	"github.com/andydixon/noema/internal/cognition"
 	"github.com/andydixon/noema/internal/config"
 	evstore "github.com/andydixon/noema/internal/events"
+	"github.com/andydixon/noema/internal/llm/prompts"
+	"github.com/andydixon/noema/internal/llm/router"
 	"github.com/andydixon/noema/internal/memory"
 	"github.com/andydixon/noema/internal/minds"
 	"github.com/andydixon/noema/internal/observability"
 	"github.com/andydixon/noema/internal/scheduler"
+	"github.com/andydixon/noema/internal/security/secrets"
 	"github.com/andydixon/noema/internal/storage"
 	"github.com/andydixon/noema/internal/ui"
 	"github.com/andydixon/noema/internal/version"
@@ -88,12 +91,36 @@ func run() error {
 	}
 
 	group := scheduler.NewGroup(ctx, log)
-	deps.Memory = memory.NewStore(ctx, db, nil)
+	sec, err := secrets.New(cfg.MasterKey)
+	if err != nil {
+		return err
+	}
+	deps.Secrets = sec
+	if !sec.CanEncrypt() {
+		log.Warn("NOEMA_MASTER_KEY not set: API keys must be given as env: or file: references")
+	}
+	deps.LLMStore = router.NewStore(db)
+	deps.LLM = router.NewRouter(deps.LLMStore, sec, log, metrics, cfg.MaxConcurrentLLM)
+	deps.LLM.DailyTokenBudget = cfg.DailyTokenBudget
+	deps.LLM.MindBudget = func(id ids.ID) int64 {
+		m, err := deps.Minds.Get(ctx, id)
+		if err != nil {
+			return 0
+		}
+		return m.Config.DailyTokenBudget
+	}
+	deps.Prompts = prompts.NewStore(db)
+	if n, err := deps.Prompts.SeedDefaults(ctx); err != nil {
+		return fmt.Errorf("seed prompts: %w", err)
+	} else if n > 0 {
+		log.Info("installed default prompts", "count", n)
+	}
+	deps.Memory = memory.NewStore(ctx, db, deps.LLM.Embedder(ctx))
 	deps.Beliefs = beliefs.NewStore(db)
 	registry := brain.NewRegistry().AddProcess(cognition.Attend{}).AddProcess(cognition.Retrieve{}).AddProcess(cognition.Associate{})
 	cognition.Handlers{Memory: deps.Memory, Beliefs: deps.Beliefs}.Register(registry)
 	deps.Brain = brain.NewManager(brain.Config{DB: db, Events: deps.Events, Minds: deps.Minds, Registry: registry, Pool: scheduler.NewPool(cfg.MaxWorkers),
-		Log: log, Metrics: metrics, Services: brain.Services{Events: deps.Events, Memory: deps.Memory, Beliefs: deps.Beliefs}}, group)
+		Log: log, Metrics: metrics, Services: brain.Services{Events: deps.Events, Memory: deps.Memory, Beliefs: deps.Beliefs, LLM: deps.LLM, Prompts: deps.Prompts}}, group)
 	group.Every("memory.decay", 6*time.Hour, func(ctx context.Context) error { return decayMemories(ctx, deps) })
 	group.Every("memory.embed", time.Minute, func(ctx context.Context) error { _, err := deps.Memory.EmbedMissing(ctx, 50); return err })
 	if err := deps.Brain.Start(ctx); err != nil {

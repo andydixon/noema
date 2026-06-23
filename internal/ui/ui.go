@@ -21,6 +21,7 @@ import (
 	"github.com/andydixon/noema/internal/attention"
 	"github.com/andydixon/noema/internal/auth"
 	"github.com/andydixon/noema/internal/beliefs"
+	"github.com/andydixon/noema/internal/llm"
 	"github.com/andydixon/noema/internal/minds"
 	"github.com/andydixon/noema/internal/version"
 	"github.com/andydixon/noema/pkg/concepts"
@@ -83,13 +84,34 @@ func (u *UI) parse(fsys fs.FS) error {
 		"duration":  func(s int64) string { return (time.Duration(s) * time.Second).Truncate(time.Second).String() },
 		"bytes":     humanBytes,
 		"pct":       func(f float64) string { return fmt.Sprintf("%.0f%%", f*100) },
-		"conf":      func(f float64) string { return fmt.Sprintf("%.2f", f) },
-		"inc":       func(i int) int { return i + 1 },
-		"deref": func(f *float64) float64 {
-			if f == nil {
-				return 0
+		"conf": func(v any) string {
+			switch x := v.(type) {
+			case float64:
+				return fmt.Sprintf("%.2f", x)
+			case float32:
+				return fmt.Sprintf("%.2f", x)
+			case *float64:
+				if x != nil {
+					return fmt.Sprintf("%.2f", *x)
+				}
 			}
-			return *f
+			return "–"
+		},
+		"inc": func(i int) int { return i + 1 },
+		"deref": func(v any) any {
+			switch x := v.(type) {
+			case *float64:
+				if x == nil {
+					return 0.0
+				}
+				return *x
+			case *bool:
+				if x == nil {
+					return false
+				}
+				return *x
+			}
+			return v
 		},
 		"title":          func(s string) string { s = strings.ReplaceAll(s, "_", " "); return strings.ToUpper(s[:1]) + s[1:] },
 		"valueKeys":      func() []string { return minds.ValueKeys },
@@ -97,6 +119,27 @@ func (u *UI) parse(fsys fs.FS) error {
 		"memoryKinds":    func() []concepts.MemoryKind { return concepts.AllMemoryKinds },
 		"epistemicKinds": func() []concepts.Epistemic { return concepts.AllEpistemic },
 		"relations":      func() []concepts.Relation { return concepts.AllRelations },
+		"llmRoles":       func() []llm.RoleInfo { return llm.Roles },
+		"deref_id": func(id *ids.ID) ids.ID {
+			if id == nil {
+				return ids.Nil
+			}
+			return *id
+		},
+		"deref_int": func(i *int) int {
+			if i == nil {
+				return 0
+			}
+			return *i
+		},
+		"has_id": func(list []ids.ID, id ids.ID) bool {
+			for _, x := range list {
+				if x == id {
+					return true
+				}
+			}
+			return false
+		},
 		"beliefStatuses": func() []beliefs.Status {
 			return []beliefs.Status{beliefs.StatusHypothesis, beliefs.StatusTentative, beliefs.StatusLikely, beliefs.StatusAccepted, beliefs.StatusContested, beliefs.StatusRejected, beliefs.StatusSuperseded}
 		},
@@ -253,11 +296,10 @@ func (u *UI) Register(m *http.ServeMux) {
 	u.eventRoutes(m)
 	u.memoryRoutes(m)
 	u.beliefRoutes(m)
+	u.llmRoutes(m)
 
 	for _, p := range []struct{ path, title, note string }{
 		{"/approvals", "Approvals", "The approval centre arrives with the capability system."},
-		{"/llm", "LLM", "Provider configuration arrives in phase 7."},
-		{"/prompts", "Prompts", "The prompt manager arrives in phase 7."},
 		{"/integrations", "Integrations", "Integrations arrive in phase 13."},
 		{"/policies", "Policies", "The policy matrix arrives in phase 12."},
 	} {

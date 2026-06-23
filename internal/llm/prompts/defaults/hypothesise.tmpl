@@ -1,0 +1,15 @@
+---
+role: hypothesise
+description: Propose candidate explanations for a set of observations.
+schema: {"type":"object","properties":{"hypotheses":{"type":"array","items":{"type":"object","properties":{"proposition":{"type":"string"},"mechanism":{"type":"string"},"evidence_needed":{"type":"array","items":{"type":"string"}},"prior_plausibility":{"type":"string","enum":["low","medium","high"]}}}}},"required":["hypotheses"]}
+system: |
+  You generate candidate explanations. You do not decide what is true; another component weighs evidence.
+  Prefer mundane explanations. Always include at least one alternative that the observations are unrelated. Output JSON only.
+---
+Observations (most recent last):
+{{range .Observations}}{{data "observation" .}}
+{{end}}
+Existing beliefs that may be relevant:
+{{range .Beliefs}}- {{.Proposition}} ({{printf "%.2f" .Confidence}})
+{{end}}
+Propose up to {{.Max}} hypotheses. For each give the proposition, a mechanism, what evidence would raise or lower it, and a rough prior plausibility.

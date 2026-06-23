@@ -16,9 +16,12 @@ import (
 	"github.com/andydixon/noema/internal/brain"
 	"github.com/andydixon/noema/internal/config"
 	"github.com/andydixon/noema/internal/events"
+	"github.com/andydixon/noema/internal/llm/prompts"
+	"github.com/andydixon/noema/internal/llm/router"
 	"github.com/andydixon/noema/internal/memory"
 	"github.com/andydixon/noema/internal/minds"
 	"github.com/andydixon/noema/internal/observability"
+	"github.com/andydixon/noema/internal/security/secrets"
 )
 
 // Deps is everything a handler may need. Fields are added per phase.
@@ -34,6 +37,10 @@ type Deps struct {
 	Brain      *brain.Manager
 	Memory     *memory.Store
 	Beliefs    *beliefs.Store
+	LLM        *router.Router
+	LLMStore   *router.Store
+	Prompts    *prompts.Store
+	Secrets    *secrets.Resolver
 	Migrations fs.FS
 	Started    time.Time
 }

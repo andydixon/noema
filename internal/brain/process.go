@@ -10,6 +10,8 @@ import (
 
 	"github.com/andydixon/noema/internal/attention"
 	"github.com/andydixon/noema/internal/beliefs"
+	"github.com/andydixon/noema/internal/llm/prompts"
+	"github.com/andydixon/noema/internal/llm/router"
 	"github.com/andydixon/noema/internal/memory"
 	"github.com/andydixon/noema/internal/minds"
 	"github.com/andydixon/noema/internal/workspace"
@@ -70,6 +72,8 @@ type Services struct {
 	Events  EventReader
 	Memory  *memory.Store
 	Beliefs *beliefs.Store
+	LLM     *router.Router
+	Prompts *prompts.Store
 }
 
 // EventReader is the subset of the event store processes may call.

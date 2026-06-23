@@ -17,10 +17,13 @@ import (
 	"github.com/andydixon/noema/internal/brain"
 	"github.com/andydixon/noema/internal/config"
 	evstore "github.com/andydixon/noema/internal/events"
+	"github.com/andydixon/noema/internal/llm/prompts"
+	"github.com/andydixon/noema/internal/llm/router"
 	"github.com/andydixon/noema/internal/memory"
 	"github.com/andydixon/noema/internal/minds"
 	"github.com/andydixon/noema/internal/observability"
 	"github.com/andydixon/noema/internal/scheduler"
+	"github.com/andydixon/noema/internal/security/secrets"
 	"github.com/andydixon/noema/internal/storage"
 	"github.com/andydixon/noema/migrations"
 )
@@ -31,7 +34,10 @@ func testServer(t *testing.T) (*httptest.Server, string) {
 	cfg := config.Defaults()
 	cfg.DatabaseURL = "postgres://test"
 	log := slog.New(slog.DiscardHandler)
-	deps := app.Deps{Config: cfg, Log: log, DB: pool, Auth: auth.NewService(pool, time.Hour, 2*time.Hour),
+	sec, _ := secrets.New("")
+	llmStore := router.NewStore(pool)
+	deps := app.Deps{Config: cfg, Log: log, DB: pool, Auth: auth.NewService(pool, time.Hour, 2*time.Hour), Secrets: sec, LLMStore: llmStore,
+		LLM: router.NewRouter(llmStore, sec, log, nil, 2), Prompts: prompts.NewStore(pool),
 		Audit: audit.New(pool, log), Metrics: observability.NewMetrics(), Minds: minds.NewStore(pool), Beliefs: beliefs.NewStore(pool), Memory: memory.NewStore(context.Background(), pool, nil), Events: evstore.NewStore(pool, evstore.NewBus(50), nil), Migrations: migrations.FS, Started: time.Now()}
 	ctx := context.Background()
 	group := scheduler.NewGroup(ctx, log)
