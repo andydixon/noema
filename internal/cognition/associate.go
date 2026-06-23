@@ -59,7 +59,7 @@ func (a Associate) Observe(_ context.Context, s *brain.State) ([]brain.Candidate
 			prop := truncate(it.Content, 100) + " may have caused: " + truncate(ev.Summary, 100)
 			out = append(out, brain.Candidate{Kind: "hypothesis", Subject: strings.Join(pair, "+"), Summary: "hypothesis: " + prop,
 				Content:    map[string]any{"proposition": prop, "cause_event": string(it.SourceEvent), "effect_event": string(ev.ID), "gap_seconds": int(ev.OccurredAt.Sub(it.TouchedAt).Seconds()), "source_event": string(ev.ID)},
-				Features:   attention.Features{Salience: 0.5*ev.Salience + 0.2, Novelty: 0.6, Consequence: 0.6, Urgency: laterU * 0.5, Confidence: 0.3, ContextRelevance: 0.5},
+				Features:   attention.Features{Salience: 0.4 + 0.5*ev.Salience, Novelty: 0.85, Consequence: 0.8, Urgency: laterU * 0.6, Confidence: 0.3, ContextRelevance: 0.6, OperatorPriority: 0.5},
 				Confidence: 0.3, SourceEvents: []ids.ID{ev.ID, it.SourceEvent},
 				Evidence: []events.EvidenceRef{{Kind: "event", ID: string(it.SourceEvent), Note: "earlier"}, {Kind: "event", ID: string(ev.ID), Note: "later"}}})
 		}
