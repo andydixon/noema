@@ -643,6 +643,9 @@ func (r *Runtime) observe(ctx context.Context, st *State) []Candidate {
 	return all
 }
 
+// Workspace returns a copy of the live workspace state for handlers.
+func (r *Runtime) Workspace() workspace.State { return r.copyState() }
+
 // Events exposes the event store to handlers.
 func (r *Runtime) Events() *evstore.Store { return r.events }
 

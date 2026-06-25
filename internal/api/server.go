@@ -58,6 +58,8 @@ func (s *Server) routes() {
 	s.beliefRoutes()
 	s.llmRoutes()
 	s.promptRoutes()
+	s.conversationRoutes()
+	s.importRoutes()
 
 	m.HandleFunc("/api/", func(w http.ResponseWriter, r *http.Request) {
 		writeError(w, r, http.StatusNotFound, "not_found", "no such endpoint")

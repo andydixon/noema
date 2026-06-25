@@ -90,6 +90,9 @@ func (s *Server) mindsCreate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.deps.Audit.Log(r.Context(), "mind.create", "mind", m.ID.String(), map[string]any{"slug": m.Slug})
+	if s.deps.Brain != nil {
+		s.deps.Brain.Reconcile(r.Context()) //nolint:errcheck // starts the runtime now instead of at the next periodic reconcile
+	}
 	writeJSON(w, http.StatusCreated, m)
 }
 

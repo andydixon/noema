@@ -5,6 +5,7 @@ All notable changes to Noema are recorded here. Format follows Keep a Changelog;
 ## [Unreleased]
 
 ### Added
+- Phase 8 conversation (milestone M1): messages become observations, deterministic perception with optional model enrichment, claims become evidenced beliefs, grounded introspective answers from real state, model or deterministic wording with full provenance, chat UI, `noemactl ask`, sample mind Dani with a strict seed import, and an end-to-end acceptance test.
 - Phase 7 LLM layer: provider-neutral router with roles and fallbacks, OpenAI-compatible/Anthropic/Ollama providers, encrypted secret references, SSRF-safe HTTP client, budgets, full call recording with replay, versioned prompts with untrusted data blocks, configuration and prompt manager UI, CLI.
 - Phase 6 beliefs: evidence-derived confidence with inspectable arithmetic, statuses, alternatives, append-only history, deterministic contradiction detection, temporal-association hypotheses, operator corrections (wrong, do-not-infer, inaccurate memory), belief explorer and CLI.
 - Phase 5 memory: episodic/semantic/procedural/autobiographical memory with epistemic status, fused retrieval with inspectable component scores, optional pgvector embeddings, decay without deletion, attention-gated encoding, retrieval process, memory explorer and CLI.

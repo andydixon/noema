@@ -21,6 +21,7 @@ import (
 	"github.com/andydixon/noema/internal/brain"
 	"github.com/andydixon/noema/internal/cognition"
 	"github.com/andydixon/noema/internal/config"
+	"github.com/andydixon/noema/internal/conversation"
 	evstore "github.com/andydixon/noema/internal/events"
 	"github.com/andydixon/noema/internal/llm/prompts"
 	"github.com/andydixon/noema/internal/llm/router"
@@ -117,8 +118,9 @@ func run() error {
 	}
 	deps.Memory = memory.NewStore(ctx, db, deps.LLM.Embedder(ctx))
 	deps.Beliefs = beliefs.NewStore(db)
-	registry := brain.NewRegistry().AddProcess(cognition.Attend{}).AddProcess(cognition.Retrieve{}).AddProcess(cognition.Associate{})
-	cognition.Handlers{Memory: deps.Memory, Beliefs: deps.Beliefs}.Register(registry)
+	deps.Conversations = conversation.NewStore(db)
+	registry := brain.NewRegistry().AddProcess(cognition.Attend{}).AddProcess(cognition.Retrieve{}).AddProcess(cognition.Associate{}).AddProcess(cognition.Perceive{})
+	cognition.Handlers{Memory: deps.Memory, Beliefs: deps.Beliefs, Conversations: deps.Conversations}.Register(registry)
 	deps.Brain = brain.NewManager(brain.Config{DB: db, Events: deps.Events, Minds: deps.Minds, Registry: registry, Pool: scheduler.NewPool(cfg.MaxWorkers),
 		Log: log, Metrics: metrics, Services: brain.Services{Events: deps.Events, Memory: deps.Memory, Beliefs: deps.Beliefs, LLM: deps.LLM, Prompts: deps.Prompts}}, group)
 	group.Every("memory.decay", 6*time.Hour, func(ctx context.Context) error { return decayMemories(ctx, deps) })
@@ -133,7 +135,10 @@ func run() error {
 		func(r *http.Request, m minds.Mind) (api.WorkspaceView, error) { return srv.Workspace(r.Context(), m) },
 		func(r *http.Request, mind, id ids.ID) (api.MemoryDetail, error) { return srv.MemoryDetail(r, mind, id) },
 		func(r *http.Request, mind, id ids.ID) (api.BeliefDetail, error) { return srv.BeliefDetail(r, mind, id) },
-		func() beliefs.Emitter { return srv.Emitter() })
+		func() beliefs.Emitter { return srv.Emitter() },
+		func(r *http.Request, mind ids.ID, conv conversation.Conversation, text, who string) (conversation.Message, error) {
+			return srv.PostMessage(r, mind, conv, text, who)
+		})
 	if err != nil {
 		return err
 	}

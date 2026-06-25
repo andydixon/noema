@@ -1,0 +1,24 @@
+{{define "content"}}
+{{$m := .Data.Mind}}
+<div class="pagehead mindhead"><div><h1>{{$m.DisplayName}} <span class="muted small">conversations</span></h1><p class="muted">Messages become observations; replies are grounded in beliefs and memories and carry their provenance.</p></div></div>
+{{template "mind_tabs" (dict "M" $m "Active" "conversation")}}
+<section class="grid cols-3-1">
+  <div class="card">
+    {{if .Data.Conversations}}<table class="table compact"><thead><tr><th>Title</th><th>Person</th><th>Project</th><th>Channel</th><th>Last message</th></tr></thead>
+      <tbody>{{range .Data.Conversations}}<tr><td><a href="/minds/{{$m.Slug}}/conversations/{{.ID}}">{{if .Title}}{{.Title}}{{else}}<em class="muted">untitled</em>{{end}}</a></td><td class="small">{{.Person}}</td><td class="small">{{.Project}}</td><td class="small muted">{{.Channel}}</td><td class="small muted">{{ago .LastMessageAt}}</td></tr>{{end}}</tbody></table>
+    {{else}}<p class="muted">No conversations yet.</p>{{end}}
+  </div>
+  {{if .Principal.User.Role.AtLeast "operator"}}
+  <div class="card">
+    <h2>New conversation</h2>
+    <form method="post" action="/minds/{{$m.Slug}}/conversations" class="stack">
+      <input type="hidden" name="_csrf" value="{{.CSRF}}">
+      <label>Person <input name="person" value="{{.Principal.User.Username}}"></label>
+      <label>Project <input name="project" placeholder="optional"></label>
+      <label>Title <input name="title" placeholder="optional; taken from the first message"></label>
+      <button class="btn btn-primary" type="submit">Start</button>
+    </form>
+  </div>
+  {{end}}
+</section>
+{{end}}

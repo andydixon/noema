@@ -48,7 +48,7 @@ cp .env.example .env
 make dev
 ```
 
-This starts PostgreSQL (with pgvector) in a container, applies migrations, and runs `noemad` on http://127.0.0.1:8080. Log in with the bootstrap administrator, add an LLM provider under *LLM*, create a mind (or load the sample mind Dani with `noemactl mind import configs/minds/dani.json`), and open its conversation page.
+This starts PostgreSQL (with pgvector) in a container, applies migrations, and runs `noemad` on http://127.0.0.1:8080. Log in with the bootstrap administrator, add an LLM provider under *LLM* and assign models to the `perceive` and `respond` roles, create a mind (or load the sample mind Dani with `noemactl mind import configs/minds/dani.json` after creating an API token under *Account*), and open its Conversation tab. Without a model the mind still answers, rendering its state directly.
 
 ## Configuration
 
@@ -103,7 +103,7 @@ noemactl fork dani --snapshot <id> --name dani-test
 
 ## Status
 
-Early development. See [PLAN.md](PLAN.md) for phases and progress and [CHANGELOG.md](CHANGELOG.md) for history. Screenshots will be added once the UI stabilises.
+Milestone M1 is complete: start, log in, create a mind, shape its personality, configure a model, chat, watch cognitive events live, inspect working memory, the workspace, memories, beliefs and provenance, restart, and continue the same mind. `go test ./tests/m1/` exercises that slice end to end. Phases 9–16 (goals, drives, predictions, metacognition, reflection, consolidation, relationship graph, capabilities, integrations, dreaming, snapshots, replay, experiments, hardening) are in progress; see [PLAN.md](PLAN.md) and [CHANGELOG.md](CHANGELOG.md). Screenshots will be added once the UI stabilises.
 
 ## Licence
 

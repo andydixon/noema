@@ -15,6 +15,7 @@ import (
 	"github.com/andydixon/noema/internal/beliefs"
 	"github.com/andydixon/noema/internal/brain"
 	"github.com/andydixon/noema/internal/config"
+	"github.com/andydixon/noema/internal/conversation"
 	"github.com/andydixon/noema/internal/events"
 	"github.com/andydixon/noema/internal/llm/prompts"
 	"github.com/andydixon/noema/internal/llm/router"
@@ -26,21 +27,22 @@ import (
 
 // Deps is everything a handler may need. Fields are added per phase.
 type Deps struct {
-	Config     config.Config
-	Log        *slog.Logger
-	DB         *pgxpool.Pool
-	Auth       *auth.Service
-	Audit      *audit.Logger
-	Metrics    *observability.Metrics
-	Minds      *minds.Store
-	Events     *events.Store
-	Brain      *brain.Manager
-	Memory     *memory.Store
-	Beliefs    *beliefs.Store
-	LLM        *router.Router
-	LLMStore   *router.Store
-	Prompts    *prompts.Store
-	Secrets    *secrets.Resolver
-	Migrations fs.FS
-	Started    time.Time
+	Config        config.Config
+	Log           *slog.Logger
+	DB            *pgxpool.Pool
+	Auth          *auth.Service
+	Audit         *audit.Logger
+	Metrics       *observability.Metrics
+	Minds         *minds.Store
+	Events        *events.Store
+	Brain         *brain.Manager
+	Memory        *memory.Store
+	Beliefs       *beliefs.Store
+	Conversations *conversation.Store
+	LLM           *router.Router
+	LLMStore      *router.Store
+	Prompts       *prompts.Store
+	Secrets       *secrets.Resolver
+	Migrations    fs.FS
+	Started       time.Time
 }

@@ -113,16 +113,18 @@ An administrator can: start Noema → log in → create a mind → configure per
 - ☑ `noemactl provider list|test`, `noemactl prompt list|show`; embedder wired into memory; docs/llm-providers.md
 - ☑ Tests: secret references, SSRF dialer, wire formats for all three providers, error scrubbing, private endpoint refusal, router routing/budget/recording/replay, prompt data-block escaping, defaults, versioning
 
-### Phase 8 – Conversation (completes M1)
-- ☐ `migrations/0008_conversations`: conversations, messages
-- ☐ `internal/perception`: observation events with trust tags; deterministic message analysis; LLM-assisted intent/concept extraction
-- ☐ Executive: response intent → language generation with personality, self-model, cited beliefs and uncertainty; "I do not know" path
-- ☐ Episodic memory creation from conversation; basic belief formation from explicit user statements
-- ☐ UI: conversation page with live cognition side panel and provenance per reply
-- ☐ `noemactl ask`
-- ☐ Persistence and restart continuity verified end-to-end
-- ☐ Sample mind Dani (`configs/minds/dani.json`) and import path
-- ☐ M1 acceptance test in `tests/m1`
+### Phase 8 – Conversation (completes M1) ☑
+- ☑ `migrations/0008_conversations`: conversations (person, project, channel), messages linked to events, intents and model calls
+- ☑ `internal/conversation`: mind-scoped store; deterministic analysis (intent, introspection kind, entities, claims with certainty, urgency, sentiment, topic)
+- ☑ `cognition/perceive` process: conversational observations become high-priority candidates, optionally enriched by the perceive prompt within the per-cycle model cap
+- ☑ `cognition/respond` handler: perception event, episodic memory with participants, claims → beliefs with the message as evidence, response intent built from beliefs/memories/self-model, grounded introspection (thinking, beliefs, why, uncertain, contradictions, learned, changed; honest declines otherwise), wording by the respond prompt or deterministic rendering, `response_generated` citing all evidence, reply row
+- ☑ Per-cycle model allowance shared by processes and handlers; attend handler defers conversational episodes to perceive
+- ☑ API: conversations, messages with optional wait, one-shot `ask`; mind creation starts its runtime immediately
+- ☑ UI: conversation list, chat page with live refresh, per-reply “why this reply” intent and event links
+- ☑ Sample mind `configs/minds/dani.json` (schema noema.mind-seed/1) with strict import endpoint and `noemactl mind import`; `noemactl ask`
+- ☑ `tests/m1`: acceptance test covering all 14 milestone steps including restart continuity; docs/conversation.md
+
+**Milestone M1 reached.** Remaining phases deepen the system; the vertical slice above is exercised end to end by `go test ./tests/m1/`.
 
 ### Phase 9 – Goals, drives, predictions
 - ☐ goals (tree, priority, progress, blockers, origin), goal monitor process

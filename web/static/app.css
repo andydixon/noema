@@ -179,3 +179,14 @@ ul.ev li { padding: .4rem 0; border-bottom: 1px solid var(--border); } ul.ev li:
 /* Prompts */
 textarea.mono { font-family: var(--mono); font-size: .85rem; }
 pre.diff .add { color: var(--ok); } pre.diff .del { color: var(--danger); } pre.diff .ctx { color: var(--muted); }
+
+/* Conversation */
+ol.messages { list-style: none; padding: 0; margin: 0 0 1rem; display: flex; flex-direction: column; gap: .6rem; max-height: 60vh; overflow-y: auto; }
+.msg { padding: .6rem .8rem; border-radius: 10px; max-width: 85%; }
+.msg-user { background: var(--accent-soft); align-self: flex-end; }
+.msg-mind { background: var(--surface-2); align-self: flex-start; }
+.msg-system { background: transparent; border: 1px dashed var(--border); align-self: center; }
+.msg-body { white-space: pre-wrap; }
+.msg-head { margin-bottom: .2rem; }
+.chat-input input { min-width: 0; }
+.badge.small { font-size: .65rem; }

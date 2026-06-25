@@ -787,3 +787,94 @@ func trunc(s string, n int) string {
 	}
 	return s
 }
+
+// Search returns live beliefs matching any of the words in text, best match
+// first. Used to answer "what do you believe about X".
+func (s *Store) Search(ctx context.Context, mind ids.ID, text string, limit int) ([]Belief, error) {
+	toks, _ := Polarity(text)
+	if len(toks) == 0 {
+		return nil, nil
+	}
+	if limit <= 0 || limit > 50 {
+		limit = 10
+	}
+	q := strings.Join(toks, " | ")
+	rows, err := s.db.Query(ctx, `SELECT `+cols+` FROM beliefs b WHERE b.mind_id=$1 AND b.status NOT IN ('superseded') AND b.search @@ to_tsquery('english', $2)
+		ORDER BY ts_rank_cd(b.search, to_tsquery('english', $2)) DESC, b.confidence DESC LIMIT $3`, mind, q, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []Belief
+	for rows.Next() {
+		b, err := scan(rows)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, b)
+	}
+	return out, rows.Err()
+}
+
+// Change describes a belief whose status or confidence moved.
+type Change struct {
+	Belief     Belief    `json:"belief"`
+	FromStatus Status    `json:"from_status"`
+	FromConf   float64   `json:"from_confidence"`
+	Reason     string    `json:"reason"`
+	At         time.Time `json:"at"`
+}
+
+// RecentChanges lists beliefs whose latest version differs in status from an
+// earlier version within the window ("what have you changed your mind about").
+func (s *Store) RecentChanges(ctx context.Context, mind ids.ID, since time.Time, limit int) ([]Change, error) {
+	if limit <= 0 || limit > 50 {
+		limit = 10
+	}
+	rows, err := s.db.Query(ctx, `WITH latest AS (
+			SELECT DISTINCT ON (belief_id) belief_id, status, confidence, reason, created_at FROM belief_versions WHERE mind_id=$1 AND created_at >= $2 ORDER BY belief_id, version DESC),
+		first AS (
+			SELECT DISTINCT ON (belief_id) belief_id, status, confidence FROM belief_versions WHERE mind_id=$1 ORDER BY belief_id, version ASC)
+		SELECT `+cols+`, f.status, f.confidence, l.reason, l.created_at FROM latest l JOIN first f ON f.belief_id=l.belief_id JOIN beliefs b ON b.id=l.belief_id
+		WHERE l.status <> f.status ORDER BY l.created_at DESC LIMIT $3`, mind, since, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []Change
+	for rows.Next() {
+		var c Change
+		var epi, status, fromStatus string
+		var detail []byte
+		var origin, superseded, pinned *string
+		b := &c.Belief
+		if err := rows.Scan(&b.ID, &b.MindID, &b.Proposition, &b.Subject, &epi, &status, &b.Confidence, &b.Prior, &b.Version, &b.Source, &detail, &origin, &superseded, &pinned, &b.FirstCreated, &b.LastEvaluated, &b.Evaluations, &fromStatus, &c.FromConf, &c.Reason, &c.At); err != nil {
+			return nil, err
+		}
+		b.Epistemic, b.Status, c.FromStatus = concepts.Epistemic(epi), Status(status), Status(fromStatus)
+		out = append(out, c)
+	}
+	return out, rows.Err()
+}
+
+// Uncertain returns beliefs in the middle band or contested, least certain first.
+func (s *Store) Uncertain(ctx context.Context, mind ids.ID, limit int) ([]Belief, error) {
+	if limit <= 0 || limit > 50 {
+		limit = 10
+	}
+	rows, err := s.db.Query(ctx, `SELECT `+cols+` FROM beliefs b WHERE b.mind_id=$1 AND b.status NOT IN ('rejected','superseded') AND (b.status='contested' OR (b.confidence BETWEEN 0.3 AND 0.7))
+		ORDER BY abs(b.confidence-0.5) ASC, b.last_evaluated DESC LIMIT $2`, mind, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []Belief
+	for rows.Next() {
+		b, err := scan(rows)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, b)
+	}
+	return out, rows.Err()
+}

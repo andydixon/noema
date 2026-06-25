@@ -1,0 +1,34 @@
+{{define "content"}}
+{{$m := .Data.Mind}}{{$c := .Data.Conversation}}
+<div class="pagehead mindhead"><div><p class="muted small"><a href="/minds/{{$m.Slug}}/conversations">conversations</a> › {{$c.Channel}}{{if $c.Person}} · {{$c.Person}}{{end}}{{if $c.Project}} · {{$c.Project}}{{end}}</p><h1>{{if $c.Title}}{{$c.Title}}{{else}}Conversation with {{$m.DisplayName}}{{end}}</h1></div>
+  <div class="row"><span data-stream-status class="badge">connecting…</span>{{if not .Data.LLM}}<span class="badge warn" title="Replies are deterministic renderings of state until a model is assigned to the respond role">no respond model</span>{{end}}</div></div>
+<section class="grid cols-3-1">
+  <div class="card chat">
+    <div id="chat-live" data-refresh-on="response_generated,observation" data-refresh-url="/minds/{{$m.Slug}}/conversations/{{$c.ID}}" data-stream="/api/v1/minds/{{$m.Slug}}/events/stream?type=response_generated,observation">
+      <ol class="messages">{{range .Data.Messages}}<li class="msg msg-{{.Role}}">
+        <div class="msg-head"><strong>{{.Actor}}</strong> <span class="muted small">{{.CreatedAt.Local.Format "15:04:05"}}</span>{{if .EventID}} <a class="small" href="/events/{{.EventID}}">event</a>{{end}}{{if .LLMCallID}} <span class="badge small">model</span>{{else if eq .Role "mind"}} <span class="badge small" title="Deterministic rendering">state</span>{{end}}</div>
+        <div class="msg-body">{{.Content}}</div>
+        {{if .Intent}}<details class="small muted"><summary>why this reply</summary><pre class="json">{{pretty .Intent}}</pre></details>{{end}}
+      </li>{{else}}<li class="muted">Say something.</li>{{end}}</ol>
+    </div>
+    {{if .Principal.User.Role.AtLeast "operator"}}
+    <form method="post" action="/minds/{{$m.Slug}}/conversations/{{$c.ID}}/messages" class="row chat-input">
+      <input type="hidden" name="_csrf" value="{{.CSRF}}">
+      <input name="text" class="grow" placeholder="Ask {{$m.DisplayName}} something… e.g. What are you thinking about?" required maxlength="20000" autofocus autocomplete="off">
+      <button class="btn btn-primary" type="submit">Send</button>
+    </form>
+    {{end}}
+  </div>
+  <div class="stack">
+    <div class="card small">
+      <h2>How a reply forms</h2>
+      <ol class="steps"><li>message → <span class="etype cat-perception">observation</span></li><li><span class="etype cat-perception">perception</span>: intent, entities, claims</li><li>recall + workspace competition</li><li>intent built from beliefs and memories</li><li>wording by the respond model, or a direct rendering of state</li><li><span class="etype cat-cognition">response_generated</span> with cited evidence</li></ol>
+      <p class="muted">Open “why this reply” under any answer, or its event, to see the evidence.</p>
+    </div>
+    <div class="card small">
+      <h2>Try asking</h2>
+      <ul class="plain muted">{{range .Data.Suggestions}}<li>“{{.}}”</li>{{end}}</ul>
+    </div>
+  </div>
+</section>
+{{end}}

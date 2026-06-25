@@ -6,6 +6,7 @@ package brain
 
 import (
 	"context"
+	"sync/atomic"
 	"time"
 
 	"github.com/andydixon/noema/internal/attention"
@@ -65,6 +66,21 @@ type State struct {
 	NewEvents []events.Event  // since the last cycle, ascending
 	Workspace workspace.State // snapshot before this cycle
 	Services  Services
+	llmCalls  atomic.Int32 // model calls made in this cycle; processes and handlers share the cap
+}
+
+// AllowLLM reserves one model call against the mind's per-cycle cap and
+// reports whether it was granted, so a chatty cycle cannot exceed the budget.
+func (s *State) AllowLLM() bool {
+	cap := int32(s.Mind.Config.LLMCallsPerCycle)
+	if cap <= 0 || s.Services.LLM == nil {
+		return false
+	}
+	if s.llmCalls.Add(1) > cap {
+		s.llmCalls.Add(-1)
+		return false
+	}
+	return true
 }
 
 // Services are read handles processes may use. Extended per phase.

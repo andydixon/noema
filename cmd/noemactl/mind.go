@@ -17,7 +17,7 @@ func init() {
 
 func cmdMind(args []string) int {
 	if len(args) < 1 {
-		fmt.Fprintln(os.Stderr, "usage: noemactl mind list|create <slug>|inspect <mind>|clone <mind> <new-slug>|personality <mind>")
+		fmt.Fprintln(os.Stderr, "usage: noemactl mind list|create <slug>|inspect <mind>|clone <mind> <new-slug>|personality <mind>|import <seed.json>")
 		return exitUsage
 	}
 	switch args[0] {
@@ -85,6 +85,31 @@ func cmdMind(args []string) int {
 			return exitFor(code, err)
 		}
 		fmt.Printf("cloned into %v (%v)\n", m["slug"], m["id"])
+		return exitOK
+	case "import":
+		if len(args) < 2 {
+			fmt.Fprintln(os.Stderr, "usage: noemactl mind import <seed.json>")
+			return exitUsage
+		}
+		raw, err := os.ReadFile(args[1])
+		if err != nil {
+			fmt.Fprintln(os.Stderr, "error:", err)
+			return exitFail
+		}
+		var seed map[string]any
+		if err := json.Unmarshal(raw, &seed); err != nil {
+			fmt.Fprintln(os.Stderr, "error: not valid JSON:", err)
+			return exitFail
+		}
+		var res map[string]any
+		if code, err := apiRequest("POST", "/api/v1/minds/import", seed, &res); err != nil {
+			return exitFor(code, err)
+		}
+		m, _ := res["mind"].(map[string]any)
+		fmt.Printf("imported mind %v (%v): %v memories, %v beliefs\n", m["slug"], m["id"], res["memories"], res["beliefs"])
+		if p, ok := res["problems"].([]any); ok && len(p) > 0 {
+			fmt.Println("problems:", p)
+		}
 		return exitOK
 	case "personality":
 		if len(args) < 2 {

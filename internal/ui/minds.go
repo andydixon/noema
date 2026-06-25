@@ -88,6 +88,7 @@ func (u *UI) mindsCreate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	u.deps.Audit.Log(r.Context(), "mind.create", "mind", m.ID.String(), map[string]any{"slug": m.Slug})
+	u.deps.Brain.Reconcile(r.Context()) //nolint:errcheck
 	u.flash(w, r, "ok", "Mind created. Shape its personality next.", "/minds/"+m.Slug+"/personality")
 }
 

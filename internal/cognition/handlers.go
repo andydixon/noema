@@ -9,6 +9,7 @@ import (
 
 	"github.com/andydixon/noema/internal/beliefs"
 	"github.com/andydixon/noema/internal/brain"
+	"github.com/andydixon/noema/internal/conversation"
 	"github.com/andydixon/noema/internal/memory"
 	"github.com/andydixon/noema/internal/storage"
 	"github.com/andydixon/noema/internal/workspace"
@@ -19,8 +20,9 @@ import (
 
 // Handlers are the executive actions for admitted thought kinds.
 type Handlers struct {
-	Memory  *memory.Store
-	Beliefs *beliefs.Store
+	Memory        *memory.Store
+	Beliefs       *beliefs.Store
+	Conversations *conversation.Store
 }
 
 // Register installs the handlers on a registry.
@@ -28,6 +30,7 @@ func (h Handlers) Register(r *brain.Registry) {
 	r.Handle("attend", h.attend)
 	r.Handle("retrieve", h.retrieve)
 	r.Handle("hypothesis", h.hypothesis)
+	r.Handle("perceive", h.perceive)
 }
 
 // emitter adapts the cycle to the beliefs store's Emitter.
@@ -84,6 +87,9 @@ func (h Handlers) attend(ctx context.Context, c *brain.Cycle, t workspace.Though
 	var mem memory.Memory
 	if h.Memory != nil && evID != "" {
 		ev, err := c.Runtime.Events().Get(ctx, ids.ID(evID))
+		if err == nil && ev.Metadata["conversation_id"] != nil {
+			err = errSkipEncode // the perceive handler encodes conversational episodes
+		}
 		if err == nil {
 			n := memory.New{MindID: c.State.Mind.ID, Kind: concepts.Episodic, Epistemic: concepts.Observation, Content: ev.Summary, Source: ev.Source,
 				Trust: events.TrustLow, Confidence: ev.Confidence, Importance: t.Score, Salience: ev.Salience, Valence: ev.Valence, Arousal: ev.Arousal, OccurredAt: ev.OccurredAt, OriginEvent: ev.ID,
@@ -143,3 +149,5 @@ func (h Handlers) retrieve(ctx context.Context, c *brain.Cycle, t workspace.Thou
 	c.Runtime.Hold(workspace.Item{Key: "memory:" + ref, Content: t.Summary, Kind: "retrieval", Ref: ref, SourceEvent: ids.ID(src)})
 	return nil
 }
+
+var errSkipEncode = errors.New("skip")
