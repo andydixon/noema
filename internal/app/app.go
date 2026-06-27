@@ -17,11 +17,14 @@ import (
 	"github.com/andydixon/noema/internal/config"
 	"github.com/andydixon/noema/internal/conversation"
 	"github.com/andydixon/noema/internal/events"
+	"github.com/andydixon/noema/internal/goals"
 	"github.com/andydixon/noema/internal/llm/prompts"
 	"github.com/andydixon/noema/internal/llm/router"
 	"github.com/andydixon/noema/internal/memory"
 	"github.com/andydixon/noema/internal/minds"
+	"github.com/andydixon/noema/internal/motivation"
 	"github.com/andydixon/noema/internal/observability"
+	"github.com/andydixon/noema/internal/predictions"
 	"github.com/andydixon/noema/internal/security/secrets"
 )
 
@@ -39,6 +42,10 @@ type Deps struct {
 	Memory        *memory.Store
 	Beliefs       *beliefs.Store
 	Conversations *conversation.Store
+	Goals         *goals.Store
+	Motivation    *motivation.Store
+	Predictions   *predictions.Store
+	Resolver      *predictions.Resolver
 	LLM           *router.Router
 	LLMStore      *router.Store
 	Prompts       *prompts.Store

@@ -15,6 +15,7 @@ import (
 	"github.com/andydixon/noema/internal/attention"
 	evstore "github.com/andydixon/noema/internal/events"
 	"github.com/andydixon/noema/internal/minds"
+	"github.com/andydixon/noema/internal/motivation"
 	"github.com/andydixon/noema/internal/observability"
 	"github.com/andydixon/noema/internal/scheduler"
 	"github.com/andydixon/noema/internal/storage"
@@ -412,6 +413,17 @@ func (r *Runtime) cycle(ctx context.Context, tx pgx.Tx, trigger string, start ti
 	}
 	sm, _ := r.minds.GetSelfModel(ctx, r.mind.ID)
 	st := &State{Mind: r.mind, SelfModel: sm, Mode: Mode(r.state.Mode), Cycle: r.state.Cycle + 1, CycleID: cycleID, Now: start, NewEvents: newEvents, Workspace: r.state, Services: r.services}
+	if r.services.Goals != nil {
+		st.Goals, _ = r.services.Goals.Active(ctx, r.mind.ID)
+	}
+	st.Weights = r.mind.Config.AttentionWeights
+	if r.services.Motivation != nil {
+		if ms, err := r.services.Motivation.Load(ctx, tx, r.mind); err == nil {
+			motivation.Decay(&ms, motivation.Baselines(r.mind.Personality), start.Sub(ms.Affect.UpdatedAt))
+			st.Motiv = ms
+			st.Weights = motivation.Modulate(r.mind.Config.AttentionWeights, ms)
+		}
+	}
 	c := &Cycle{Runtime: r, State: st, Tx: tx}
 
 	// 1. Ask every process, concurrently and bounded.
@@ -428,8 +440,8 @@ func (r *Runtime) cycle(ctx context.Context, tx pgx.Tx, trigger string, start ti
 	}
 	r.state.Cycle++
 
-	// 2. Score deterministically; suppress loops.
-	weights := r.mind.Config.AttentionWeights
+	// 2. Score deterministically with the cycle's effective weights; suppress loops.
+	weights := st.Weights
 	var scored []attention.Scored
 	byID := map[ids.ID]*Candidate{}
 	suppressed := map[ids.ID]string{}
@@ -563,6 +575,11 @@ func (r *Runtime) cycle(ctx context.Context, tx pgx.Tx, trigger string, start ti
 		}
 		r.loops.record(fingerprint(Candidate{Process: t.Process, Kind: t.Kind, Subject: t.Subject}))
 	}
+	for _, h := range r.registry.hooks {
+		if err := h.AfterCycle(ctx, c, c.emitted); err != nil {
+			r.log.Warn("hook failed", "hook", h.Name(), "err", err)
+		}
+	}
 	pruned := r.state.Prune(0.05)
 
 	// 7. Broadcast the resulting workspace and note attention shifts.
@@ -575,7 +592,8 @@ func (r *Runtime) cycle(ctx context.Context, tx pgx.Tx, trigger string, start ti
 			Salience: 0.2, Confidence: 1, Metadata: map[string]any{"thoughts": len(r.state.Workspace), "working_memory": len(r.state.WorkingMemory)},
 			Payload: map[string]any{"workspace": r.state.Workspace, "working_memory": r.state.WorkingMemory, "displaced": displaced, "pruned": pruned}})
 		c.Emit(events.New{Type: events.CycleCompleted, Source: "brain", Summary: fmt.Sprintf("cycle %d (%s): %d events, %d candidates, %d admitted, %d suppressed in %dms", r.state.Cycle, trigger, len(newEvents), len(scored), len(admittedThoughts), len(suppressed), time.Since(start).Milliseconds()),
-			Salience: 0.1, Confidence: 1, Metadata: map[string]any{"trigger": trigger, "candidates": len(scored), "admitted": len(admittedThoughts), "suppressed": len(suppressed), "duration_ms": time.Since(start).Milliseconds()}})
+			Salience: 0.1, Confidence: 1, Metadata: map[string]any{"trigger": trigger, "candidates": len(scored), "admitted": len(admittedThoughts), "suppressed": len(suppressed), "duration_ms": time.Since(start).Milliseconds()},
+			Payload: map[string]any{"effective_weights": st.Weights}})
 	}
 	if err := c.flush(ctx); err != nil {
 		return nil, err
@@ -583,6 +601,7 @@ func (r *Runtime) cycle(ctx context.Context, tx pgx.Tx, trigger string, start ti
 
 	// 8. Persist and advance the cursor to the last *read* event.
 	r.state.LastCycleID, r.state.LastCycleAt = cycleID, start
+	r.state.EffectiveWeights = st.Weights
 	if len(newEvents) > 0 {
 		if err := r.events.SetCursor(ctx, tx, r.mind.ID, cursorConsumer, newEvents[len(newEvents)-1].Seq); err != nil {
 			return nil, err

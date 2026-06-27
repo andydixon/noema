@@ -6,11 +6,13 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/andydixon/noema/internal/beliefs"
 	"github.com/andydixon/noema/internal/brain"
 	"github.com/andydixon/noema/internal/conversation"
 	"github.com/andydixon/noema/internal/memory"
+	"github.com/andydixon/noema/internal/predictions"
 	"github.com/andydixon/noema/internal/storage"
 	"github.com/andydixon/noema/internal/workspace"
 	"github.com/andydixon/noema/pkg/concepts"
@@ -31,6 +33,8 @@ func (h Handlers) Register(r *brain.Registry) {
 	r.Handle("retrieve", h.retrieve)
 	r.Handle("hypothesis", h.hypothesis)
 	r.Handle("perceive", h.perceive)
+	r.Handle("goal", h.goal)
+	r.Handle("question", h.question)
 }
 
 // emitter adapts the cycle to the beliefs store's Emitter.
@@ -77,7 +81,39 @@ func (h Handlers) hypothesis(ctx context.Context, c *brain.Cycle, t workspace.Th
 		return err
 	}
 	c.Runtime.Hold(workspace.Item{Key: "belief:" + string(res.Belief.ID), Content: "hypothesis (" + fmt.Sprintf("%.2f", res.Belief.Confidence) + "): " + prop, Kind: "thought", Ref: string(res.Belief.ID), SourceEvent: t.EventID})
+	// A causal hypothesis implies a checkable expectation: the effect recurs
+	// after the cause. Its confidence is the belief's, so a miss will lower it.
+	if c.State.Services.Predictions != nil {
+		effect, _ := t.Content["effect_event"].(string)
+		if ev, err := c.Runtime.Events().Get(ctx, ids.ID(effect)); err == nil {
+			terms := distinctiveTerms(ev.Summary, 3)
+			if len(terms) > 0 {
+				p, err := c.State.Services.Predictions.Create(ctx, c.Tx, predictions.New{MindID: c.State.Mind.ID, Statement: "something like \"" + truncate(ev.Summary, 80) + "\" will recur within 24 hours if the cause is real",
+					Subject: subjectKey(ev.Summary), Confidence: res.Belief.Confidence, WindowEnd: c.State.Now.Add(24 * time.Hour),
+					Criteria: predictions.Criteria{Kind: "event_match", Expect: "occurs", Terms: terms, MinTerms: min(2, len(terms))}, Source: "brain.associate", OriginEvent: res.Events[0].ID, BeliefID: res.Belief.ID})
+				if err == nil {
+					c.Emit(events.New{Type: events.PredictionCreated, Source: "brain.associate", Summary: fmt.Sprintf("predicted (%.2f): %s", p.Confidence, p.Statement), Salience: 0.3, Confidence: p.Confidence, CausationID: res.Events[0].ID,
+						Evidence: []events.EvidenceRef{{Kind: "prediction", ID: string(p.ID)}, {Kind: "belief", ID: string(res.Belief.ID)}}, Metadata: map[string]any{"prediction_id": string(p.ID), "belief_id": string(res.Belief.ID), "window_end": p.WindowEnd}, Payload: p})
+				}
+			}
+		}
+	}
 	return nil
+}
+
+// distinctiveTerms picks the longest tokens of a summary as match terms.
+func distinctiveTerms(text string, n int) []string {
+	toks := tokeniseWS(text)
+	var out []string
+	for _, t := range toks {
+		if len(t) >= 5 {
+			out = append(out, t)
+		}
+		if len(out) == n {
+			break
+		}
+	}
+	return out
 }
 
 // attend encodes the attended event as a memory and holds it in working

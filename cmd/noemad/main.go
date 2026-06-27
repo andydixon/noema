@@ -23,11 +23,14 @@ import (
 	"github.com/andydixon/noema/internal/config"
 	"github.com/andydixon/noema/internal/conversation"
 	evstore "github.com/andydixon/noema/internal/events"
+	"github.com/andydixon/noema/internal/goals"
 	"github.com/andydixon/noema/internal/llm/prompts"
 	"github.com/andydixon/noema/internal/llm/router"
 	"github.com/andydixon/noema/internal/memory"
 	"github.com/andydixon/noema/internal/minds"
+	"github.com/andydixon/noema/internal/motivation"
 	"github.com/andydixon/noema/internal/observability"
+	"github.com/andydixon/noema/internal/predictions"
 	"github.com/andydixon/noema/internal/scheduler"
 	"github.com/andydixon/noema/internal/security/secrets"
 	"github.com/andydixon/noema/internal/storage"
@@ -119,10 +122,17 @@ func run() error {
 	deps.Memory = memory.NewStore(ctx, db, deps.LLM.Embedder(ctx))
 	deps.Beliefs = beliefs.NewStore(db)
 	deps.Conversations = conversation.NewStore(db)
-	registry := brain.NewRegistry().AddProcess(cognition.Attend{}).AddProcess(cognition.Retrieve{}).AddProcess(cognition.Associate{}).AddProcess(cognition.Perceive{})
+	deps.Goals = goals.NewStore(db)
+	deps.Motivation = motivation.NewStore(db)
+	deps.Predictions = predictions.NewStore(db)
+	deps.Resolver = &predictions.Resolver{Store: deps.Predictions, Events: deps.Events, Beliefs: deps.Beliefs, Log: log, Metrics: metrics}
+	registry := brain.NewRegistry().AddProcess(cognition.Attend{}).AddProcess(cognition.Retrieve{}).AddProcess(cognition.Associate{}).AddProcess(cognition.Perceive{}).
+		AddProcess(cognition.GoalMonitor{}).AddProcess(cognition.Curiosity{}).AddHook(cognition.MotivationHook{Store: deps.Motivation})
 	cognition.Handlers{Memory: deps.Memory, Beliefs: deps.Beliefs, Conversations: deps.Conversations}.Register(registry)
 	deps.Brain = brain.NewManager(brain.Config{DB: db, Events: deps.Events, Minds: deps.Minds, Registry: registry, Pool: scheduler.NewPool(cfg.MaxWorkers),
-		Log: log, Metrics: metrics, Services: brain.Services{Events: deps.Events, Memory: deps.Memory, Beliefs: deps.Beliefs, LLM: deps.LLM, Prompts: deps.Prompts}}, group)
+		Log: log, Metrics: metrics, Services: brain.Services{Events: deps.Events, Memory: deps.Memory, Beliefs: deps.Beliefs, LLM: deps.LLM, Prompts: deps.Prompts,
+			Goals: deps.Goals, Motivation: deps.Motivation, Predictions: deps.Predictions}}, group)
+	group.Every("predictions.resolve", time.Minute, deps.Resolver.Run)
 	group.Every("memory.decay", 6*time.Hour, func(ctx context.Context) error { return decayMemories(ctx, deps) })
 	group.Every("memory.embed", time.Minute, func(ctx context.Context) error { _, err := deps.Memory.EmbedMissing(ctx, 50); return err })
 	if err := deps.Brain.Start(ctx); err != nil {
@@ -130,15 +140,28 @@ func run() error {
 	}
 
 	var srv *api.Server
-	uiHandler, err := ui.New(deps, func(r *http.Request) any { return srv.Status(r.Context()) },
-		func(r *http.Request, id ids.ID) (api.EventContext, error) { return srv.Context(r, id) },
-		func(r *http.Request, m minds.Mind) (api.WorkspaceView, error) { return srv.Workspace(r.Context(), m) },
-		func(r *http.Request, mind, id ids.ID) (api.MemoryDetail, error) { return srv.MemoryDetail(r, mind, id) },
-		func(r *http.Request, mind, id ids.ID) (api.BeliefDetail, error) { return srv.BeliefDetail(r, mind, id) },
-		func() beliefs.Emitter { return srv.Emitter() },
-		func(r *http.Request, mind ids.ID, conv conversation.Conversation, text, who string) (conversation.Message, error) {
+	uiHandler, err := ui.New(deps, ui.Actions{
+		Status:    func(r *http.Request) any { return srv.Status(r.Context()) },
+		Context:   func(r *http.Request, id ids.ID) (api.EventContext, error) { return srv.Context(r, id) },
+		Workspace: func(r *http.Request, m minds.Mind) (api.WorkspaceView, error) { return srv.Workspace(r.Context(), m) },
+		Memory:    func(r *http.Request, mind, id ids.ID) (api.MemoryDetail, error) { return srv.MemoryDetail(r, mind, id) },
+		Belief:    func(r *http.Request, mind, id ids.ID) (api.BeliefDetail, error) { return srv.BeliefDetail(r, mind, id) },
+		Emitter:   func() beliefs.Emitter { return srv.Emitter() },
+		Post: func(r *http.Request, mind ids.ID, conv conversation.Conversation, text, who string) (conversation.Message, error) {
 			return srv.PostMessage(r, mind, conv, text, who)
-		})
+		},
+		Goal: func(r *http.Request, n goals.New) (goals.Goal, error) { return srv.CreateGoal(r, n) },
+		GoalUpdate: func(r *http.Request, mind, id ids.ID, u goals.Update) (goals.Goal, error) {
+			return srv.UpdateGoal(r, mind, id, u)
+		},
+		Predict: func(r *http.Request, n predictions.New) (predictions.Prediction, error) {
+			return srv.CreatePrediction(r, n)
+		},
+		Resolve: func(r *http.Request, mind, id ids.ID, outcome predictions.Status, reason string) (predictions.Result, error) {
+			return srv.ResolvePrediction(r, mind, id, outcome, reason)
+		},
+		ResetState: func(r *http.Request, mind ids.ID) (motivation.State, error) { return srv.ResetState(r, mind) },
+	})
 	if err != nil {
 		return err
 	}

@@ -11,6 +11,7 @@ import (
 
 	"github.com/andydixon/noema/internal/attention"
 	"github.com/andydixon/noema/internal/brain"
+	"github.com/andydixon/noema/internal/goals"
 	"github.com/andydixon/noema/internal/workspace"
 	"github.com/andydixon/noema/pkg/events"
 	"github.com/andydixon/noema/pkg/ids"
@@ -56,6 +57,7 @@ func (Attend) Observe(_ context.Context, s *brain.State) ([]brain.Candidate, err
 		f := attention.Features{Salience: ev.Salience, Confidence: ev.Confidence, Consequence: 0.4}
 		f.Urgency = urgency(toks)
 		f.ContextRelevance = workspace.Overlap(toks, ctxTokens)
+		f.GoalRelevance, _ = goals.Relevance(text, s.Goals)
 		f.Novelty = 1 - f.ContextRelevance*0.7 // things we are already holding are less novel
 		switch trust {
 		case events.TrustOperator:

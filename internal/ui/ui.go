@@ -22,8 +22,11 @@ import (
 	"github.com/andydixon/noema/internal/auth"
 	"github.com/andydixon/noema/internal/beliefs"
 	"github.com/andydixon/noema/internal/conversation"
+	"github.com/andydixon/noema/internal/goals"
 	"github.com/andydixon/noema/internal/llm"
 	"github.com/andydixon/noema/internal/minds"
+	"github.com/andydixon/noema/internal/motivation"
+	"github.com/andydixon/noema/internal/predictions"
 	"github.com/andydixon/noema/internal/version"
 	"github.com/andydixon/noema/pkg/concepts"
 	"github.com/andydixon/noema/pkg/ids"
@@ -32,16 +35,38 @@ import (
 
 // UI holds handlers and the parsed template set.
 type UI struct {
-	deps    app.Deps
-	pages   map[string]*template.Template
-	static  fs.FS
-	statusF func(r *http.Request) any                                  // system status provider injected by api
-	ctxF    func(r *http.Request, id ids.ID) (api.EventContext, error) // event forensic context, shared with api
-	wsF     func(r *http.Request, m minds.Mind) (api.WorkspaceView, error)
-	memF    func(r *http.Request, mind, id ids.ID) (api.MemoryDetail, error)
-	belF    func(r *http.Request, mind, id ids.ID) (api.BeliefDetail, error)
-	emitF   func() beliefs.Emitter
-	postF   func(r *http.Request, mind ids.ID, conv conversation.Conversation, text, who string) (conversation.Message, error)
+	deps     app.Deps
+	pages    map[string]*template.Template
+	static   fs.FS
+	statusF  func(r *http.Request) any                                  // system status provider injected by api
+	ctxF     func(r *http.Request, id ids.ID) (api.EventContext, error) // event forensic context, shared with api
+	wsF      func(r *http.Request, m minds.Mind) (api.WorkspaceView, error)
+	memF     func(r *http.Request, mind, id ids.ID) (api.MemoryDetail, error)
+	belF     func(r *http.Request, mind, id ids.ID) (api.BeliefDetail, error)
+	emitF    func() beliefs.Emitter
+	postF    func(r *http.Request, mind ids.ID, conv conversation.Conversation, text, who string) (conversation.Message, error)
+	goalF    func(r *http.Request, n goals.New) (goals.Goal, error)
+	goalUpdF func(r *http.Request, mind, id ids.ID, u goals.Update) (goals.Goal, error)
+	predF    func(r *http.Request, n predictions.New) (predictions.Prediction, error)
+	resolveF func(r *http.Request, mind, id ids.ID, outcome predictions.Status, reason string) (predictions.Result, error)
+	resetF   func(r *http.Request, mind ids.ID) (motivation.State, error)
+}
+
+// Actions groups the server-side operations the UI delegates to the API layer
+// so both surfaces share one implementation and one audit path.
+type Actions struct {
+	Status     func(r *http.Request) any
+	Context    func(r *http.Request, id ids.ID) (api.EventContext, error)
+	Workspace  func(r *http.Request, m minds.Mind) (api.WorkspaceView, error)
+	Memory     func(r *http.Request, mind, id ids.ID) (api.MemoryDetail, error)
+	Belief     func(r *http.Request, mind, id ids.ID) (api.BeliefDetail, error)
+	Emitter    func() beliefs.Emitter
+	Post       func(r *http.Request, mind ids.ID, conv conversation.Conversation, text, who string) (conversation.Message, error)
+	Goal       func(r *http.Request, n goals.New) (goals.Goal, error)
+	GoalUpdate func(r *http.Request, mind, id ids.ID, u goals.Update) (goals.Goal, error)
+	Predict    func(r *http.Request, n predictions.New) (predictions.Prediction, error)
+	Resolve    func(r *http.Request, mind, id ids.ID, outcome predictions.Status, reason string) (predictions.Result, error)
+	ResetState func(r *http.Request, mind ids.ID) (motivation.State, error)
 }
 
 // View is the data passed to every template.
@@ -62,7 +87,7 @@ const flashCookie = "noema_flash"
 
 // New parses templates. In development, when ./web exists on disk, templates
 // and static files are read from disk so edits show without a rebuild.
-func New(deps app.Deps, statusF func(r *http.Request) any, ctxF func(r *http.Request, id ids.ID) (api.EventContext, error), wsF func(r *http.Request, m minds.Mind) (api.WorkspaceView, error), memF func(r *http.Request, mind, id ids.ID) (api.MemoryDetail, error), belF func(r *http.Request, mind, id ids.ID) (api.BeliefDetail, error), emitF func() beliefs.Emitter, postF func(r *http.Request, mind ids.ID, conv conversation.Conversation, text, who string) (conversation.Message, error)) (*UI, error) {
+func New(deps app.Deps, a Actions) (*UI, error) {
 	tmplFS, staticFS := web.Templates(), web.Static()
 	if !deps.Config.Production() {
 		if st, err := os.Stat("web/templates"); err == nil && st.IsDir() {
@@ -70,7 +95,7 @@ func New(deps app.Deps, statusF func(r *http.Request) any, ctxF func(r *http.Req
 			deps.Log.Info("ui: serving templates and static files from ./web (development)")
 		}
 	}
-	u := &UI{deps: deps, static: staticFS, statusF: statusF, ctxF: ctxF, wsF: wsF, memF: memF, belF: belF, emitF: emitF, postF: postF}
+	u := &UI{deps: deps, static: staticFS, statusF: a.Status, ctxF: a.Context, wsF: a.Workspace, memF: a.Memory, belF: a.Belief, emitF: a.Emitter, postF: a.Post, goalF: a.Goal, goalUpdF: a.GoalUpdate, predF: a.Predict, resolveF: a.Resolve, resetF: a.ResetState}
 	if err := u.parse(tmplFS); err != nil {
 		return nil, err
 	}
@@ -123,6 +148,21 @@ func (u *UI) parse(fsys fs.FS) error {
 		"relations":      func() []concepts.Relation { return concepts.AllRelations },
 		"llmRoles":       func() []llm.RoleInfo { return llm.Roles },
 		"pretty":         prettyRaw,
+		"affectMap": func(a motivation.Affect) map[string]float64 {
+			return map[string]float64{"valence": a.Valence, "arousal": a.Arousal, "curiosity": a.Curiosity, "concern": a.Concern, "frustration": a.Frustration, "confidence": a.Confidence, "uncertainty": a.Uncertainty, "engagement": a.Engagement, "task_pressure": a.TaskPressure, "load": a.Load}
+		},
+		"valencePos": func(v float64) float64 {
+			if v < 0 {
+				return 0.5 + v/2
+			}
+			return 0.5
+		},
+		"valenceWidth": func(v float64) float64 {
+			if v < 0 {
+				return -v / 2
+			}
+			return v / 2
+		},
 		"deref_id": func(id *ids.ID) ids.ID {
 			if id == nil {
 				return ids.Nil
@@ -301,6 +341,7 @@ func (u *UI) Register(m *http.ServeMux) {
 	u.beliefRoutes(m)
 	u.llmRoutes(m)
 	u.conversationRoutes(m)
+	u.motivationRoutes(m)
 
 	for _, p := range []struct{ path, title, note string }{
 		{"/approvals", "Approvals", "The approval centre arrives with the capability system."},

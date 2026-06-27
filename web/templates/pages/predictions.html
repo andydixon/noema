@@ -1,0 +1,50 @@
+{{define "content"}}
+{{$m := .Data.Mind}}{{$c := .Data.Calibration}}
+<div class="pagehead mindhead"><div><h1>{{$m.DisplayName}} <span class="muted small">predictions</span></h1><p class="muted">Explicit expectations with windows and checkable criteria. Misses become prediction errors that lower the linked belief.</p></div></div>
+{{template "mind_tabs" (dict "M" $m "Active" "predictions")}}
+<section class="grid cols-4">
+  <div class="card stat"><div class="stat-label">Open</div><div class="stat-value">{{index .Data.Stats "open"}}</div></div>
+  <div class="card stat"><div class="stat-label">Accuracy</div><div class="stat-value">{{if $c.Total}}{{pct $c.Accuracy}}{{else}}—{{end}}</div><div class="muted small">{{$c.Confirmed}} confirmed · {{$c.Refuted}} refuted · {{$c.Expired}} expired (90 days)</div></div>
+  <div class="card stat"><div class="stat-label">Brier score</div><div class="stat-value">{{if $c.Total}}{{conf $c.Brier}}{{else}}—{{end}}</div><div class="muted small">0 is perfect, 0.25 is chance</div></div>
+  <div class="card stat"><div class="stat-label">Calibration</div><div class="stat-value small">{{if $c.Overconfident}}<span class="warn">overconfident</span>{{else if $c.Total}}<span class="ok">in range</span>{{else}}—{{end}}</div></div>
+</section>
+<section class="grid cols-3-1">
+  <div class="stack">
+    <div class="card">
+      <h2>Calibration by stated confidence</h2>
+      {{if $c.Total}}<table class="table compact"><thead><tr><th>Stated</th><th class="num">n</th><th class="num">Mean stated</th><th class="num">Actual hit rate</th><th>Gap</th></tr></thead>
+        <tbody>{{range $c.Buckets}}<tr><td>{{.Label}}</td><td class="num">{{.Count}}</td><td class="num">{{if .Count}}{{conf .MeanConf}}{{else}}—{{end}}</td><td class="num">{{if .Count}}{{conf .HitRate}}{{else}}—{{end}}</td>
+          <td>{{if .Count}}<div class="cal"><span class="cal-bar" style="width:{{pct .MeanConf}}"></span><span class="cal-hit" style="left:{{pct .HitRate}}"></span></div>{{end}}</td></tr>{{end}}</tbody></table>
+      <p class="muted small">Bar: mean stated confidence. Marker: fraction that came true. A well-calibrated mind has the marker at the end of the bar.</p>
+      {{else}}<p class="muted">No resolved predictions yet.</p>{{end}}
+    </div>
+    <div class="card">
+      <h2>Predictions</h2>
+      {{if .Data.Predictions}}<table class="table compact"><thead><tr><th>Status</th><th>Statement</th><th class="num">Conf</th><th>Window</th><th>Criteria</th><th></th></tr></thead>
+        <tbody>{{range .Data.Predictions}}<tr>
+          <td><span class="badge ps-{{.Status}}">{{.Status}}</span></td>
+          <td>{{.Statement}}<div class="small muted">{{.Source}}{{if .BeliefID}} · <a href="/minds/{{$m.Slug}}/beliefs/{{.BeliefID}}">belief</a>{{end}}{{if .OriginEvent}} · <a href="/events/{{.OriginEvent}}">origin</a>{{end}}{{if .Resolution}} · {{payloadField .Resolution "reason"}}{{end}}</div></td>
+          <td class="num">{{conf .Confidence}}</td><td class="small nowrap">{{.WindowStart.Local.Format "01-02 15:04"}} → {{.WindowEnd.Local.Format "01-02 15:04"}}</td>
+          <td class="small mono">{{.Criteria.Kind}}{{if .Criteria.Terms}} {{.Criteria.Expect}}: {{range .Criteria.Terms}}{{.}} {{end}}{{end}}</td>
+          <td class="nowrap">{{if and (eq .Status "open") ($.Principal.User.Role.AtLeast "operator")}}<form method="post" action="/minds/{{$m.Slug}}/predictions/{{.ID}}/resolve" class="inline"><input type="hidden" name="_csrf" value="{{$.CSRF}}"><button class="btn small" name="outcome" value="confirmed">✓</button><button class="btn small" name="outcome" value="refuted">✗</button><button class="btn small btn-ghost" name="outcome" value="withdrawn">withdraw</button></form>{{end}}</td>
+        </tr>{{end}}</tbody></table>
+      {{else}}<p class="muted">None yet. Causal hypotheses create predictions automatically; operators can add them here.</p>{{end}}
+    </div>
+  </div>
+  {{if .Principal.User.Role.AtLeast "operator"}}
+  <div class="card">
+    <h2>New prediction</h2>
+    <form method="post" action="/minds/{{$m.Slug}}/predictions" class="stack">
+      <input type="hidden" name="_csrf" value="{{.CSRF}}">
+      <label>Statement <textarea name="statement" rows="2" required maxlength="1000" placeholder="server-01 will remain healthy for 24 hours"></textarea></label>
+      <label class="slider"><span>Confidence</span><input type="range" name="confidence" min="0.05" max="0.95" step="0.05" value="0.7" data-out><output>0.7</output></label>
+      <label>Window (hours) <input type="number" name="hours" min="1" max="8760" value="24"></label>
+      <label>Criteria <select name="kind"><option value="event_match">event terms</option><option value="operator">operator judges</option></select></label>
+      <div class="grid cols-2 tight"><label>Expect <select name="expect"><option value="occurs">terms occur</option><option value="absent">terms stay absent</option></select></label>
+      <label>Terms <input name="terms" placeholder="server-01, fail" maxlength="200"></label></div>
+      <div><button class="btn btn-primary" type="submit">Predict</button></div>
+    </form>
+  </div>
+  {{end}}
+</section>
+{{end}}

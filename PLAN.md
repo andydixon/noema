@@ -126,11 +126,15 @@ An administrator can: start Noema → log in → create a mind → configure per
 
 **Milestone M1 reached.** Remaining phases deepen the system; the vertical slice above is exercised end to end by `go test ./tests/m1/`.
 
-### Phase 9 – Goals, drives, predictions
-- ☐ goals (tree, priority, progress, blockers, origin), goal monitor process
-- ☐ drives with ranges; affect model with baselines and decay; UI panels and reset
-- ☐ predictions, resolution scheduler, prediction error → confidence/credibility/calibration; prediction dashboard
-- ☐ Curiosity process
+### Phase 9 – Goals, drives, affect, predictions, curiosity ☑
+- ☑ `migrations/0009_motivation`: goals, drives, affect_states, predictions, append-only prediction_results
+- ☑ `internal/goals`: tree with kinds/status/priority/progress/blockers, stalled detection, deterministic goal relevance
+- ☑ `internal/motivation`: closed drive set (no self-preservation), personality-derived baselines, explicit event rule table, decay, attention weight modulation, significance thresholds
+- ☑ `internal/predictions`: criteria (event terms, belief confidence, operator), deterministic judging, append-only outcomes, calibration (accuracy, Brier, buckets, overconfidence flag), resolver job with prediction_error events and belief feedback
+- ☑ Brain: after-cycle hooks, goals and motivation in cycle state, effective weights recorded per cycle
+- ☑ Cognition: motivation hook, goal monitor, curiosity (questions from misses, contradictions, unexplained observations) with question → investigation goal handler, hypothesis-derived predictions, goal relevance in attend
+- ☑ API: goals, predictions (create/resolve/calibration), state (get/reset/drive ranges); UI: goals page, prediction dashboard with calibration, cognitive state panel on overview, effective weights on workspace; CLI goal/prediction/state
+- ☑ Docs: predictions.md, motivation.md. Demo scenario 4 (prediction error) verified live
 
 ### Phase 10 – Metacognition, reflection, consolidation, narrative, notifications
 - ☐ metacognitive checks and warnings; reflection scheduler; consolidation scheduler with operator controls; narrative generation; notification thresholds, suppression, aggregation, reasons

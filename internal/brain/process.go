@@ -11,10 +11,13 @@ import (
 
 	"github.com/andydixon/noema/internal/attention"
 	"github.com/andydixon/noema/internal/beliefs"
+	"github.com/andydixon/noema/internal/goals"
 	"github.com/andydixon/noema/internal/llm/prompts"
 	"github.com/andydixon/noema/internal/llm/router"
 	"github.com/andydixon/noema/internal/memory"
 	"github.com/andydixon/noema/internal/minds"
+	"github.com/andydixon/noema/internal/motivation"
+	"github.com/andydixon/noema/internal/predictions"
 	"github.com/andydixon/noema/internal/workspace"
 	"github.com/andydixon/noema/pkg/events"
 	"github.com/andydixon/noema/pkg/ids"
@@ -66,7 +69,10 @@ type State struct {
 	NewEvents []events.Event  // since the last cycle, ascending
 	Workspace workspace.State // snapshot before this cycle
 	Services  Services
-	llmCalls  atomic.Int32 // model calls made in this cycle; processes and handlers share the cap
+	Goals     []goals.Goal       // active goals, for relevance scoring
+	Motiv     motivation.State   // drives and affect at the start of the cycle
+	Weights   map[string]float64 // effective attention weights after modulation
+	llmCalls  atomic.Int32       // model calls made in this cycle; processes and handlers share the cap
 }
 
 // AllowLLM reserves one model call against the mind's per-cycle cap and
@@ -85,11 +91,14 @@ func (s *State) AllowLLM() bool {
 
 // Services are read handles processes may use. Extended per phase.
 type Services struct {
-	Events  EventReader
-	Memory  *memory.Store
-	Beliefs *beliefs.Store
-	LLM     *router.Router
-	Prompts *prompts.Store
+	Events      EventReader
+	Memory      *memory.Store
+	Beliefs     *beliefs.Store
+	LLM         *router.Router
+	Prompts     *prompts.Store
+	Goals       *goals.Store
+	Motivation  *motivation.Store
+	Predictions *predictions.Store
 }
 
 // EventReader is the subset of the event store processes may call.
@@ -102,10 +111,18 @@ type EventReader interface {
 // receive the cycle's emitter so provenance links are consistent.
 type Handler func(ctx context.Context, c *Cycle, t workspace.Thought) error
 
-// Registry holds processes and handlers. It is immutable after construction.
+// Hook runs after the executive handlers of a cycle, with the events emitted
+// so far, for cross-cutting updates such as drives and affect.
+type Hook interface {
+	Name() string
+	AfterCycle(ctx context.Context, c *Cycle, emitted []events.Event) error
+}
+
+// Registry holds processes, handlers and hooks. It is immutable after construction.
 type Registry struct {
 	processes []Process
 	handlers  map[string]Handler
+	hooks     []Hook
 }
 
 // NewRegistry builds a registry.
@@ -116,6 +133,9 @@ func (r *Registry) AddProcess(p Process) *Registry { r.processes = append(r.proc
 
 // Handle registers the handler for a thought kind.
 func (r *Registry) Handle(kind string, h Handler) *Registry { r.handlers[kind] = h; return r }
+
+// AddHook registers an after-cycle hook.
+func (r *Registry) AddHook(h Hook) *Registry { r.hooks = append(r.hooks, h); return r }
 
 // Processes returns the registered processes.
 func (r *Registry) Processes() []Process { return r.processes }

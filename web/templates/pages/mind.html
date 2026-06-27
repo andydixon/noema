@@ -43,6 +43,13 @@
   </div>
 </section>
 <section class="grid cols-2">
+  {{template "state_panel" (dict "State" .Data.Motiv "Mind" $m "CSRF" .CSRF "CanOperate" (.Principal.User.Role.AtLeast "operator"))}}
+  <div class="card">
+    <h2>Active goals <span class="muted small"><a href="/minds/{{$m.Slug}}/goals">all</a></span></h2>
+    {{if .Data.Goals}}<table class="table compact"><tbody>{{range .Data.Goals}}<tr><td><span class="badge gs-{{.Status}}">{{.Status}}</span></td><td>{{.Title}}<div class="muted small">{{.Kind}} · priority {{conf .Priority}}</div></td><td><span class="conf"><span class="conf-bar"><i style="width:{{pct .Progress}}"></i></span></span></td></tr>{{end}}</tbody></table>{{else}}<p class="muted small">No active goals.</p>{{end}}
+  </div>
+</section>
+<section class="grid cols-2">
   <div class="card">
     <h2>Important beliefs <span class="muted small"><a href="/minds/{{$m.Slug}}/beliefs">{{.Data.BeliefStats.Total}} total</a></span></h2>
     {{if .Data.Beliefs}}<table class="table compact"><tbody>{{range .Data.Beliefs}}<tr><td><span class="badge st-{{.Status}}">{{.Status}}</span></td><td><a href="/minds/{{$m.Slug}}/beliefs/{{.ID}}">{{.Proposition}}</a></td><td class="num"><span class="conf"><span class="conf-bar"><i style="width:{{pct .Confidence}}"></i></span> {{conf .Confidence}}</span></td></tr>{{end}}</tbody></table>

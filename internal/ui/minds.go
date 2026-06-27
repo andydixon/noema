@@ -11,6 +11,7 @@ import (
 	"github.com/andydixon/noema/internal/auth"
 	"github.com/andydixon/noema/internal/beliefs"
 	"github.com/andydixon/noema/internal/minds"
+	"github.com/andydixon/noema/internal/motivation"
 	"github.com/andydixon/noema/internal/storage"
 	"github.com/andydixon/noema/pkg/ids"
 )
@@ -102,7 +103,13 @@ func (u *UI) mindOverview(w http.ResponseWriter, r *http.Request) {
 	ms, _ := u.deps.Memory.Stats(r.Context(), m.ID)
 	bs, _ := u.deps.Beliefs.Stats(r.Context(), m.ID)
 	top, _ := u.deps.Beliefs.List(r.Context(), m.ID, beliefs.Filter{Limit: 8})
-	u.render(w, r, "mind", m.DisplayName, map[string]any{"Mind": m, "Brief": m.Personality.Brief(), "SelfModel": sm, "Stats": st, "MemStats": ms, "BeliefStats": bs, "Beliefs": top})
+	motiv, _ := u.deps.Motivation.Load(r.Context(), u.deps.DB, m)
+	motivation.Decay(&motiv, motivation.Baselines(m.Personality), time.Since(motiv.Affect.UpdatedAt))
+	active, _ := u.deps.Goals.Active(r.Context(), m.ID)
+	if len(active) > 6 {
+		active = active[:6]
+	}
+	u.render(w, r, "mind", m.DisplayName, map[string]any{"Mind": m, "Brief": m.Personality.Brief(), "SelfModel": sm, "Stats": st, "MemStats": ms, "BeliefStats": bs, "Beliefs": top, "Motiv": motiv, "Goals": active})
 }
 
 func (u *UI) mindStatus(w http.ResponseWriter, r *http.Request) {

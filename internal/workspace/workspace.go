@@ -46,13 +46,14 @@ type Item struct {
 
 // State is the persisted snapshot.
 type State struct {
-	Cycle         int64     `json:"cycle"`
-	Mode          string    `json:"mode"`
-	LastCycleID   ids.ID    `json:"last_cycle_id,omitempty"`
-	LastCycleAt   time.Time `json:"last_cycle_at"`
-	LastStimulus  time.Time `json:"last_stimulus_at"`
-	Workspace     []Thought `json:"workspace"`
-	WorkingMemory []Item    `json:"working_memory"`
+	Cycle            int64              `json:"cycle"`
+	Mode             string             `json:"mode"`
+	LastCycleID      ids.ID             `json:"last_cycle_id,omitempty"`
+	LastCycleAt      time.Time          `json:"last_cycle_at"`
+	LastStimulus     time.Time          `json:"last_stimulus_at"`
+	Workspace        []Thought          `json:"workspace"`
+	WorkingMemory    []Item             `json:"working_memory"`
+	EffectiveWeights map[string]float64 `json:"effective_weights,omitempty"` // attention weights after drive/affect modulation in the last cycle
 }
 
 // Outcome records what happened to one candidate during admission.

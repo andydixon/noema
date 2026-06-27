@@ -18,11 +18,14 @@ import (
 	"github.com/andydixon/noema/internal/config"
 	"github.com/andydixon/noema/internal/conversation"
 	evstore "github.com/andydixon/noema/internal/events"
+	"github.com/andydixon/noema/internal/goals"
 	"github.com/andydixon/noema/internal/llm/prompts"
 	"github.com/andydixon/noema/internal/llm/router"
 	"github.com/andydixon/noema/internal/memory"
 	"github.com/andydixon/noema/internal/minds"
+	"github.com/andydixon/noema/internal/motivation"
 	"github.com/andydixon/noema/internal/observability"
+	"github.com/andydixon/noema/internal/predictions"
 	"github.com/andydixon/noema/internal/scheduler"
 	"github.com/andydixon/noema/internal/security/secrets"
 	"github.com/andydixon/noema/internal/storage"
@@ -39,8 +42,9 @@ func testServer(t *testing.T) (*httptest.Server, string) {
 	llmStore := router.NewStore(pool)
 	deps := app.Deps{Config: cfg, Log: log, DB: pool, Auth: auth.NewService(pool, time.Hour, 2*time.Hour), Secrets: sec, LLMStore: llmStore,
 		LLM: router.NewRouter(llmStore, sec, log, nil, 2), Prompts: prompts.NewStore(pool),
-		Audit: audit.New(pool, log), Metrics: observability.NewMetrics(), Minds: minds.NewStore(pool), Conversations: conversation.NewStore(pool), Beliefs: beliefs.NewStore(pool), Memory: memory.NewStore(context.Background(), pool, nil), Events: evstore.NewStore(pool, evstore.NewBus(50), nil), Migrations: migrations.FS, Started: time.Now()}
+		Audit: audit.New(pool, log), Metrics: observability.NewMetrics(), Minds: minds.NewStore(pool), Conversations: conversation.NewStore(pool), Goals: goals.NewStore(pool), Motivation: motivation.NewStore(pool), Predictions: predictions.NewStore(pool), Beliefs: beliefs.NewStore(pool), Memory: memory.NewStore(context.Background(), pool, nil), Events: evstore.NewStore(pool, evstore.NewBus(50), nil), Migrations: migrations.FS, Started: time.Now()}
 	ctx := context.Background()
+	deps.Resolver = &predictions.Resolver{Store: deps.Predictions, Events: deps.Events, Beliefs: deps.Beliefs, Log: log}
 	group := scheduler.NewGroup(ctx, log)
 	t.Cleanup(func() { group.Stop() })
 	deps.Brain = brain.NewManager(brain.Config{DB: pool, Events: deps.Events, Minds: deps.Minds, Registry: brain.NewRegistry(), Pool: scheduler.NewPool(2), Log: log, Metrics: deps.Metrics}, group)

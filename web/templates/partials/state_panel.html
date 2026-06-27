@@ -1,0 +1,14 @@
+{{define "state_panel"}}{{$s := .State}}{{$m := .Mind}}
+<div class="card">
+  <h2>Cognitive state <span class="muted small">scalars updated by rule; not a claim of feeling</span></h2>
+  <div class="grid cols-2 tight">
+    <div><h3>Affect</h3>
+      {{range $k, $v := (affectMap $s.Affect)}}<div class="dim"><span class="dim-name">{{title $k}}</span><span class="dim-bar {{if eq $k "valence"}}bipolar{{end}}"><i style="{{if eq $k "valence"}}left:{{pct (valencePos $v)}};width:{{pct (valenceWidth $v)}}{{else}}width:{{pct $v}}{{end}}"></i></span><span class="dim-val">{{conf $v}}</span></div>{{end}}
+    </div>
+    <div><h3>Drives</h3>
+      {{range $s.Drives}}<div class="dim"><span class="dim-name">{{title .Name}}</span><span class="dim-bar"><i style="width:{{pct .Value}}"></i></span><span class="dim-val">{{conf .Value}} <span class="muted">[{{conf .Min}}–{{conf .Max}}]</span></span></div>{{end}}
+    </div>
+  </div>
+  {{if .CanOperate}}<form method="post" action="/minds/{{$m.Slug}}/state/reset" class="row"><input type="hidden" name="_csrf" value="{{.CSRF}}"><button class="btn small" data-confirm="Reset drives and affect to their baselines?">Reset transient state</button></form>{{end}}
+</div>
+{{end}}

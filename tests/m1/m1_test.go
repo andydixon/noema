@@ -25,12 +25,15 @@ import (
 	"github.com/andydixon/noema/internal/config"
 	"github.com/andydixon/noema/internal/conversation"
 	evstore "github.com/andydixon/noema/internal/events"
+	"github.com/andydixon/noema/internal/goals"
 	"github.com/andydixon/noema/internal/llm"
 	"github.com/andydixon/noema/internal/llm/prompts"
 	"github.com/andydixon/noema/internal/llm/router"
 	"github.com/andydixon/noema/internal/memory"
 	"github.com/andydixon/noema/internal/minds"
+	"github.com/andydixon/noema/internal/motivation"
 	"github.com/andydixon/noema/internal/observability"
+	"github.com/andydixon/noema/internal/predictions"
 	"github.com/andydixon/noema/internal/scheduler"
 	"github.com/andydixon/noema/internal/security/secrets"
 	"github.com/andydixon/noema/internal/storage"
@@ -51,11 +54,12 @@ func start(t *testing.T, deps app.Deps, perceive, respond llm.LanguageModel) *ha
 	t.Helper()
 	ctx := context.Background()
 	group := scheduler.NewGroup(ctx, deps.Log)
-	registry := brain.NewRegistry().AddProcess(cognition.Attend{}).AddProcess(cognition.Retrieve{}).AddProcess(cognition.Associate{}).AddProcess(cognition.Perceive{})
+	registry := brain.NewRegistry().AddProcess(cognition.Attend{}).AddProcess(cognition.Retrieve{}).AddProcess(cognition.Associate{}).AddProcess(cognition.Perceive{}).
+		AddProcess(cognition.GoalMonitor{}).AddProcess(cognition.Curiosity{}).AddHook(cognition.MotivationHook{Store: deps.Motivation})
 	cognition.Handlers{Memory: deps.Memory, Beliefs: deps.Beliefs, Conversations: deps.Conversations}.Register(registry)
 	deps.LLM.Override = map[llm.Role]llm.LanguageModel{llm.RolePerceive: perceive, llm.RoleRespond: respond}
 	deps.Brain = brain.NewManager(brain.Config{DB: deps.DB, Events: deps.Events, Minds: deps.Minds, Registry: registry, Pool: scheduler.NewPool(4), Log: deps.Log, Metrics: deps.Metrics,
-		Services: brain.Services{Events: deps.Events, Memory: deps.Memory, Beliefs: deps.Beliefs, LLM: deps.LLM, Prompts: deps.Prompts}}, group)
+		Services: brain.Services{Events: deps.Events, Memory: deps.Memory, Beliefs: deps.Beliefs, LLM: deps.LLM, Prompts: deps.Prompts, Goals: deps.Goals, Motivation: deps.Motivation, Predictions: deps.Predictions}}, group)
 	if err := deps.Brain.Start(ctx); err != nil {
 		t.Fatal(err)
 	}
@@ -102,7 +106,8 @@ func TestFirstMilestone(t *testing.T) {
 	llmStore := router.NewStore(pool)
 	deps := app.Deps{Config: cfg, Log: log, DB: pool, Auth: auth.NewService(pool, time.Hour, 2*time.Hour), Audit: audit.New(pool, log), Metrics: observability.NewMetrics(),
 		Minds: minds.NewStore(pool), Events: evstore.NewStore(pool, evstore.NewBus(64), nil), Memory: memory.NewStore(ctx, pool, nil), Beliefs: beliefs.NewStore(pool),
-		Conversations: conversation.NewStore(pool), Secrets: sec, LLMStore: llmStore, LLM: router.NewRouter(llmStore, sec, log, nil, 2), Prompts: prompts.NewStore(pool), Migrations: migrations.FS, Started: time.Now()}
+		Conversations: conversation.NewStore(pool), Goals: goals.NewStore(pool), Motivation: motivation.NewStore(pool), Predictions: predictions.NewStore(pool), Secrets: sec, LLMStore: llmStore, LLM: router.NewRouter(llmStore, sec, log, nil, 2), Prompts: prompts.NewStore(pool), Migrations: migrations.FS, Started: time.Now()}
+	deps.Resolver = &predictions.Resolver{Store: deps.Predictions, Events: deps.Events, Beliefs: deps.Beliefs, Log: log}
 	if _, err := deps.Prompts.SeedDefaults(ctx); err != nil {
 		t.Fatal(err)
 	}

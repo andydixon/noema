@@ -1,0 +1,37 @@
+{{define "content"}}
+{{$m := .Data.Mind}}
+<div class="pagehead mindhead"><div><h1>{{$m.DisplayName}} <span class="muted small">goals</span></h1><p class="muted">{{range $k, $v := .Data.Stats.ByStatus}}<span class="badge gs-{{$k}}">{{$k}} {{$v}}</span> {{end}} Goals bias attention through goal relevance; they never grant capabilities.</p></div></div>
+{{template "mind_tabs" (dict "M" $m "Active" "goals")}}
+<section class="grid cols-3-1">
+  <div class="card">
+    {{if .Data.Goals}}
+    <table class="table compact">
+      <thead><tr><th>Goal</th><th>Kind</th><th>Status</th><th class="num">Priority</th><th>Progress</th><th>Owner</th><th>Progress at</th>{{if .Principal.User.Role.AtLeast "operator"}}<th></th>{{end}}</tr></thead>
+      <tbody>{{range .Data.Goals}}<tr>
+        <td>{{if .ParentID}}<span class="muted">↳ </span>{{end}}<strong>{{.Title}}</strong>{{if .Description}}<div class="small muted">{{.Description}}</div>{{end}}{{if .Blockers}}<div class="small danger">blocked: {{range .Blockers}}{{.}}; {{end}}</div>{{end}}{{if .OriginEvent}} <a class="small" href="/events/{{.OriginEvent}}">origin</a>{{end}}</td>
+        <td class="small">{{.Kind}}</td><td><span class="badge gs-{{.Status}}">{{.Status}}</span></td><td class="num">{{conf .Priority}}</td>
+        <td><span class="conf"><span class="conf-bar"><i style="width:{{pct .Progress}}"></i></span> {{pct .Progress}}</span></td><td class="small muted">{{.Owner}}</td><td class="small muted nowrap">{{ago .LastProgressAt}}</td>
+        {{if $.Principal.User.Role.AtLeast "operator"}}<td class="nowrap"><form method="post" action="/minds/{{$m.Slug}}/goals/{{.ID}}" class="inline"><input type="hidden" name="_csrf" value="{{$.CSRF}}">
+          <input type="number" name="progress" min="0" max="1" step="0.1" value="{{.Progress}}" size="3" aria-label="progress"><button class="btn small" name="action" value="progress">Set</button>
+          {{if ne .Status "completed"}}<button class="btn small" name="action" value="complete">Done</button>{{end}}{{if ne .Status "abandoned"}}<button class="btn small btn-danger" name="action" value="abandon" data-confirm="Abandon this goal?">Abandon</button>{{end}}</form></td>{{end}}
+      </tr>{{end}}</tbody>
+    </table>
+    {{else}}<p class="muted">No goals yet. Curiosity creates investigation goals from unexplained observations, prediction errors and contradictions; operators can set task goals here.</p>{{end}}
+  </div>
+  {{if .Principal.User.Role.AtLeast "operator"}}
+  <div class="card">
+    <h2>New goal</h2>
+    <form method="post" action="/minds/{{$m.Slug}}/goals" class="stack">
+      <input type="hidden" name="_csrf" value="{{.CSRF}}">
+      <label>Title <input name="title" required maxlength="300"></label>
+      <label>Description <textarea name="description" rows="2"></textarea></label>
+      <div class="grid cols-2 tight"><label>Kind <select name="kind"><option value="task">task</option><option value="investigation">investigation</option><option value="question">question</option><option value="maintenance">maintenance</option></select></label>
+      <label>Subject <input name="subject" placeholder="atlas" maxlength="80"></label></div>
+      <label class="slider"><span>Priority</span><input type="range" name="priority" min="0.1" max="1" step="0.1" value="0.5" data-out><output>0.5</output></label>
+      <label>Parent <select name="parent_id"><option value="">none</option>{{range .Data.Goals}}{{if eq .Status "active"}}<option value="{{.ID}}">{{trunc .Title 50}}</option>{{end}}{{end}}</select></label>
+      <div><button class="btn btn-primary" type="submit">Create</button></div>
+    </form>
+  </div>
+  {{end}}
+</section>
+{{end}}

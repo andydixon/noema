@@ -1,0 +1,5 @@
+DROP TABLE IF EXISTS prediction_results;
+DROP TABLE IF EXISTS predictions;
+DROP TABLE IF EXISTS affect_states;
+DROP TABLE IF EXISTS drives;
+DROP TABLE IF EXISTS goals;

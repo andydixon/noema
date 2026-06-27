@@ -190,3 +190,14 @@ ol.messages { list-style: none; padding: 0; margin: 0 0 1rem; display: flex; fle
 .msg-head { margin-bottom: .2rem; }
 .chat-input input { min-width: 0; }
 .badge.small { font-size: .65rem; }
+
+/* Goals, predictions, state */
+.badge.gs-active { background: var(--accent-soft); color: var(--accent); } .badge.gs-blocked { background: var(--warn-soft); color: var(--warn); } .badge.gs-completed { background: var(--ok-soft); color: var(--ok); } .badge.gs-abandoned, .badge.gs-paused { background: var(--surface-2); color: var(--muted); }
+.badge.ps-open { background: var(--accent-soft); color: var(--accent); } .badge.ps-confirmed { background: var(--ok-soft); color: var(--ok); } .badge.ps-refuted { background: var(--danger-soft); color: var(--danger); } .badge.ps-expired, .badge.ps-withdrawn { background: var(--surface-2); color: var(--muted); }
+.cal { position: relative; width: 140px; height: 10px; background: var(--surface-2); border-radius: 3px; }
+.cal-bar { position: absolute; left: 0; top: 0; height: 100%; background: var(--accent-soft); border-radius: 3px; }
+.cal-hit { position: absolute; top: -3px; width: 3px; height: 16px; background: var(--accent); margin-left: -1px; }
+.dim { display: grid; grid-template-columns: 8rem 1fr 6rem; align-items: center; gap: .5rem; font-size: .85rem; margin: .2rem 0; }
+.dim-bar { position: relative; height: 8px; background: var(--surface-2); border-radius: 4px; overflow: hidden; } .dim-bar i { position: absolute; top: 0; height: 100%; background: var(--accent); left: 0; }
+.dim-bar.bipolar::after { content: ""; position: absolute; left: 50%; top: 0; width: 1px; height: 100%; background: var(--muted); }
+.dim-val { font-variant-numeric: tabular-nums; color: var(--muted); }
