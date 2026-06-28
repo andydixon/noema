@@ -43,6 +43,7 @@
 <div class="navgroup"><div class="navhead">Observe</div>
   <a href="/" {{if eq .Path "/"}}aria-current="page"{{end}}>Dashboard</a>
   <a href="/minds" {{if hasPrefix .Path "/minds"}}aria-current="page"{{end}}>Minds</a>
+  <a href="/notifications" {{if hasPrefix .Path "/notifications"}}aria-current="page"{{end}}>Notifications{{if .Unread}} <span class="navcount">{{.Unread}}</span>{{end}}</a>
   <a href="/approvals" {{if hasPrefix .Path "/approvals"}}aria-current="page"{{end}}>Approvals</a>
 </div>
 <div class="navgroup"><div class="navhead">Configure</div>

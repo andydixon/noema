@@ -21,6 +21,7 @@ import (
 	"github.com/andydixon/noema/internal/brain"
 	"github.com/andydixon/noema/internal/cognition"
 	"github.com/andydixon/noema/internal/config"
+	"github.com/andydixon/noema/internal/consolidation"
 	"github.com/andydixon/noema/internal/conversation"
 	evstore "github.com/andydixon/noema/internal/events"
 	"github.com/andydixon/noema/internal/goals"
@@ -29,8 +30,11 @@ import (
 	"github.com/andydixon/noema/internal/memory"
 	"github.com/andydixon/noema/internal/minds"
 	"github.com/andydixon/noema/internal/motivation"
+	"github.com/andydixon/noema/internal/narrative"
+	"github.com/andydixon/noema/internal/notifications"
 	"github.com/andydixon/noema/internal/observability"
 	"github.com/andydixon/noema/internal/predictions"
+	"github.com/andydixon/noema/internal/reflection"
 	"github.com/andydixon/noema/internal/scheduler"
 	"github.com/andydixon/noema/internal/security/secrets"
 	"github.com/andydixon/noema/internal/storage"
@@ -126,13 +130,19 @@ func run() error {
 	deps.Motivation = motivation.NewStore(db)
 	deps.Predictions = predictions.NewStore(db)
 	deps.Resolver = &predictions.Resolver{Store: deps.Predictions, Events: deps.Events, Beliefs: deps.Beliefs, Log: log, Metrics: metrics}
+	deps.Narrative = narrative.NewStore(db)
+	deps.Notifications = notifications.NewStore(db)
+	deps.Consolidation = &consolidation.Service{DB: db, Memory: deps.Memory, Beliefs: deps.Beliefs, Events: deps.Events, LLM: deps.LLM, Prompts: deps.Prompts, Minds: deps.Minds, Log: log}
+	deps.Reflection = &reflection.Service{DB: db, Events: deps.Events, Beliefs: deps.Beliefs, Goals: deps.Goals, Memory: deps.Memory, Predictions: deps.Predictions, LLM: deps.LLM, Prompts: deps.Prompts, Log: log}
 	registry := brain.NewRegistry().AddProcess(cognition.Attend{}).AddProcess(cognition.Retrieve{}).AddProcess(cognition.Associate{}).AddProcess(cognition.Perceive{}).
-		AddProcess(cognition.GoalMonitor{}).AddProcess(cognition.Curiosity{}).AddHook(cognition.MotivationHook{Store: deps.Motivation})
+		AddProcess(cognition.GoalMonitor{}).AddProcess(cognition.Curiosity{}).AddProcess(cognition.Metacognition{}).
+		AddHook(cognition.MotivationHook{Store: deps.Motivation}).AddHook(cognition.NarrativeHook{Store: deps.Narrative}).AddHook(cognition.NotifyHook{Store: deps.Notifications})
 	cognition.Handlers{Memory: deps.Memory, Beliefs: deps.Beliefs, Conversations: deps.Conversations}.Register(registry)
 	deps.Brain = brain.NewManager(brain.Config{DB: db, Events: deps.Events, Minds: deps.Minds, Registry: registry, Pool: scheduler.NewPool(cfg.MaxWorkers),
 		Log: log, Metrics: metrics, Services: brain.Services{Events: deps.Events, Memory: deps.Memory, Beliefs: deps.Beliefs, LLM: deps.LLM, Prompts: deps.Prompts,
 			Goals: deps.Goals, Motivation: deps.Motivation, Predictions: deps.Predictions}}, group)
 	group.Every("predictions.resolve", time.Minute, deps.Resolver.Run)
+	group.Every("cognition.background", 5*time.Minute, func(ctx context.Context) error { return backgroundCognition(ctx, deps) })
 	group.Every("memory.decay", 6*time.Hour, func(ctx context.Context) error { return decayMemories(ctx, deps) })
 	group.Every("memory.embed", time.Minute, func(ctx context.Context) error { _, err := deps.Memory.EmbedMissing(ctx, 50); return err })
 	if err := deps.Brain.Start(ctx); err != nil {
@@ -160,7 +170,9 @@ func run() error {
 		Resolve: func(r *http.Request, mind, id ids.ID, outcome predictions.Status, reason string) (predictions.Result, error) {
 			return srv.ResolvePrediction(r, mind, id, outcome, reason)
 		},
-		ResetState: func(r *http.Request, mind ids.ID) (motivation.State, error) { return srv.ResetState(r, mind) },
+		ResetState:  func(r *http.Request, mind ids.ID) (motivation.State, error) { return srv.ResetState(r, mind) },
+		Consolidate: func(r *http.Request, mind ids.ID) (consolidation.Job, error) { return srv.RunConsolidation(r, mind) },
+		Reflect:     func(r *http.Request, mind ids.ID) (reflection.Reflection, error) { return srv.RunReflection(r, mind) },
 	})
 	if err != nil {
 		return err
@@ -227,6 +239,39 @@ func decayMemories(ctx context.Context, d app.Deps) error {
 		if n > 0 {
 			d.Events.Append(ctx, events.New{MindID: m.ID, Type: events.MemoryDecayed, Source: "memory.decay", Summary: fmt.Sprintf("activation decayed on %d memories", n), //nolint:errcheck
 				Salience: 0.05, Confidence: 1, Metadata: map[string]any{"count": n}})
+		}
+	}
+	return nil
+}
+
+// backgroundCognition runs consolidation and reflection for each active mind
+// whose interval has elapsed, switching the runtime mode while it works.
+func backgroundCognition(ctx context.Context, d app.Deps) error {
+	list, err := d.Minds.List(ctx, false)
+	if err != nil {
+		return err
+	}
+	for _, m := range list {
+		if m.Status != minds.StatusActive {
+			continue
+		}
+		if m.Config.ConsolidationEnabled && !consolidation.IsPaused() {
+			if jobs, _ := d.Consolidation.Jobs(ctx, m.ID, 1); len(jobs) == 0 || time.Since(jobs[0].CreatedAt) >= m.Config.ConsolidationInterval.D() {
+				d.Brain.Command(ctx, m.ID, "setmode", map[string]bool{"consolidating": true}) //nolint:errcheck
+				if _, err := d.Consolidation.Run(ctx, m, "schedule", "noemad"); err != nil {
+					d.Log.Warn("consolidation failed", "mind", m.Slug, "err", err)
+				}
+				d.Brain.Command(ctx, m.ID, "setmode", map[string]bool{"awake": true}) //nolint:errcheck
+			}
+		}
+		if m.Config.ReflectionEnabled {
+			if last, err := d.Reflection.Latest(ctx, m.ID); err != nil || time.Since(last.CreatedAt) >= m.Config.ReflectionInterval.D() {
+				d.Brain.Command(ctx, m.ID, "setmode", map[string]bool{"reflecting": true}) //nolint:errcheck
+				if _, err := d.Reflection.Run(ctx, m, "schedule", "noemad"); err != nil {
+					d.Log.Warn("reflection failed", "mind", m.Slug, "err", err)
+				}
+				d.Brain.Command(ctx, m.ID, "setmode", map[string]bool{"awake": true}) //nolint:errcheck
+			}
 		}
 	}
 	return nil

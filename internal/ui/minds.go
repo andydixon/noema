@@ -10,9 +10,11 @@ import (
 
 	"github.com/andydixon/noema/internal/auth"
 	"github.com/andydixon/noema/internal/beliefs"
+	evstore "github.com/andydixon/noema/internal/events"
 	"github.com/andydixon/noema/internal/minds"
 	"github.com/andydixon/noema/internal/motivation"
 	"github.com/andydixon/noema/internal/storage"
+	"github.com/andydixon/noema/pkg/events"
 	"github.com/andydixon/noema/pkg/ids"
 )
 
@@ -109,7 +111,9 @@ func (u *UI) mindOverview(w http.ResponseWriter, r *http.Request) {
 	if len(active) > 6 {
 		active = active[:6]
 	}
-	u.render(w, r, "mind", m.DisplayName, map[string]any{"Mind": m, "Brief": m.Personality.Brief(), "SelfModel": sm, "Stats": st, "MemStats": ms, "BeliefStats": bs, "Beliefs": top, "Motiv": motiv, "Goals": active})
+	narr, _ := u.deps.Narrative.Get(r.Context(), m.ID)
+	warnings, _ := u.deps.Events.Query(r.Context(), evstore.Filter{MindID: m.ID, Types: []events.Type{events.Metacognition}, Since: time.Now().Add(-7 * 24 * time.Hour), Limit: 6})
+	u.render(w, r, "mind", m.DisplayName, map[string]any{"Mind": m, "Brief": m.Personality.Brief(), "SelfModel": sm, "Stats": st, "MemStats": ms, "BeliefStats": bs, "Beliefs": top, "Motiv": motiv, "Goals": active, "Narrative": narr, "Warnings": warnings})
 }
 
 func (u *UI) mindStatus(w http.ResponseWriter, r *http.Request) {

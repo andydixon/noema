@@ -19,6 +19,20 @@ type CognitiveConfig struct {
 	WorkingMemoryDecay    float64            `json:"working_memory_decay"` // activation multiplier per cycle
 	LoopDetectWindow      int                `json:"loop_detect_window"`
 	LoopDetectThreshold   int                `json:"loop_detect_threshold"`
+
+	// Background cognition (spec §9, §18, §39). Each subsystem has a switch,
+	// a schedule and a model-call budget so idle minds cannot spend freely.
+	ConsolidationEnabled     bool     `json:"consolidation_enabled"`
+	ConsolidationInterval    Duration `json:"consolidation_interval"`
+	ConsolidationMinEpisodes int      `json:"consolidation_min_episodes"`
+	ConsolidationLLMCalls    int      `json:"consolidation_llm_calls"`
+	ReflectionEnabled        bool     `json:"reflection_enabled"`
+	ReflectionInterval       Duration `json:"reflection_interval"`
+	ReflectionLLMCalls       int      `json:"reflection_llm_calls"`
+	NarrativeLLM             bool     `json:"narrative_llm"`
+	NotifyMinConfidence      float64  `json:"notify_min_confidence"`
+	NotifyMinSalience        float64  `json:"notify_min_salience"`
+	NotifyCooldown           Duration `json:"notify_cooldown"`
 }
 
 // AttentionFeatures is the fixed set of scoring features (spec §6). Weights are
@@ -31,7 +45,10 @@ func DefaultConfig() CognitiveConfig {
 		"consequence": 0.9, "confidence": 0.4, "contradiction": 1.0, "operator_priority": 1.5, "context_relevance": 0.9}
 	return CognitiveConfig{WorkspaceCapacity: 7, WorkingMemoryCapacity: 9, AttentionWeights: w,
 		CycleMinInterval: Duration(500 * time.Millisecond), IdleCycleInterval: Duration(60 * time.Second), MaxCyclesPerMinute: 60,
-		LLMCallsPerCycle: 3, DailyTokenBudget: 500_000, WorkingMemoryDecay: 0.85, LoopDetectWindow: 20, LoopDetectThreshold: 5}
+		LLMCallsPerCycle: 3, DailyTokenBudget: 500_000, WorkingMemoryDecay: 0.85, LoopDetectWindow: 20, LoopDetectThreshold: 5,
+		ConsolidationEnabled: true, ConsolidationInterval: Duration(6 * time.Hour), ConsolidationMinEpisodes: 3, ConsolidationLLMCalls: 5,
+		ReflectionEnabled: true, ReflectionInterval: Duration(12 * time.Hour), ReflectionLLMCalls: 2, NarrativeLLM: false,
+		NotifyMinConfidence: 0.85, NotifyMinSalience: 0.7, NotifyCooldown: Duration(time.Hour)}
 }
 
 // Normalise fills gaps from defaults and clamps ranges.
@@ -80,6 +97,30 @@ func (c *CognitiveConfig) Normalise() {
 	}
 	if c.LoopDetectThreshold < 2 {
 		c.LoopDetectThreshold = d.LoopDetectThreshold
+	}
+	if c.ConsolidationInterval < Duration(10*time.Minute) {
+		c.ConsolidationInterval = d.ConsolidationInterval
+	}
+	if c.ConsolidationMinEpisodes < 2 {
+		c.ConsolidationMinEpisodes = d.ConsolidationMinEpisodes
+	}
+	if c.ConsolidationLLMCalls < 0 || c.ConsolidationLLMCalls > 50 {
+		c.ConsolidationLLMCalls = d.ConsolidationLLMCalls
+	}
+	if c.ReflectionInterval < Duration(10*time.Minute) {
+		c.ReflectionInterval = d.ReflectionInterval
+	}
+	if c.ReflectionLLMCalls < 0 || c.ReflectionLLMCalls > 20 {
+		c.ReflectionLLMCalls = d.ReflectionLLMCalls
+	}
+	if c.NotifyMinConfidence <= 0 || c.NotifyMinConfidence > 1 {
+		c.NotifyMinConfidence = d.NotifyMinConfidence
+	}
+	if c.NotifyMinSalience <= 0 || c.NotifyMinSalience > 1 {
+		c.NotifyMinSalience = d.NotifyMinSalience
+	}
+	if c.NotifyCooldown < Duration(time.Minute) {
+		c.NotifyCooldown = d.NotifyCooldown
 	}
 }
 

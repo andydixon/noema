@@ -51,10 +51,13 @@ type Mode string
 
 // Modes. Later phases add reflecting, consolidating and dreaming.
 const (
-	ModeAwake   Mode = "awake"
-	ModeFocused Mode = "focused"
-	ModeIdle    Mode = "idle"
-	ModePaused  Mode = "paused"
+	ModeAwake         Mode = "awake"
+	ModeFocused       Mode = "focused"
+	ModeIdle          Mode = "idle"
+	ModePaused        Mode = "paused"
+	ModeReflecting    Mode = "reflecting"
+	ModeConsolidating Mode = "consolidating"
+	ModeDreaming      Mode = "dreaming"
 )
 
 // State is what processes see: a read-only view of the mind plus service

@@ -201,3 +201,11 @@ ol.messages { list-style: none; padding: 0; margin: 0 0 1rem; display: flex; fle
 .dim-bar { position: relative; height: 8px; background: var(--surface-2); border-radius: 4px; overflow: hidden; } .dim-bar i { position: absolute; top: 0; height: 100%; background: var(--accent); left: 0; }
 .dim-bar.bipolar::after { content: ""; position: absolute; left: 50%; top: 0; width: 1px; height: 100%; background: var(--muted); }
 .dim-val { font-variant-numeric: tabular-nums; color: var(--muted); }
+
+/* Notifications, narrative, reflection */
+.badge.nl-info { background: var(--accent-soft); color: var(--accent); } .badge.nl-warn { background: var(--warn-soft); color: var(--warn); } .badge.nl-alert { background: var(--danger-soft); color: var(--danger); }
+tr.unread td { font-weight: 500; }
+.reflection { border-top: 1px solid var(--border); padding: .6rem 0; }
+.narrative { font-size: 1rem; line-height: 1.6; white-space: pre-wrap; }
+.warnlist li { padding: .3rem 0; border-bottom: 1px solid var(--border); }
+.topbar .navcount { background: var(--danger); color: #fff; border-radius: 999px; font-size: .7rem; padding: 0 .4rem; margin-left: .3rem; }

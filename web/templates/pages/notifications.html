@@ -1,0 +1,15 @@
+{{define "content"}}
+<div class="pagehead mindhead"><div><h1>Notifications</h1><p class="muted">What the minds decided warranted attention, and why. Repeats within the cooldown are aggregated.</p></div>
+  {{if .Data.Items}}<form method="post" action="/notifications/read-all"><input type="hidden" name="_csrf" value="{{.CSRF}}"><button class="btn small">Mark all read</button></form>{{end}}</div>
+<div class="card">
+  {{if .Data.Items}}<table class="table compact"><thead><tr><th>Level</th><th>Mind</th><th>Title</th><th>Reason</th><th class="num">×</th><th>When</th><th></th></tr></thead>
+    <tbody>{{range .Data.Items}}<tr class="{{if eq .Status "new"}}unread{{end}}">
+      <td><span class="badge nl-{{.Level}}">{{.Level}}</span></td><td class="small">{{index $.Data.MindNames .MindID}}</td>
+      <td><strong>{{.Title}}</strong><div class="small muted">{{.Body}}</div></td>
+      <td class="small"><code>{{.Rule}}</code> <span class="muted mono">{{printf "%s" .Reason}}</span></td>
+      <td class="num">{{.Count}}</td><td class="small muted nowrap">{{ago .UpdatedAt}}</td>
+      <td class="nowrap">{{if .SourceEvent}}<a class="small" href="/events/{{.SourceEvent}}">event</a>{{end}} {{if eq .Status "new"}}<form method="post" action="/notifications/{{.ID}}/read" class="inline"><input type="hidden" name="_csrf" value="{{$.CSRF}}"><button class="btn small btn-ghost">read</button></form>{{end}}</td>
+    </tr>{{end}}</tbody></table>
+  {{else}}<p class="muted">Nothing needs your attention.</p>{{end}}
+</div>
+{{end}}

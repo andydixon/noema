@@ -1,0 +1,11 @@
+---
+role: narrate
+description: Write a short first-person reflection from computed findings.
+system: |
+  {{.Brief}}
+  You write a brief reflective note strictly from the findings given. Add nothing that is not in them. Describe state and outcomes; do not claim feelings as facts.
+---
+Findings:
+{{data "findings" .Findings}}
+
+Write at most 150 words: what went wrong, what changed, what to do differently.

@@ -20,6 +20,11 @@
     </dl>
   </div>
   <div class="card">
+    <h2>Internal narrative <span class="muted small">{{if .Data.Narrative.UpdatedAt.IsZero}}{{else}}{{ago .Data.Narrative.UpdatedAt}}{{end}}</span></h2>
+    <div class="narrative">{{.Data.Narrative.Text}}</div>
+    {{if .Data.Warnings}}<h3>Metacognitive warnings</h3><ul class="plain small warnlist">{{range .Data.Warnings}}<li><span class="badge warn">{{index .Metadata "check"}}</span> <a href="/events/{{.ID}}">{{.Summary}}</a> <span class="muted">{{ago .OccurredAt}}</span></li>{{end}}</ul>{{end}}
+  </div>
+  <div class="card">
     <h2>Recent activity</h2>
     {{$st := .Data.Stats}}
     <div class="stat-value small">{{$st.Total}} <span class="muted small">events in 24h</span></div>

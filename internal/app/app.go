@@ -15,6 +15,7 @@ import (
 	"github.com/andydixon/noema/internal/beliefs"
 	"github.com/andydixon/noema/internal/brain"
 	"github.com/andydixon/noema/internal/config"
+	"github.com/andydixon/noema/internal/consolidation"
 	"github.com/andydixon/noema/internal/conversation"
 	"github.com/andydixon/noema/internal/events"
 	"github.com/andydixon/noema/internal/goals"
@@ -23,8 +24,11 @@ import (
 	"github.com/andydixon/noema/internal/memory"
 	"github.com/andydixon/noema/internal/minds"
 	"github.com/andydixon/noema/internal/motivation"
+	"github.com/andydixon/noema/internal/narrative"
+	"github.com/andydixon/noema/internal/notifications"
 	"github.com/andydixon/noema/internal/observability"
 	"github.com/andydixon/noema/internal/predictions"
+	"github.com/andydixon/noema/internal/reflection"
 	"github.com/andydixon/noema/internal/security/secrets"
 )
 
@@ -46,6 +50,10 @@ type Deps struct {
 	Motivation    *motivation.Store
 	Predictions   *predictions.Store
 	Resolver      *predictions.Resolver
+	Narrative     *narrative.Store
+	Notifications *notifications.Store
+	Consolidation *consolidation.Service
+	Reflection    *reflection.Service
 	LLM           *router.Router
 	LLMStore      *router.Store
 	Prompts       *prompts.Store

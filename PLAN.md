@@ -136,8 +136,15 @@ An administrator can: start Noema → log in → create a mind → configure per
 - ☑ API: goals, predictions (create/resolve/calibration), state (get/reset/drive ranges); UI: goals page, prediction dashboard with calibration, cognitive state panel on overview, effective weights on workspace; CLI goal/prediction/state
 - ☑ Docs: predictions.md, motivation.md. Demo scenario 4 (prediction error) verified live
 
-### Phase 10 – Metacognition, reflection, consolidation, narrative, notifications
-- ☐ metacognitive checks and warnings; reflection scheduler; consolidation scheduler with operator controls; narrative generation; notification thresholds, suppression, aggregation, reasons
+### Phase 10 – Metacognition, reflection, consolidation, narrative, notifications ☑
+- ☑ `migrations/0010_cognition`: consolidation_jobs, reflections, narratives, notifications; per-mind settings for schedules and model budgets
+- ☑ `cognition/metacognition`: deterministic self-checks (insufficient evidence, single source, fluent-without-evidence, repeated failure, stale contradiction, overconfidence) competing for attention; admitted warnings discount beliefs or open investigations
+- ☑ `internal/reflection`: computed findings over the period, patterns → procedural lessons, optional model prose, reflection events
+- ☑ `internal/consolidation`: deterministic clustering of episodes, evidence-derived belief + linked semantic memory per cluster, optional model wording within budget, jobs with inputs/outputs, pause, reject
+- ☑ `internal/narrative` + hook: structured five-part narrative rendered deterministically, optional rephrasing
+- ☑ `internal/notifications` + hook: explicit thresholded rules, cooldown aggregation, suppression events, unread badge
+- ☑ Background job: scheduled consolidation and reflection per mind with mode switching; API, UI (Background tab, notifications page, overview narrative and warnings), CLI (narrative, consolidate, reflect, notifications); docs/cognition.md
+- ☑ Demo scenario 3 verified live; tests for notifications, consolidation, reflection
 
 ### Phase 11 – Relationship graph
 - ☐ entities, entity_relationships, extraction from perception, merge/split corrections, interactive explorer (bounded)

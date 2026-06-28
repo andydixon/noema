@@ -1,0 +1,23 @@
+{{define "content"}}
+{{$m := .Data.Mind}}
+<div class="pagehead mindhead"><div><h1>{{$m.DisplayName}} <span class="muted small">consolidation &amp; reflection</span></h1><p class="muted">Background cognition: generalising episodes into semantic memory, and reviewing recent mistakes. Both are scheduled, budgeted and inspectable.</p></div>
+  <div class="row">{{if .Data.Paused}}<span class="badge warn">consolidation paused globally</span>{{end}}</div></div>
+{{template "mind_tabs" (dict "M" $m "Active" "consolidation")}}
+<section class="grid cols-2">
+  <div class="card">
+    <h2>Consolidation <span class="muted small">every {{$m.Config.ConsolidationInterval}} · min {{$m.Config.ConsolidationMinEpisodes}} episodes · {{$m.Config.ConsolidationLLMCalls}} model calls per run{{if not $m.Config.ConsolidationEnabled}} · <span class="danger">disabled</span>{{end}}</span></h2>
+    {{if .Principal.User.Role.AtLeast "operator"}}<form method="post" action="/minds/{{$m.Slug}}/consolidation/run" class="row"><input type="hidden" name="_csrf" value="{{.CSRF}}"><button class="btn">Run consolidation now</button>
+      {{if .Principal.User.Role.AtLeast "administrator"}}<button class="btn btn-ghost" formaction="/consolidation/pause" name="paused" value="{{if .Data.Paused}}0{{else}}1{{end}}">{{if .Data.Paused}}Resume scheduled runs{{else}}Pause scheduled runs{{end}}</button>{{end}}</form>{{end}}
+    {{if .Data.Jobs}}<table class="table compact"><thead><tr><th>When</th><th>Status</th><th>Trigger</th><th class="num">Clusters</th><th class="num">Produced</th><th>Outputs</th></tr></thead>
+      <tbody>{{range .Data.Jobs}}<tr><td class="small muted nowrap">{{ago .CreatedAt}}</td><td><span class="badge {{if eq .Status "done"}}ok{{else if eq .Status "failed"}}danger{{else}}warn{{end}}">{{.Status}}</span>{{with .Error}} <span class="small danger">{{.}}</span>{{end}}</td><td class="small">{{.Trigger}} {{.CreatedBy}}</td><td class="num">{{.Clusters}}</td><td class="num">{{.Produced}}</td>
+        <td>{{range outputs .Outputs}}<div class="small"><a href="/minds/{{$m.Slug}}/memory/{{.MemoryID}}">{{trunc .Proposition 90}}</a> <span class="muted">({{conf .Confidence}}, {{len .Episodes}} episodes, {{.Wording}})</span>
+          {{if $.Principal.User.Role.AtLeast "operator"}}<form method="post" action="/minds/{{$m.Slug}}/consolidation/reject" class="inline"><input type="hidden" name="_csrf" value="{{$.CSRF}}"><input type="hidden" name="memory_id" value="{{.MemoryID}}"><input name="reason" placeholder="why it is wrong" size="14"><button class="btn small btn-danger" data-confirm="Reject this generalisation? Episodes are kept.">reject</button></form>{{end}}</div>{{end}}</td></tr>{{end}}</tbody></table>
+    {{else}}<p class="muted">No runs yet.</p>{{end}}
+  </div>
+  <div class="card">
+    <h2>Reflection <span class="muted small">every {{$m.Config.ReflectionInterval}}{{if not $m.Config.ReflectionEnabled}} · <span class="danger">disabled</span>{{end}}</span></h2>
+    {{if .Principal.User.Role.AtLeast "operator"}}<form method="post" action="/minds/{{$m.Slug}}/reflections/run" class="row"><input type="hidden" name="_csrf" value="{{.CSRF}}"><button class="btn">Reflect now</button></form>{{end}}
+    {{range .Data.Reflections}}<div class="reflection"><div class="small muted">{{date .CreatedAt}} · {{.PeriodStart.Local.Format "01-02 15:04"}} → {{.PeriodEnd.Local.Format "01-02 15:04"}} {{if .LLMCallID}}· <span class="badge small">model prose</span>{{end}} {{if .EventID}}· <a href="/events/{{.EventID}}">event</a>{{end}}</div><pre class="brief">{{.Prose}}</pre></div>{{else}}<p class="muted">No reflections yet.</p>{{end}}
+  </div>
+</section>
+{{end}}

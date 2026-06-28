@@ -280,8 +280,11 @@ func scan(row pgx.Row) (Belief, error) {
 	return b, nil
 }
 
-// Get fetches a belief scoped to a mind.
+// Get fetches a belief scoped to a mind. A nil q reads from the pool.
 func (s *Store) Get(ctx context.Context, q storage.Querier, mind, id ids.ID) (Belief, error) {
+	if q == nil {
+		q = s.db
+	}
 	return scan(q.QueryRow(ctx, `SELECT `+cols+` FROM beliefs b WHERE b.id=$1 AND b.mind_id=$2`, id, mind))
 }
 
@@ -341,8 +344,11 @@ func (s *Store) List(ctx context.Context, mind ids.ID, f Filter) ([]Belief, erro
 	return out, rows.Err()
 }
 
-// EvidenceFor returns all evidence rows of a belief.
+// EvidenceFor returns all evidence rows of a belief. A nil q reads from the pool.
 func (s *Store) EvidenceFor(ctx context.Context, q storage.Querier, mind, id ids.ID) ([]EvidenceRow, error) {
+	if q == nil {
+		q = s.db
+	}
 	rows, err := q.Query(ctx, `SELECT id, direction, kind, ref_id, source, weight, credibility, retracted, note, event_id, created_at FROM belief_evidence WHERE belief_id=$1 AND mind_id=$2 ORDER BY created_at`, id, mind)
 	if err != nil {
 		return nil, err

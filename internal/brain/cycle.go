@@ -276,6 +276,13 @@ func (r *Runtime) handleCommand(ctx context.Context, cmd command) error {
 		return r.setMode(ctx, ModeAwake, "operator resumed cognition")
 	case "reset":
 		return r.reset(ctx, cmd.args)
+	case "setmode":
+		for name, on := range cmd.args {
+			if on {
+				return r.setMode(ctx, Mode(name), "background job")
+			}
+		}
+		return nil
 	case "reload":
 		m, err := r.minds.Get(ctx, r.mind.ID)
 		if err != nil {

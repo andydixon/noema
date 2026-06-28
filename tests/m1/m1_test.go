@@ -23,6 +23,7 @@ import (
 	"github.com/andydixon/noema/internal/brain"
 	"github.com/andydixon/noema/internal/cognition"
 	"github.com/andydixon/noema/internal/config"
+	"github.com/andydixon/noema/internal/consolidation"
 	"github.com/andydixon/noema/internal/conversation"
 	evstore "github.com/andydixon/noema/internal/events"
 	"github.com/andydixon/noema/internal/goals"
@@ -32,8 +33,11 @@ import (
 	"github.com/andydixon/noema/internal/memory"
 	"github.com/andydixon/noema/internal/minds"
 	"github.com/andydixon/noema/internal/motivation"
+	"github.com/andydixon/noema/internal/narrative"
+	"github.com/andydixon/noema/internal/notifications"
 	"github.com/andydixon/noema/internal/observability"
 	"github.com/andydixon/noema/internal/predictions"
+	"github.com/andydixon/noema/internal/reflection"
 	"github.com/andydixon/noema/internal/scheduler"
 	"github.com/andydixon/noema/internal/security/secrets"
 	"github.com/andydixon/noema/internal/storage"
@@ -55,7 +59,8 @@ func start(t *testing.T, deps app.Deps, perceive, respond llm.LanguageModel) *ha
 	ctx := context.Background()
 	group := scheduler.NewGroup(ctx, deps.Log)
 	registry := brain.NewRegistry().AddProcess(cognition.Attend{}).AddProcess(cognition.Retrieve{}).AddProcess(cognition.Associate{}).AddProcess(cognition.Perceive{}).
-		AddProcess(cognition.GoalMonitor{}).AddProcess(cognition.Curiosity{}).AddHook(cognition.MotivationHook{Store: deps.Motivation})
+		AddProcess(cognition.GoalMonitor{}).AddProcess(cognition.Curiosity{}).AddProcess(cognition.Metacognition{}).
+		AddHook(cognition.MotivationHook{Store: deps.Motivation}).AddHook(cognition.NarrativeHook{Store: deps.Narrative}).AddHook(cognition.NotifyHook{Store: deps.Notifications})
 	cognition.Handlers{Memory: deps.Memory, Beliefs: deps.Beliefs, Conversations: deps.Conversations}.Register(registry)
 	deps.LLM.Override = map[llm.Role]llm.LanguageModel{llm.RolePerceive: perceive, llm.RoleRespond: respond}
 	deps.Brain = brain.NewManager(brain.Config{DB: deps.DB, Events: deps.Events, Minds: deps.Minds, Registry: registry, Pool: scheduler.NewPool(4), Log: deps.Log, Metrics: deps.Metrics,
@@ -108,6 +113,10 @@ func TestFirstMilestone(t *testing.T) {
 		Minds: minds.NewStore(pool), Events: evstore.NewStore(pool, evstore.NewBus(64), nil), Memory: memory.NewStore(ctx, pool, nil), Beliefs: beliefs.NewStore(pool),
 		Conversations: conversation.NewStore(pool), Goals: goals.NewStore(pool), Motivation: motivation.NewStore(pool), Predictions: predictions.NewStore(pool), Secrets: sec, LLMStore: llmStore, LLM: router.NewRouter(llmStore, sec, log, nil, 2), Prompts: prompts.NewStore(pool), Migrations: migrations.FS, Started: time.Now()}
 	deps.Resolver = &predictions.Resolver{Store: deps.Predictions, Events: deps.Events, Beliefs: deps.Beliefs, Log: log}
+	deps.Narrative = narrative.NewStore(pool)
+	deps.Notifications = notifications.NewStore(pool)
+	deps.Consolidation = &consolidation.Service{DB: pool, Memory: deps.Memory, Beliefs: deps.Beliefs, Events: deps.Events, Minds: deps.Minds, Log: log}
+	deps.Reflection = &reflection.Service{DB: pool, Events: deps.Events, Beliefs: deps.Beliefs, Goals: deps.Goals, Memory: deps.Memory, Predictions: deps.Predictions, Log: log}
 	if _, err := deps.Prompts.SeedDefaults(ctx); err != nil {
 		t.Fatal(err)
 	}
@@ -215,6 +224,12 @@ func TestFirstMilestone(t *testing.T) {
 		t.Fatalf("reply event lacks provenance: %+v", respCtx.Event)
 	}
 
+	// Narrative and notifications are inspectable after cognition ran.
+	var narr map[string]any
+	h.do("GET", "/api/v1/minds/m1/narrative", nil, &narr)
+	if txt, _ := narr["text"].(string); !strings.Contains(txt, "I am") {
+		t.Fatalf("narrative missing: %v", narr)
+	}
 	// 13. Restart everything except the database.
 	cycleBefore := ws.State.Cycle
 	h.stop()

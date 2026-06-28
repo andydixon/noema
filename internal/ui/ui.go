@@ -21,12 +21,14 @@ import (
 	"github.com/andydixon/noema/internal/attention"
 	"github.com/andydixon/noema/internal/auth"
 	"github.com/andydixon/noema/internal/beliefs"
+	"github.com/andydixon/noema/internal/consolidation"
 	"github.com/andydixon/noema/internal/conversation"
 	"github.com/andydixon/noema/internal/goals"
 	"github.com/andydixon/noema/internal/llm"
 	"github.com/andydixon/noema/internal/minds"
 	"github.com/andydixon/noema/internal/motivation"
 	"github.com/andydixon/noema/internal/predictions"
+	"github.com/andydixon/noema/internal/reflection"
 	"github.com/andydixon/noema/internal/version"
 	"github.com/andydixon/noema/pkg/concepts"
 	"github.com/andydixon/noema/pkg/ids"
@@ -50,23 +52,27 @@ type UI struct {
 	predF    func(r *http.Request, n predictions.New) (predictions.Prediction, error)
 	resolveF func(r *http.Request, mind, id ids.ID, outcome predictions.Status, reason string) (predictions.Result, error)
 	resetF   func(r *http.Request, mind ids.ID) (motivation.State, error)
+	consolF  func(r *http.Request, mind ids.ID) (consolidation.Job, error)
+	reflF    func(r *http.Request, mind ids.ID) (reflection.Reflection, error)
 }
 
 // Actions groups the server-side operations the UI delegates to the API layer
 // so both surfaces share one implementation and one audit path.
 type Actions struct {
-	Status     func(r *http.Request) any
-	Context    func(r *http.Request, id ids.ID) (api.EventContext, error)
-	Workspace  func(r *http.Request, m minds.Mind) (api.WorkspaceView, error)
-	Memory     func(r *http.Request, mind, id ids.ID) (api.MemoryDetail, error)
-	Belief     func(r *http.Request, mind, id ids.ID) (api.BeliefDetail, error)
-	Emitter    func() beliefs.Emitter
-	Post       func(r *http.Request, mind ids.ID, conv conversation.Conversation, text, who string) (conversation.Message, error)
-	Goal       func(r *http.Request, n goals.New) (goals.Goal, error)
-	GoalUpdate func(r *http.Request, mind, id ids.ID, u goals.Update) (goals.Goal, error)
-	Predict    func(r *http.Request, n predictions.New) (predictions.Prediction, error)
-	Resolve    func(r *http.Request, mind, id ids.ID, outcome predictions.Status, reason string) (predictions.Result, error)
-	ResetState func(r *http.Request, mind ids.ID) (motivation.State, error)
+	Status      func(r *http.Request) any
+	Context     func(r *http.Request, id ids.ID) (api.EventContext, error)
+	Workspace   func(r *http.Request, m minds.Mind) (api.WorkspaceView, error)
+	Memory      func(r *http.Request, mind, id ids.ID) (api.MemoryDetail, error)
+	Belief      func(r *http.Request, mind, id ids.ID) (api.BeliefDetail, error)
+	Emitter     func() beliefs.Emitter
+	Post        func(r *http.Request, mind ids.ID, conv conversation.Conversation, text, who string) (conversation.Message, error)
+	Goal        func(r *http.Request, n goals.New) (goals.Goal, error)
+	GoalUpdate  func(r *http.Request, mind, id ids.ID, u goals.Update) (goals.Goal, error)
+	Predict     func(r *http.Request, n predictions.New) (predictions.Prediction, error)
+	Resolve     func(r *http.Request, mind, id ids.ID, outcome predictions.Status, reason string) (predictions.Result, error)
+	ResetState  func(r *http.Request, mind ids.ID) (motivation.State, error)
+	Consolidate func(r *http.Request, mind ids.ID) (consolidation.Job, error)
+	Reflect     func(r *http.Request, mind ids.ID) (reflection.Reflection, error)
 }
 
 // View is the data passed to every template.
@@ -77,6 +83,7 @@ type View struct {
 	CSRF      string
 	Flash     *Flash
 	Version   string
+	Unread    int64 // unread notifications, for the navigation badge
 	Data      any
 }
 
@@ -95,7 +102,7 @@ func New(deps app.Deps, a Actions) (*UI, error) {
 			deps.Log.Info("ui: serving templates and static files from ./web (development)")
 		}
 	}
-	u := &UI{deps: deps, static: staticFS, statusF: a.Status, ctxF: a.Context, wsF: a.Workspace, memF: a.Memory, belF: a.Belief, emitF: a.Emitter, postF: a.Post, goalF: a.Goal, goalUpdF: a.GoalUpdate, predF: a.Predict, resolveF: a.Resolve, resetF: a.ResetState}
+	u := &UI{deps: deps, static: staticFS, statusF: a.Status, ctxF: a.Context, wsF: a.Workspace, memF: a.Memory, belF: a.Belief, emitF: a.Emitter, postF: a.Post, goalF: a.Goal, goalUpdF: a.GoalUpdate, predF: a.Predict, resolveF: a.Resolve, resetF: a.ResetState, consolF: a.Consolidate, reflF: a.Reflect}
 	if err := u.parse(tmplFS); err != nil {
 		return nil, err
 	}
@@ -148,6 +155,11 @@ func (u *UI) parse(fsys fs.FS) error {
 		"relations":      func() []concepts.Relation { return concepts.AllRelations },
 		"llmRoles":       func() []llm.RoleInfo { return llm.Roles },
 		"pretty":         prettyRaw,
+		"outputs": func(raw json.RawMessage) []consolidation.Output {
+			var out []consolidation.Output
+			json.Unmarshal(raw, &out) //nolint:errcheck
+			return out
+		},
 		"affectMap": func(a motivation.Affect) map[string]float64 {
 			return map[string]float64{"valence": a.Valence, "arousal": a.Arousal, "curiosity": a.Curiosity, "concern": a.Concern, "frustration": a.Frustration, "confidence": a.Confidence, "uncertainty": a.Uncertainty, "engagement": a.Engagement, "task_pressure": a.TaskPressure, "load": a.Load}
 		},
@@ -264,6 +276,9 @@ func (u *UI) render(w http.ResponseWriter, r *http.Request, page, title string, 
 		if tok, err := u.deps.Auth.CSRFToken(r.Context(), p.SessionID); err == nil {
 			v.CSRF = tok
 		}
+		if u.deps.Notifications != nil {
+			v.Unread, _ = u.deps.Notifications.CountNew(r.Context(), ids.Nil)
+		}
 	}
 	if c, err := r.Cookie(flashCookie); err == nil && c.Value != "" {
 		if raw, err := base64.RawURLEncoding.DecodeString(c.Value); err == nil {
@@ -342,6 +357,7 @@ func (u *UI) Register(m *http.ServeMux) {
 	u.llmRoutes(m)
 	u.conversationRoutes(m)
 	u.motivationRoutes(m)
+	u.cognitionRoutes(m)
 
 	for _, p := range []struct{ path, title, note string }{
 		{"/approvals", "Approvals", "The approval centre arrives with the capability system."},
