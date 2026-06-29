@@ -7,18 +7,21 @@ import (
 
 	"github.com/andydixon/noema/internal/app"
 	"github.com/andydixon/noema/internal/auth"
+	"github.com/andydixon/noema/internal/integrations"
 )
 
 // Server composes the API routes, the web UI and the middleware chain.
 type Server struct {
-	deps app.Deps
-	mux  *http.ServeMux
+	deps           app.Deps
+	mux            *http.ServeMux
+	replays        *integrations.ReplayCache
+	webhookLimiter *ipBucket
 }
 
 // New builds the server. ui registers the HTML routes on the same mux so that
 // a single middleware chain (auth, CSRF, headers, limits) covers both.
 func New(deps app.Deps, ui interface{ Register(*http.ServeMux) }) *Server {
-	s := &Server{deps: deps, mux: http.NewServeMux()}
+	s := &Server{deps: deps, mux: http.NewServeMux(), replays: integrations.NewReplayCache(), webhookLimiter: newIPBucket(120, 60)}
 	s.routes()
 	if ui != nil {
 		ui.Register(s.mux)
@@ -64,6 +67,7 @@ func (s *Server) routes() {
 	s.cognitionRoutes()
 	s.graphRoutes()
 	s.capabilityRoutes()
+	s.integrationRoutes()
 
 	m.HandleFunc("/api/", func(w http.ResponseWriter, r *http.Request) {
 		writeError(w, r, http.StatusNotFound, "not_found", "no such endpoint")

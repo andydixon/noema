@@ -27,6 +27,7 @@ import (
 	evstore "github.com/andydixon/noema/internal/events"
 	"github.com/andydixon/noema/internal/goals"
 	"github.com/andydixon/noema/internal/graph"
+	"github.com/andydixon/noema/internal/integrations"
 	"github.com/andydixon/noema/internal/llm/prompts"
 	"github.com/andydixon/noema/internal/llm/router"
 	"github.com/andydixon/noema/internal/memory"
@@ -137,6 +138,11 @@ func run() error {
 	for _, c := range capabilities.Builtins() {
 		capReg.Add(c)
 	}
+	deps.Integrations = &integrations.Manager{Store: integrations.NewStore(db), Events: deps.Events, Graph: deps.Graph, Secrets: sec, Log: log, Pool: scheduler.NewPool(2),
+		Pollers: map[integrations.Kind]integrations.Poller{integrations.ResearchFolder: integrations.ResearchPoller{}, integrations.Git: integrations.GitPoller{DataDir: "./data/git"}, integrations.Prometheus: integrations.PrometheusPoller{Secrets: sec}}}
+	for _, c := range integrations.Capabilities(deps.Integrations, integrations.GitPoller{DataDir: "./data/git"}, integrations.PrometheusPoller{Secrets: sec}) {
+		capReg.Add(c)
+	}
 	deps.Capabilities = &capabilities.Service{Registry: capReg, DB: db, Events: deps.Events, Log: log, Metrics: metrics, ApprovalTTL: 24 * time.Hour, SessionTTL: 8 * time.Hour}
 	selfSync := cognition.SelfModelSync{Minds: deps.Minds, Caps: deps.Capabilities, Events: deps.Events, Log: log}
 	deps.Capabilities.OnSelfModel = selfSync.Sync
@@ -152,6 +158,7 @@ func run() error {
 		Log: log, Metrics: metrics, Services: brain.Services{Events: deps.Events, Memory: deps.Memory, Beliefs: deps.Beliefs, LLM: deps.LLM, Prompts: deps.Prompts,
 			Goals: deps.Goals, Motivation: deps.Motivation, Predictions: deps.Predictions, Capabilities: deps.Capabilities}}, group)
 	selfSync.Sync(ctx, ids.Nil)
+	group.Every("integrations.tick", time.Minute, deps.Integrations.Tick)
 	group.Every("approvals.expire", 5*time.Minute, func(ctx context.Context) error { _, err := deps.Capabilities.ExpirePending(ctx); return err })
 	group.Every("predictions.resolve", time.Minute, deps.Resolver.Run)
 	group.Every("cognition.background", 5*time.Minute, func(ctx context.Context) error { return backgroundCognition(ctx, deps) })

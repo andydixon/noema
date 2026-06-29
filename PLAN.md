@@ -161,7 +161,7 @@ An administrator can: start Noema → log in → create a mind → configure per
 - ☑ Tests: specificity and ties, locks, windows, parameter validation, hashing, allow/ask/deny/session/forbidden/panic paths, append-only decisions, inventory; live flow verified
 
 ### Phase 13 – Integrations
-- ☐ research folder watcher (fingerprints, safe extraction, provenance), git repositories, Prometheus/VictoriaMetrics, generic webhooks (HMAC); integration health UI
+- ☑ research folder watcher (fingerprints, safe extraction, provenance), git repositories, Prometheus/VictoriaMetrics, generic webhooks (HMAC); integration health UI, `read_metrics` and `repository.read` capabilities
 
 ### Phase 14 – Dreaming and associative cognition
 - ☐ dream mode, hours, budgets, association process, promotion/rejection UI

@@ -1,0 +1,30 @@
+{{define "content"}}
+<div class="pagehead"><h1>Integrations</h1><p class="muted">External sources feeding observations into minds. Everything ingested is data: tagged with source, trust and reference, never obeyed.</p></div>
+{{$admin := .Principal.User.Role.AtLeast "administrator"}}
+<section class="grid cols-3-1">
+  <div class="card">
+    {{if .Data.Integrations}}<table class="table compact"><thead><tr><th>Name</th><th>Kind</th><th>Mind</th><th>Trust</th><th>Status</th><th>Last run</th><th class="num">Ingested</th><th></th></tr></thead>
+      <tbody>{{range .Data.Integrations}}<tr><td><a href="/integrations/{{.ID}}"><strong>{{.Name}}</strong></a></td><td class="small">{{.Kind}}</td><td class="small">{{index $.Data.MindNames .MindID}}</td><td><span class="badge">{{.Trust}}</span></td>
+        <td><span class="badge is-{{.Status}}">{{.Status}}</span>{{with .LastError}} <span class="small danger" title="{{.}}">{{trunc . 40}}</span>{{end}}</td><td class="small muted">{{if .LastRunAt}}{{ago .LastRunAt}}{{else}}never{{end}}</td><td class="num">{{.IngestedCount}}</td>
+        <td>{{if and ($.Principal.User.Role.AtLeast "operator") (ne .Kind "webhook")}}<form method="post" action="/integrations/{{.ID}}/run" class="inline"><input type="hidden" name="_csrf" value="{{$.CSRF}}"><button class="btn small">Run now</button></form>{{end}}</td></tr>{{end}}</tbody></table>
+    {{else}}<p class="muted">No integrations yet.</p>{{end}}
+  </div>
+  {{if $admin}}
+  <div class="card">
+    <h2>Add integration</h2>
+    <form method="post" action="/integrations" class="stack">
+      <input type="hidden" name="_csrf" value="{{.CSRF}}">
+      <label>Mind <select name="mind">{{range .Data.Minds}}<option value="{{.Slug}}">{{.DisplayName}}</option>{{end}}</select></label>
+      <label>Kind <select name="kind"><option value="research_folder">research folder (watched directory)</option><option value="git">git repository</option><option value="prometheus">Prometheus / VictoriaMetrics</option><option value="webhook">signed webhook</option></select></label>
+      <label>Name <input name="name" required maxlength="64"></label>
+      <label>Path / URL / endpoint <input name="target" placeholder="./research · https://host/repo.git · http://prom:9090"></label>
+      <label>Interval (seconds) <input type="number" name="interval_seconds" value="300" min="30"></label>
+      <label>Metric queries <span class="muted small">(prometheus: one per line, name = expr [gt|lt threshold])</span> <textarea name="queries" rows="3" class="mono" placeholder="cpu = 100 - avg(rate(node_cpu_seconds_total{mode=&quot;idle&quot;}[5m]))*100 gt 80"></textarea></label>
+      <label>Secret <input type="password" name="secret" autocomplete="off" placeholder="webhook HMAC secret or bearer token; env:NAME works"></label>
+      <label class="check"><input type="checkbox" name="allow_private"> Endpoint may be a private address</label>
+      <div><button class="btn btn-primary" type="submit">Add</button></div>
+    </form>
+  </div>
+  {{end}}
+</section>
+{{end}}

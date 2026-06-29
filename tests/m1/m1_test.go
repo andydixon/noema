@@ -29,6 +29,7 @@ import (
 	evstore "github.com/andydixon/noema/internal/events"
 	"github.com/andydixon/noema/internal/goals"
 	"github.com/andydixon/noema/internal/graph"
+	"github.com/andydixon/noema/internal/integrations"
 	"github.com/andydixon/noema/internal/llm"
 	"github.com/andydixon/noema/internal/llm/prompts"
 	"github.com/andydixon/noema/internal/llm/router"
@@ -121,6 +122,7 @@ func TestFirstMilestone(t *testing.T) {
 		capReg.Add(c)
 	}
 	deps.Capabilities = &capabilities.Service{Registry: capReg, DB: pool, Events: deps.Events, Log: log}
+	deps.Integrations = &integrations.Manager{Store: integrations.NewStore(pool), Events: deps.Events, Graph: deps.Graph, Log: log, Pollers: map[integrations.Kind]integrations.Poller{}}
 	deps.Narrative = narrative.NewStore(pool)
 	deps.Notifications = notifications.NewStore(pool)
 	deps.Consolidation = &consolidation.Service{DB: pool, Memory: deps.Memory, Beliefs: deps.Beliefs, Events: deps.Events, Minds: deps.Minds, Log: log}
