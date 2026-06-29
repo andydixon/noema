@@ -19,6 +19,7 @@ import (
 	"github.com/andydixon/noema/internal/conversation"
 	"github.com/andydixon/noema/internal/events"
 	"github.com/andydixon/noema/internal/goals"
+	"github.com/andydixon/noema/internal/graph"
 	"github.com/andydixon/noema/internal/llm/prompts"
 	"github.com/andydixon/noema/internal/llm/router"
 	"github.com/andydixon/noema/internal/memory"
@@ -54,6 +55,7 @@ type Deps struct {
 	Notifications *notifications.Store
 	Consolidation *consolidation.Service
 	Reflection    *reflection.Service
+	Graph         *graph.Store
 	LLM           *router.Router
 	LLMStore      *router.Store
 	Prompts       *prompts.Store

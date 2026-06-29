@@ -5,6 +5,7 @@ All notable changes to Noema are recorded here. Format follows Keep a Changelog;
 ## [Unreleased]
 
 ### Added
+- Phase 11 relationship graph: mind-scoped entities with aliases, evidenced typed edges, links to memories/beliefs/events, deterministic extraction from conversation and observations, merge/distinct corrections, bounded canvas explorer, API and CLI.
 - Phase 10 background cognition: metacognitive self-checks, scheduled reflection with lessons, episode consolidation into evidenced generalisations with operator review, internal narrative, thresholded notifications with aggregation.
 - Phase 9 motivation: goal tree with attention relevance, closed drive set and rule-driven affect state with decay and weight modulation, explicit predictions with deterministic resolution, prediction errors feeding beliefs, calibration dashboard, curiosity questions becoming investigation goals.
 - Phase 8 conversation (milestone M1): messages become observations, deterministic perception with optional model enrichment, claims become evidenced beliefs, grounded introspective answers from real state, model or deterministic wording with full provenance, chat UI, `noemactl ask`, sample mind Dani with a strict seed import, and an end-to-end acceptance test.

@@ -1,0 +1,10 @@
+{{define "entity_panel"}}{{$m := .Data.Mind}}{{$e := .Data.Entity}}
+<div class="card">
+  <h2><span class="badge">{{$e.Kind}}</span> <a href="/minds/{{$m.Slug}}/entities/{{$e.ID}}">{{$e.Name}}</a></h2>
+  {{with $e.Description}}<p>{{.}}</p>{{end}}
+  <h3>Relationships</h3>
+  {{if .Data.Edges}}<ul class="plain small">{{range .Data.Edges}}<li>{{if eq .From.ID $e.ID}}<em>{{.Relation}}</em> → <a href="/minds/{{$m.Slug}}/entities/{{.To.ID}}">{{.To.Name}}</a>{{else}}<a href="/minds/{{$m.Slug}}/entities/{{.From.ID}}">{{.From.Name}}</a> <em>{{.Relation}}</em> →{{end}} <span class="muted">{{conf .Confidence}} · ×{{.Count}} · {{.Source}}{{if .EventID}} · <a href="/events/{{.EventID}}">event</a>{{end}}</span></li>{{end}}</ul>{{else}}<p class="muted small">None.</p>{{end}}
+  <h3>Involved in</h3>
+  {{if .Data.Links}}<ul class="plain small">{{range .Data.Links}}<li><span class="badge">{{.Kind}}</span> {{if eq .Kind "memory"}}<a href="/minds/{{$m.Slug}}/memory/{{.RefID}}">memory</a>{{else if eq .Kind "belief"}}<a href="/minds/{{$m.Slug}}/beliefs/{{.RefID}}">belief</a>{{else if eq .Kind "event"}}<a href="/events/{{.RefID}}">event</a>{{else}}{{.RefID}}{{end}} <span class="muted">{{ago .CreatedAt}}</span></li>{{end}}</ul>{{else}}<p class="muted small">Nothing linked yet.</p>{{end}}
+</div>
+{{end}}

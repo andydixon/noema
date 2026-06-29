@@ -25,6 +25,7 @@ import (
 	"github.com/andydixon/noema/internal/conversation"
 	evstore "github.com/andydixon/noema/internal/events"
 	"github.com/andydixon/noema/internal/goals"
+	"github.com/andydixon/noema/internal/graph"
 	"github.com/andydixon/noema/internal/llm/prompts"
 	"github.com/andydixon/noema/internal/llm/router"
 	"github.com/andydixon/noema/internal/memory"
@@ -130,6 +131,7 @@ func run() error {
 	deps.Motivation = motivation.NewStore(db)
 	deps.Predictions = predictions.NewStore(db)
 	deps.Resolver = &predictions.Resolver{Store: deps.Predictions, Events: deps.Events, Beliefs: deps.Beliefs, Log: log, Metrics: metrics}
+	deps.Graph = graph.NewStore(db)
 	deps.Narrative = narrative.NewStore(db)
 	deps.Notifications = notifications.NewStore(db)
 	deps.Consolidation = &consolidation.Service{DB: db, Memory: deps.Memory, Beliefs: deps.Beliefs, Events: deps.Events, LLM: deps.LLM, Prompts: deps.Prompts, Minds: deps.Minds, Log: log}
@@ -137,7 +139,7 @@ func run() error {
 	registry := brain.NewRegistry().AddProcess(cognition.Attend{}).AddProcess(cognition.Retrieve{}).AddProcess(cognition.Associate{}).AddProcess(cognition.Perceive{}).
 		AddProcess(cognition.GoalMonitor{}).AddProcess(cognition.Curiosity{}).AddProcess(cognition.Metacognition{}).
 		AddHook(cognition.MotivationHook{Store: deps.Motivation}).AddHook(cognition.NarrativeHook{Store: deps.Narrative}).AddHook(cognition.NotifyHook{Store: deps.Notifications})
-	cognition.Handlers{Memory: deps.Memory, Beliefs: deps.Beliefs, Conversations: deps.Conversations}.Register(registry)
+	cognition.Handlers{Memory: deps.Memory, Beliefs: deps.Beliefs, Conversations: deps.Conversations, Graph: deps.Graph}.Register(registry)
 	deps.Brain = brain.NewManager(brain.Config{DB: db, Events: deps.Events, Minds: deps.Minds, Registry: registry, Pool: scheduler.NewPool(cfg.MaxWorkers),
 		Log: log, Metrics: metrics, Services: brain.Services{Events: deps.Events, Memory: deps.Memory, Beliefs: deps.Beliefs, LLM: deps.LLM, Prompts: deps.Prompts,
 			Goals: deps.Goals, Motivation: deps.Motivation, Predictions: deps.Predictions}}, group)
@@ -173,6 +175,13 @@ func run() error {
 		ResetState:  func(r *http.Request, mind ids.ID) (motivation.State, error) { return srv.ResetState(r, mind) },
 		Consolidate: func(r *http.Request, mind ids.ID) (consolidation.Job, error) { return srv.RunConsolidation(r, mind) },
 		Reflect:     func(r *http.Request, mind ids.ID) (reflection.Reflection, error) { return srv.RunReflection(r, mind) },
+		Entity:      func(r *http.Request, mind, id ids.ID) (api.EntityDetail, error) { return srv.EntityDetail(r, mind, id) },
+		Merge: func(r *http.Request, mind ids.ID, e graph.Entity, other string) error {
+			return srv.MergeEntities(r, mind, e, other)
+		},
+		Distinct: func(r *http.Request, mind ids.ID, e graph.Entity, other string) error {
+			return srv.DistinctEntities(r, mind, e, other)
+		},
 	})
 	if err != nil {
 		return err

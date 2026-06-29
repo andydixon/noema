@@ -209,3 +209,10 @@ tr.unread td { font-weight: 500; }
 .narrative { font-size: 1rem; line-height: 1.6; white-space: pre-wrap; }
 .warnlist li { padding: .3rem 0; border-bottom: 1px solid var(--border); }
 .topbar .navcount { background: var(--danger); color: #fff; border-radius: 999px; font-size: .7rem; padding: 0 .4rem; margin-left: .3rem; }
+
+/* Graph */
+.graph-card { padding: .5rem; }
+canvas.graph { width: 100%; height: 560px; display: block; border-radius: 8px; background: var(--surface-2); cursor: grab; }
+.legend { display: flex; flex-wrap: wrap; gap: .6rem; padding: .4rem .3rem 0; font-size: .78rem; color: var(--muted); }
+.legend-item i { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: .3rem; vertical-align: middle; }
+.legend-item i.k-person { background: #2f6fed; } .legend-item i.k-system { background: #0ea5a4; } .legend-item i.k-project { background: #16a34a; } .legend-item i.k-document { background: #d97706; } .legend-item i.k-concept { background: #8b5cf6; } .legend-item i.k-repository { background: #64748b; } .legend-item i.k-organisation { background: #db2777; } .legend-item i.k-place { background: #0891b2; } .legend-item i.k-other { background: #9ca3af; }

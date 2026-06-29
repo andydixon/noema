@@ -1,0 +1,16 @@
+{{define "content"}}
+{{$m := .Data.Mind}}{{$e := .Data.Entity}}
+<div class="pagehead"><p class="muted small"><a href="/minds/{{$m.Slug}}">{{$m.DisplayName}}</a> › <a href="/minds/{{$m.Slug}}/graph">relationships</a></p><h1><span class="badge">{{$e.Kind}}</span> {{$e.Name}}</h1><p class="muted">{{$e.MentionCount}} mentions · first {{date $e.FirstSeen}} · last {{ago $e.LastSeen}}{{if $e.Aliases}} · also known as {{join $e.Aliases ", "}}{{end}}</p></div>
+<section class="grid cols-3-1">
+  <div class="stack">{{template "entity_panel" .}}</div>
+  <div class="stack">
+    {{if .Principal.User.Role.AtLeast "operator"}}
+    <div class="card"><h2>Correct</h2>
+      <form method="post" action="/minds/{{$m.Slug}}/entities/{{$e.ID}}/merge" class="stack"><input type="hidden" name="_csrf" value="{{.CSRF}}"><label>This is the same as <input name="other" placeholder="other entity name or id" required></label><div><button class="btn small">Merge into this</button></div></form>
+      <form method="post" action="/minds/{{$m.Slug}}/entities/{{$e.ID}}/distinct" class="stack"><input type="hidden" name="_csrf" value="{{.CSRF}}"><label>This is different from <input name="other" placeholder="other entity name" required></label><div><button class="btn small">Record as different</button></div></form>
+      <form method="post" action="/minds/{{$m.Slug}}/entities/{{$e.ID}}/update" class="stack"><input type="hidden" name="_csrf" value="{{.CSRF}}"><label>Kind <select name="kind">{{range entityKinds}}<option value="{{.}}" {{if eq . $e.Kind}}selected{{end}}>{{.}}</option>{{end}}</select></label><label>Description <input name="description" value="{{$e.Description}}"></label><div><button class="btn small">Save</button></div></form>
+    </div>{{end}}
+    <div class="card small"><span class="muted">ID</span> <span class="mono">{{$e.ID}}</span> · <a href="/minds/{{$m.Slug}}/graph?focus={{$e.ID}}">neighbourhood</a></div>
+  </div>
+</section>
+{{end}}

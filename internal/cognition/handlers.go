@@ -11,6 +11,7 @@ import (
 	"github.com/andydixon/noema/internal/beliefs"
 	"github.com/andydixon/noema/internal/brain"
 	"github.com/andydixon/noema/internal/conversation"
+	"github.com/andydixon/noema/internal/graph"
 	"github.com/andydixon/noema/internal/memory"
 	"github.com/andydixon/noema/internal/predictions"
 	"github.com/andydixon/noema/internal/storage"
@@ -25,6 +26,7 @@ type Handlers struct {
 	Memory        *memory.Store
 	Beliefs       *beliefs.Store
 	Conversations *conversation.Store
+	Graph         *graph.Store
 }
 
 // Register installs the handlers on a registry.
@@ -163,6 +165,8 @@ func (h Handlers) attend(ctx context.Context, c *brain.Cycle, t workspace.Though
 	item := workspace.Item{Key: "attend:" + t.Subject, Content: t.Summary, Kind: "observation", SourceEvent: ids.ID(evID)}
 	if !mem.ID.IsZero() {
 		item.Ref = string(mem.ID)
+		text, _ := t.Content["text"].(string)
+		h.linkEntities(ctx, c, entitiesFromText(text), "", ids.ID(evID), map[string]ids.ID{"memory": mem.ID})
 	}
 	c.Runtime.Hold(item)
 	return nil

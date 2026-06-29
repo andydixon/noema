@@ -24,6 +24,7 @@ import (
 	"github.com/andydixon/noema/internal/consolidation"
 	"github.com/andydixon/noema/internal/conversation"
 	"github.com/andydixon/noema/internal/goals"
+	"github.com/andydixon/noema/internal/graph"
 	"github.com/andydixon/noema/internal/llm"
 	"github.com/andydixon/noema/internal/minds"
 	"github.com/andydixon/noema/internal/motivation"
@@ -37,23 +38,26 @@ import (
 
 // UI holds handlers and the parsed template set.
 type UI struct {
-	deps     app.Deps
-	pages    map[string]*template.Template
-	static   fs.FS
-	statusF  func(r *http.Request) any                                  // system status provider injected by api
-	ctxF     func(r *http.Request, id ids.ID) (api.EventContext, error) // event forensic context, shared with api
-	wsF      func(r *http.Request, m minds.Mind) (api.WorkspaceView, error)
-	memF     func(r *http.Request, mind, id ids.ID) (api.MemoryDetail, error)
-	belF     func(r *http.Request, mind, id ids.ID) (api.BeliefDetail, error)
-	emitF    func() beliefs.Emitter
-	postF    func(r *http.Request, mind ids.ID, conv conversation.Conversation, text, who string) (conversation.Message, error)
-	goalF    func(r *http.Request, n goals.New) (goals.Goal, error)
-	goalUpdF func(r *http.Request, mind, id ids.ID, u goals.Update) (goals.Goal, error)
-	predF    func(r *http.Request, n predictions.New) (predictions.Prediction, error)
-	resolveF func(r *http.Request, mind, id ids.ID, outcome predictions.Status, reason string) (predictions.Result, error)
-	resetF   func(r *http.Request, mind ids.ID) (motivation.State, error)
-	consolF  func(r *http.Request, mind ids.ID) (consolidation.Job, error)
-	reflF    func(r *http.Request, mind ids.ID) (reflection.Reflection, error)
+	deps      app.Deps
+	pages     map[string]*template.Template
+	static    fs.FS
+	statusF   func(r *http.Request) any                                  // system status provider injected by api
+	ctxF      func(r *http.Request, id ids.ID) (api.EventContext, error) // event forensic context, shared with api
+	wsF       func(r *http.Request, m minds.Mind) (api.WorkspaceView, error)
+	memF      func(r *http.Request, mind, id ids.ID) (api.MemoryDetail, error)
+	belF      func(r *http.Request, mind, id ids.ID) (api.BeliefDetail, error)
+	emitF     func() beliefs.Emitter
+	postF     func(r *http.Request, mind ids.ID, conv conversation.Conversation, text, who string) (conversation.Message, error)
+	goalF     func(r *http.Request, n goals.New) (goals.Goal, error)
+	goalUpdF  func(r *http.Request, mind, id ids.ID, u goals.Update) (goals.Goal, error)
+	predF     func(r *http.Request, n predictions.New) (predictions.Prediction, error)
+	resolveF  func(r *http.Request, mind, id ids.ID, outcome predictions.Status, reason string) (predictions.Result, error)
+	resetF    func(r *http.Request, mind ids.ID) (motivation.State, error)
+	consolF   func(r *http.Request, mind ids.ID) (consolidation.Job, error)
+	reflF     func(r *http.Request, mind ids.ID) (reflection.Reflection, error)
+	entF      func(r *http.Request, mind, id ids.ID) (api.EntityDetail, error)
+	mergeF    func(r *http.Request, mind ids.ID, e graph.Entity, other string) error
+	distinctF func(r *http.Request, mind ids.ID, e graph.Entity, other string) error
 }
 
 // Actions groups the server-side operations the UI delegates to the API layer
@@ -73,6 +77,9 @@ type Actions struct {
 	ResetState  func(r *http.Request, mind ids.ID) (motivation.State, error)
 	Consolidate func(r *http.Request, mind ids.ID) (consolidation.Job, error)
 	Reflect     func(r *http.Request, mind ids.ID) (reflection.Reflection, error)
+	Entity      func(r *http.Request, mind, id ids.ID) (api.EntityDetail, error)
+	Merge       func(r *http.Request, mind ids.ID, e graph.Entity, other string) error
+	Distinct    func(r *http.Request, mind ids.ID, e graph.Entity, other string) error
 }
 
 // View is the data passed to every template.
@@ -102,7 +109,7 @@ func New(deps app.Deps, a Actions) (*UI, error) {
 			deps.Log.Info("ui: serving templates and static files from ./web (development)")
 		}
 	}
-	u := &UI{deps: deps, static: staticFS, statusF: a.Status, ctxF: a.Context, wsF: a.Workspace, memF: a.Memory, belF: a.Belief, emitF: a.Emitter, postF: a.Post, goalF: a.Goal, goalUpdF: a.GoalUpdate, predF: a.Predict, resolveF: a.Resolve, resetF: a.ResetState, consolF: a.Consolidate, reflF: a.Reflect}
+	u := &UI{deps: deps, static: staticFS, statusF: a.Status, ctxF: a.Context, wsF: a.Workspace, memF: a.Memory, belF: a.Belief, emitF: a.Emitter, postF: a.Post, goalF: a.Goal, goalUpdF: a.GoalUpdate, predF: a.Predict, resolveF: a.Resolve, resetF: a.ResetState, consolF: a.Consolidate, reflF: a.Reflect, entF: a.Entity, mergeF: a.Merge, distinctF: a.Distinct}
 	if err := u.parse(tmplFS); err != nil {
 		return nil, err
 	}
@@ -112,6 +119,7 @@ func New(deps app.Deps, a Actions) (*UI, error) {
 func (u *UI) parse(fsys fs.FS) error {
 	funcs := template.FuncMap{
 		"hasPrefix": strings.HasPrefix,
+		"hasSuffix": strings.HasSuffix,
 		"roles":     auth.AllRoles,
 		"date":      func(t time.Time) string { return t.Local().Format("2006-01-02 15:04") },
 		"ago":       ago,
@@ -155,6 +163,8 @@ func (u *UI) parse(fsys fs.FS) error {
 		"relations":      func() []concepts.Relation { return concepts.AllRelations },
 		"llmRoles":       func() []llm.RoleInfo { return llm.Roles },
 		"pretty":         prettyRaw,
+		"entityKinds":    func() []graph.Kind { return graph.AllKinds },
+		"join":           strings.Join,
 		"outputs": func(raw json.RawMessage) []consolidation.Output {
 			var out []consolidation.Output
 			json.Unmarshal(raw, &out) //nolint:errcheck
@@ -358,6 +368,7 @@ func (u *UI) Register(m *http.ServeMux) {
 	u.conversationRoutes(m)
 	u.motivationRoutes(m)
 	u.cognitionRoutes(m)
+	u.graphRoutes(m)
 
 	for _, p := range []struct{ path, title, note string }{
 		{"/approvals", "Approvals", "The approval centre arrives with the capability system."},

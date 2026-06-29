@@ -1,0 +1,18 @@
+{{define "content"}}
+{{$m := .Data.Mind}}
+<div class="pagehead mindhead"><div><h1>{{$m.DisplayName}} <span class="muted small">relationships</span></h1><p class="muted">{{.Data.Stats.Entities}} entities · {{.Data.Stats.Edges}} relationships · {{range $k, $v := .Data.Stats.ByKind}}<span class="badge">{{$k}} {{$v}}</span> {{end}}</p></div>
+  <span class="muted small" data-graph-info></span></div>
+{{template "mind_tabs" (dict "M" $m "Active" "graph")}}
+<form class="card filterbar" data-graph-filter onsubmit="return false">
+  <label>Kind <select name="kind"><option value="">all</option>{{range entityKinds}}<option value="{{.}}" {{if eq (print .) $.Data.Kind}}selected{{end}}>{{.}}</option>{{end}}</select></label>
+  <label>Limit <select name="limit"><option>40</option><option selected>80</option><option>150</option><option>300</option></select></label>
+  {{if .Data.Focus}}<input type="hidden" name="focus" value="{{.Data.Focus}}"><a class="btn small" href="/minds/{{$m.Slug}}/graph">Clear focus</a>{{end}}
+  <span class="muted small">Drag to pan, scroll to zoom, click a node for details, double-click to focus on its neighbourhood.</span>
+</form>
+<section class="grid cols-3-1">
+  <div class="card graph-card"><canvas data-graph="/api/v1/minds/{{$m.Slug}}/graph" data-mind="{{$m.Slug}}" class="graph" aria-label="Relationship graph"></canvas>
+    <div class="legend">{{range entityKinds}}<span class="legend-item"><i class="k-{{.}}"></i>{{.}}</span>{{end}}</div></div>
+  <div class="card" id="entity-panel"><p class="muted">Click a node.</p></div>
+</section>
+{{if .Data.Entities}}<div class="card"><h2>Most mentioned</h2><table class="table compact"><tbody>{{range .Data.Entities}}<tr><td><span class="badge">{{.Kind}}</span></td><td><a href="/minds/{{$m.Slug}}/entities/{{.ID}}">{{.Name}}</a>{{if .Aliases}} <span class="muted small">also {{join .Aliases ", "}}</span>{{end}}</td><td class="num">{{.MentionCount}}×</td><td class="small muted">{{ago .LastSeen}}</td></tr>{{end}}</tbody></table></div>{{end}}
+{{end}}

@@ -110,6 +110,11 @@ func (h Handlers) perceive(ctx context.Context, c *brain.Cycle, t workspace.Thou
 			claimed = append(claimed, BeliefRef{ID: res.Belief.ID, Proposition: res.Belief.Proposition, Confidence: res.Belief.Confidence, Status: string(res.Belief.Status)})
 		}
 	}
+	refs := map[string]ids.ID{"memory": memRef}
+	for _, b := range claimed {
+		refs["belief"] = b.ID
+	}
+	h.linkEntities(ctx, c, a.Entities, actor, ids.ID(srcID), refs)
 	intent := h.buildIntent(ctx, c, a, text, claimed)
 	reply, callID, err := h.generate(ctx, c, text, intent)
 	if err != nil {

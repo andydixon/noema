@@ -146,8 +146,12 @@ An administrator can: start Noema → log in → create a mind → configure per
 - ☑ Background job: scheduled consolidation and reflection per mind with mode switching; API, UI (Background tab, notifications page, overview narrative and warnings), CLI (narrative, consolidate, reflect, notifications); docs/cognition.md
 - ☑ Demo scenario 3 verified live; tests for notifications, consolidation, reflection
 
-### Phase 11 – Relationship graph
-- ☐ entities, entity_relationships, extraction from perception, merge/split corrections, interactive explorer (bounded)
+### Phase 11 – Relationship graph ☑
+- ☑ `migrations/0011_graph`: entities (aliases, merged_into), entity_relationships (relation, confidence, source, event, count), entity_links
+- ☑ `internal/graph`: canonical matching, deterministic kind guessing, upsert with alias resolution, reinforced edges cited to events, links, bounded subgraph/neighbourhood, merge preserving old ids, kind/description correction, stats
+- ☑ Cognition: perceive and attend handlers link extracted entities, edges (discussed_with, related_to) and references to memories/beliefs/events
+- ☑ API: graph, entities search/detail, merge (entities_same correction), distinct (entities_different correction), update, relate; UI: canvas force explorer with filters, focus and side panel, entity page with corrections; `noemactl entity`; docs/graph.md
+- ☑ Tests: kind guessing, canonicalisation, upsert dedupe, edge reinforcement, cross-mind refusal, merge with alias/link migration, bounded subgraph, stats
 
 ### Phase 12 – Capability and action policy system
 - ☐ registry, policy engine, approvals, approval centre UI, policy matrix UI, dream/replay refusal, locked DENYs, tool events

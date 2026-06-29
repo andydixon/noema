@@ -20,6 +20,7 @@ import (
 	"github.com/andydixon/noema/internal/conversation"
 	evstore "github.com/andydixon/noema/internal/events"
 	"github.com/andydixon/noema/internal/goals"
+	"github.com/andydixon/noema/internal/graph"
 	"github.com/andydixon/noema/internal/llm/prompts"
 	"github.com/andydixon/noema/internal/llm/router"
 	"github.com/andydixon/noema/internal/memory"
@@ -49,6 +50,7 @@ func testServer(t *testing.T) (*httptest.Server, string) {
 		Audit: audit.New(pool, log), Metrics: observability.NewMetrics(), Minds: minds.NewStore(pool), Conversations: conversation.NewStore(pool), Goals: goals.NewStore(pool), Motivation: motivation.NewStore(pool), Predictions: predictions.NewStore(pool), Beliefs: beliefs.NewStore(pool), Memory: memory.NewStore(context.Background(), pool, nil), Events: evstore.NewStore(pool, evstore.NewBus(50), nil), Migrations: migrations.FS, Started: time.Now()}
 	ctx := context.Background()
 	deps.Resolver = &predictions.Resolver{Store: deps.Predictions, Events: deps.Events, Beliefs: deps.Beliefs, Log: log}
+	deps.Graph = graph.NewStore(pool)
 	deps.Narrative = narrative.NewStore(pool)
 	deps.Notifications = notifications.NewStore(pool)
 	deps.Consolidation = &consolidation.Service{DB: pool, Memory: deps.Memory, Beliefs: deps.Beliefs, Events: deps.Events, Minds: deps.Minds, Log: log}

@@ -8,6 +8,7 @@
 <link rel="stylesheet" href="/static/app.css">
 <link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
 <script src="/static/app.js" defer></script>
+{{if hasSuffix .Path "/graph"}}<script src="/static/graph.js" defer></script>{{end}}
 </head>
 <body class="{{if .Principal}}app{{else}}bare{{end}}">
 {{if .Principal}}
