@@ -153,8 +153,12 @@ An administrator can: start Noema → log in → create a mind → configure per
 - ☑ API: graph, entities search/detail, merge (entities_same correction), distinct (entities_different correction), update, relate; UI: canvas force explorer with filters, focus and side panel, entity page with corrections; `noemactl entity`; docs/graph.md
 - ☑ Tests: kind guessing, canonicalisation, upsert dedupe, edge reinforcement, cross-mind refusal, merge with alias/link migration, bounded subgraph, stats
 
-### Phase 12 – Capability and action policy system
-- ☐ registry, policy engine, approvals, approval centre UI, policy matrix UI, dream/replay refusal, locked DENYs, tool events
+### Phase 12 – Capability and action policy system ☑
+- ☑ `migrations/0012_capabilities`: policies, approval_requests, append-only approval_decisions, session_grants, tool_executions
+- ☑ `internal/capabilities`: code-defined registry with param schemas and risk classes, locked capabilities, deterministic policy evaluation (specificity, strict tie-break, time windows), request hashing, single `Invoke` path with forbidden-context refusal, execution isolation, tool output as tool-trust observations, approvals (once, session, deny, modified params), grants, expiry, inventory; built-ins
+- ☑ Cognition: `act` process (fetch requests → http.fetch), `action` handler through the policy layer, replies report capabilities and action status, self-model synced from effective policy with self_model_updated events
+- ☑ API: capabilities, policies, per-mind inventory, invoke, approvals, grants, executions; UI: policy matrix and rules, approval centre with modify/approve/session/deny, dashboard count; notification rule for requests; `noemactl approvals|policy|invoke`; docs/capabilities.md
+- ☑ Tests: specificity and ties, locks, windows, parameter validation, hashing, allow/ask/deny/session/forbidden/panic paths, append-only decisions, inventory; live flow verified
 
 ### Phase 13 – Integrations
 - ☐ research folder watcher (fingerprints, safe extraction, provenance), git repositories, Prometheus/VictoriaMetrics, generic webhooks (HMAC); integration health UI

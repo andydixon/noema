@@ -104,7 +104,13 @@ func (u *UI) dashboard(w http.ResponseWriter, r *http.Request) {
 		names[m.ID] = m.DisplayName
 	}
 	evs, _ := u.deps.Events.Query(r.Context(), evstore.Filter{MinSalience: 0.6, Limit: 12})
-	u.render(w, r, "dashboard", "Dashboard", map[string]any{"Minds": mindsList, "MindNames": names, "Events": evs, "Status": u.statusF(r), "Audit": entries})
+	pending := 0
+	if u.deps.Capabilities != nil {
+		if list, err := u.deps.Capabilities.Approvals(r.Context(), ids.Nil, "pending", 500); err == nil {
+			pending = len(list)
+		}
+	}
+	u.render(w, r, "dashboard", "Dashboard", map[string]any{"Minds": mindsList, "MindNames": names, "Events": evs, "Status": u.statusF(r), "Audit": entries, "Pending": pending})
 }
 
 func (u *UI) system(w http.ResponseWriter, r *http.Request) {

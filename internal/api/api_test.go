@@ -15,6 +15,7 @@ import (
 	"github.com/andydixon/noema/internal/auth"
 	"github.com/andydixon/noema/internal/beliefs"
 	"github.com/andydixon/noema/internal/brain"
+	"github.com/andydixon/noema/internal/capabilities"
 	"github.com/andydixon/noema/internal/config"
 	"github.com/andydixon/noema/internal/consolidation"
 	"github.com/andydixon/noema/internal/conversation"
@@ -51,6 +52,11 @@ func testServer(t *testing.T) (*httptest.Server, string) {
 	ctx := context.Background()
 	deps.Resolver = &predictions.Resolver{Store: deps.Predictions, Events: deps.Events, Beliefs: deps.Beliefs, Log: log}
 	deps.Graph = graph.NewStore(pool)
+	capReg := capabilities.NewRegistry()
+	for _, c := range capabilities.Builtins() {
+		capReg.Add(c)
+	}
+	deps.Capabilities = &capabilities.Service{Registry: capReg, DB: pool, Events: deps.Events, Log: log}
 	deps.Narrative = narrative.NewStore(pool)
 	deps.Notifications = notifications.NewStore(pool)
 	deps.Consolidation = &consolidation.Service{DB: pool, Memory: deps.Memory, Beliefs: deps.Beliefs, Events: deps.Events, Minds: deps.Minds, Log: log}

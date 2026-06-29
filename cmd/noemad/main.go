@@ -19,6 +19,7 @@ import (
 	"github.com/andydixon/noema/internal/auth"
 	"github.com/andydixon/noema/internal/beliefs"
 	"github.com/andydixon/noema/internal/brain"
+	"github.com/andydixon/noema/internal/capabilities"
 	"github.com/andydixon/noema/internal/cognition"
 	"github.com/andydixon/noema/internal/config"
 	"github.com/andydixon/noema/internal/consolidation"
@@ -132,17 +133,26 @@ func run() error {
 	deps.Predictions = predictions.NewStore(db)
 	deps.Resolver = &predictions.Resolver{Store: deps.Predictions, Events: deps.Events, Beliefs: deps.Beliefs, Log: log, Metrics: metrics}
 	deps.Graph = graph.NewStore(db)
+	capReg := capabilities.NewRegistry()
+	for _, c := range capabilities.Builtins() {
+		capReg.Add(c)
+	}
+	deps.Capabilities = &capabilities.Service{Registry: capReg, DB: db, Events: deps.Events, Log: log, Metrics: metrics, ApprovalTTL: 24 * time.Hour, SessionTTL: 8 * time.Hour}
+	selfSync := cognition.SelfModelSync{Minds: deps.Minds, Caps: deps.Capabilities, Events: deps.Events, Log: log}
+	deps.Capabilities.OnSelfModel = selfSync.Sync
 	deps.Narrative = narrative.NewStore(db)
 	deps.Notifications = notifications.NewStore(db)
 	deps.Consolidation = &consolidation.Service{DB: db, Memory: deps.Memory, Beliefs: deps.Beliefs, Events: deps.Events, LLM: deps.LLM, Prompts: deps.Prompts, Minds: deps.Minds, Log: log}
 	deps.Reflection = &reflection.Service{DB: db, Events: deps.Events, Beliefs: deps.Beliefs, Goals: deps.Goals, Memory: deps.Memory, Predictions: deps.Predictions, LLM: deps.LLM, Prompts: deps.Prompts, Log: log}
 	registry := brain.NewRegistry().AddProcess(cognition.Attend{}).AddProcess(cognition.Retrieve{}).AddProcess(cognition.Associate{}).AddProcess(cognition.Perceive{}).
-		AddProcess(cognition.GoalMonitor{}).AddProcess(cognition.Curiosity{}).AddProcess(cognition.Metacognition{}).
+		AddProcess(cognition.GoalMonitor{}).AddProcess(cognition.Curiosity{}).AddProcess(cognition.Metacognition{}).AddProcess(cognition.Act{}).
 		AddHook(cognition.MotivationHook{Store: deps.Motivation}).AddHook(cognition.NarrativeHook{Store: deps.Narrative}).AddHook(cognition.NotifyHook{Store: deps.Notifications})
 	cognition.Handlers{Memory: deps.Memory, Beliefs: deps.Beliefs, Conversations: deps.Conversations, Graph: deps.Graph}.Register(registry)
 	deps.Brain = brain.NewManager(brain.Config{DB: db, Events: deps.Events, Minds: deps.Minds, Registry: registry, Pool: scheduler.NewPool(cfg.MaxWorkers),
 		Log: log, Metrics: metrics, Services: brain.Services{Events: deps.Events, Memory: deps.Memory, Beliefs: deps.Beliefs, LLM: deps.LLM, Prompts: deps.Prompts,
-			Goals: deps.Goals, Motivation: deps.Motivation, Predictions: deps.Predictions}}, group)
+			Goals: deps.Goals, Motivation: deps.Motivation, Predictions: deps.Predictions, Capabilities: deps.Capabilities}}, group)
+	selfSync.Sync(ctx, ids.Nil)
+	group.Every("approvals.expire", 5*time.Minute, func(ctx context.Context) error { _, err := deps.Capabilities.ExpirePending(ctx); return err })
 	group.Every("predictions.resolve", time.Minute, deps.Resolver.Run)
 	group.Every("cognition.background", 5*time.Minute, func(ctx context.Context) error { return backgroundCognition(ctx, deps) })
 	group.Every("memory.decay", 6*time.Hour, func(ctx context.Context) error { return decayMemories(ctx, deps) })

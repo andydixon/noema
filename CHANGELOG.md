@@ -5,6 +5,7 @@ All notable changes to Noema are recorded here. Format follows Keep a Changelog;
 ## [Unreleased]
 
 ### Added
+- Phase 12 capabilities: single policy-governed action path with ALLOW/ASK/DENY rules, locked capabilities, request-bound approvals (once, session, modified), tool output as tool-trust observations, self-model synchronisation, approval centre and policy matrix.
 - Phase 11 relationship graph: mind-scoped entities with aliases, evidenced typed edges, links to memories/beliefs/events, deterministic extraction from conversation and observations, merge/distinct corrections, bounded canvas explorer, API and CLI.
 - Phase 10 background cognition: metacognitive self-checks, scheduled reflection with lessons, episode consolidation into evidenced generalisations with operator review, internal narrative, thresholded notifications with aggregation.
 - Phase 9 motivation: goal tree with attention relevance, closed drive set and rule-driven affect state with decay and weight modulation, explicit predictions with deterministic resolution, prediction errors feeding beliefs, calibration dashboard, curiosity questions becoming investigation goals.

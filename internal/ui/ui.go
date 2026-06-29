@@ -21,6 +21,7 @@ import (
 	"github.com/andydixon/noema/internal/attention"
 	"github.com/andydixon/noema/internal/auth"
 	"github.com/andydixon/noema/internal/beliefs"
+	"github.com/andydixon/noema/internal/capabilities"
 	"github.com/andydixon/noema/internal/consolidation"
 	"github.com/andydixon/noema/internal/conversation"
 	"github.com/andydixon/noema/internal/goals"
@@ -58,6 +59,8 @@ type UI struct {
 	entF      func(r *http.Request, mind, id ids.ID) (api.EntityDetail, error)
 	mergeF    func(r *http.Request, mind ids.ID, e graph.Entity, other string) error
 	distinctF func(r *http.Request, mind ids.ID, e graph.Entity, other string) error
+	policyF   func(r *http.Request, p capabilities.Policy) (capabilities.Policy, error)
+	decideF   func(r *http.Request, id ids.ID, decision, note string, params map[string]any) (any, error)
 }
 
 // Actions groups the server-side operations the UI delegates to the API layer
@@ -80,6 +83,8 @@ type Actions struct {
 	Entity      func(r *http.Request, mind, id ids.ID) (api.EntityDetail, error)
 	Merge       func(r *http.Request, mind ids.ID, e graph.Entity, other string) error
 	Distinct    func(r *http.Request, mind ids.ID, e graph.Entity, other string) error
+	Policy      func(r *http.Request, p capabilities.Policy) (capabilities.Policy, error)
+	Decide      func(r *http.Request, id ids.ID, decision, note string, params map[string]any) (any, error)
 }
 
 // View is the data passed to every template.
@@ -109,7 +114,7 @@ func New(deps app.Deps, a Actions) (*UI, error) {
 			deps.Log.Info("ui: serving templates and static files from ./web (development)")
 		}
 	}
-	u := &UI{deps: deps, static: staticFS, statusF: a.Status, ctxF: a.Context, wsF: a.Workspace, memF: a.Memory, belF: a.Belief, emitF: a.Emitter, postF: a.Post, goalF: a.Goal, goalUpdF: a.GoalUpdate, predF: a.Predict, resolveF: a.Resolve, resetF: a.ResetState, consolF: a.Consolidate, reflF: a.Reflect, entF: a.Entity, mergeF: a.Merge, distinctF: a.Distinct}
+	u := &UI{deps: deps, static: staticFS, statusF: a.Status, ctxF: a.Context, wsF: a.Workspace, memF: a.Memory, belF: a.Belief, emitF: a.Emitter, postF: a.Post, goalF: a.Goal, goalUpdF: a.GoalUpdate, predF: a.Predict, resolveF: a.Resolve, resetF: a.ResetState, consolF: a.Consolidate, reflF: a.Reflect, entF: a.Entity, mergeF: a.Merge, distinctF: a.Distinct, policyF: a.Policy, decideF: a.Decide}
 	if err := u.parse(tmplFS); err != nil {
 		return nil, err
 	}
@@ -164,7 +169,11 @@ func (u *UI) parse(fsys fs.FS) error {
 		"llmRoles":       func() []llm.RoleInfo { return llm.Roles },
 		"pretty":         prettyRaw,
 		"entityKinds":    func() []graph.Kind { return graph.AllKinds },
-		"join":           strings.Join,
+		"jsonOf": func(v any) json.RawMessage {
+			b, _ := json.Marshal(v)
+			return b
+		},
+		"join": strings.Join,
 		"outputs": func(raw json.RawMessage) []consolidation.Output {
 			var out []consolidation.Output
 			json.Unmarshal(raw, &out) //nolint:errcheck
@@ -369,11 +378,10 @@ func (u *UI) Register(m *http.ServeMux) {
 	u.motivationRoutes(m)
 	u.cognitionRoutes(m)
 	u.graphRoutes(m)
+	u.capabilityRoutes(m)
 
 	for _, p := range []struct{ path, title, note string }{
-		{"/approvals", "Approvals", "The approval centre arrives with the capability system."},
 		{"/integrations", "Integrations", "Integrations arrive in phase 13."},
-		{"/policies", "Policies", "The policy matrix arrives in phase 12."},
 	} {
 		m.Handle("GET "+p.path, u.require(auth.RoleObserver, func(w http.ResponseWriter, r *http.Request) { u.render(w, r, "placeholder", p.title, p.note) }))
 	}

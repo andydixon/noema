@@ -14,6 +14,7 @@ import (
 	"github.com/andydixon/noema/internal/auth"
 	"github.com/andydixon/noema/internal/beliefs"
 	"github.com/andydixon/noema/internal/brain"
+	"github.com/andydixon/noema/internal/capabilities"
 	"github.com/andydixon/noema/internal/config"
 	"github.com/andydixon/noema/internal/consolidation"
 	"github.com/andydixon/noema/internal/conversation"
@@ -56,6 +57,7 @@ type Deps struct {
 	Consolidation *consolidation.Service
 	Reflection    *reflection.Service
 	Graph         *graph.Store
+	Capabilities  *capabilities.Service
 	LLM           *router.Router
 	LLMStore      *router.Store
 	Prompts       *prompts.Store

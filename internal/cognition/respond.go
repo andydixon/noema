@@ -200,12 +200,24 @@ func (h Handlers) buildIntent(ctx context.Context, c *brain.Cycle, a conversatio
 		}
 	case "request":
 		in.Kind = "decline"
-		caps := c.State.SelfModel.Capabilities
-		if len(caps) == 0 {
+		var usable []string
+		for _, cap := range c.State.SelfModel.Capabilities {
+			if cap.Policy == "allow" || cap.Policy == "ask" {
+				usable = append(usable, cap.Name+" ("+cap.Policy+")")
+			}
+		}
+		if len(usable) == 0 {
 			in.Summary = "Explain honestly that no external capabilities are granted, so the request cannot be carried out; offer what is known instead."
 			in.Points = append(in.Points, "I have no capabilities granted to act on external systems.")
 		} else {
-			in.Summary = "Explain which capabilities exist and that actions require policy approval."
+			in.Kind = "acknowledge"
+			in.Summary = "Say which capabilities could apply and that any action goes through policy; if one was proposed this cycle its status is in working memory."
+			in.Points = append(in.Points, "Capabilities I may use: "+strings.Join(usable, ", ")+".")
+			for _, it := range c.Runtime.Workspace().WorkingMemory {
+				if strings.HasPrefix(it.Key, "action:") {
+					in.Points = append(in.Points, "Action status: "+it.Content)
+				}
+			}
 		}
 		h.addKnowledge(ctx, c, &in, topic)
 	case "introspection":

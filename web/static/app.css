@@ -216,3 +216,11 @@ canvas.graph { width: 100%; height: 560px; display: block; border-radius: 8px; b
 .legend { display: flex; flex-wrap: wrap; gap: .6rem; padding: .4rem .3rem 0; font-size: .78rem; color: var(--muted); }
 .legend-item i { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: .3rem; vertical-align: middle; }
 .legend-item i.k-person { background: #2f6fed; } .legend-item i.k-system { background: #0ea5a4; } .legend-item i.k-project { background: #16a34a; } .legend-item i.k-document { background: #d97706; } .legend-item i.k-concept { background: #8b5cf6; } .legend-item i.k-repository { background: #64748b; } .legend-item i.k-organisation { background: #db2777; } .legend-item i.k-place { background: #0891b2; } .legend-item i.k-other { background: #9ca3af; }
+
+/* Capabilities */
+.badge.rk-low { background: var(--ok-soft); color: var(--ok); } .badge.rk-medium { background: var(--warn-soft); color: var(--warn); } .badge.rk-high { background: var(--danger-soft); color: var(--danger); } .badge.rk-critical { background: var(--danger); color: #fff; }
+.badge.ef-allow { background: var(--ok-soft); color: var(--ok); } .badge.ef-ask { background: var(--warn-soft); color: var(--warn); } .badge.ef-deny { background: var(--danger-soft); color: var(--danger); }
+.badge.ap-executed, .badge.ap-approved { background: var(--ok-soft); color: var(--ok); } .badge.ap-denied, .badge.ap-failed { background: var(--danger-soft); color: var(--danger); } .badge.ap-expired { background: var(--surface-2); color: var(--muted); }
+.tablewrap { overflow-x: auto; }
+.approval { border: 1px solid var(--border); border-radius: 8px; padding: .8rem 1rem; margin-bottom: .8rem; }
+.approval-head { margin-bottom: .5rem; }

@@ -11,6 +11,7 @@ import (
 
 	"github.com/andydixon/noema/internal/attention"
 	"github.com/andydixon/noema/internal/beliefs"
+	"github.com/andydixon/noema/internal/capabilities"
 	"github.com/andydixon/noema/internal/goals"
 	"github.com/andydixon/noema/internal/llm/prompts"
 	"github.com/andydixon/noema/internal/llm/router"
@@ -94,14 +95,15 @@ func (s *State) AllowLLM() bool {
 
 // Services are read handles processes may use. Extended per phase.
 type Services struct {
-	Events      EventReader
-	Memory      *memory.Store
-	Beliefs     *beliefs.Store
-	LLM         *router.Router
-	Prompts     *prompts.Store
-	Goals       *goals.Store
-	Motivation  *motivation.Store
-	Predictions *predictions.Store
+	Events       EventReader
+	Memory       *memory.Store
+	Beliefs      *beliefs.Store
+	LLM          *router.Router
+	Prompts      *prompts.Store
+	Goals        *goals.Store
+	Motivation   *motivation.Store
+	Predictions  *predictions.Store
+	Capabilities *capabilities.Service
 }
 
 // EventReader is the subset of the event store processes may call.

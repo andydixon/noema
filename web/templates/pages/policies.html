@@ -1,0 +1,41 @@
+{{define "content"}}
+<div class="pagehead"><h1>Capabilities and policies</h1><p class="muted">No action reaches the world except through a capability, and every capability is governed by ALLOW / ASK / DENY rules. The most specific rule wins; on ties the stricter effect wins. Locked capabilities cannot be relaxed.</p></div>
+{{$admin := .Principal.User.Role.AtLeast "administrator"}}
+<section class="card">
+  <h2>Effective policy matrix <span class="muted small">mind × capability, for a generic target right now</span></h2>
+  <div class="tablewrap"><table class="table compact matrix">
+    <thead><tr><th>Capability</th><th>Risk</th><th>Default</th>{{range .Data.Minds}}<th>{{.DisplayName}}</th>{{end}}</tr></thead>
+    <tbody>{{range $c := .Data.Capabilities}}<tr>
+      <td><code>{{$c.Name}}</code>{{if $c.Locked}} <span class="badge danger">locked</span>{{end}}<div class="small muted">{{$c.Description}}</div></td>
+      <td><span class="badge rk-{{$c.Risk}}">{{$c.Risk}}</span></td><td><span class="badge ef-{{$c.DefaultEffect}}">{{$c.DefaultEffect}}</span></td>
+      {{range $m := $.Data.Minds}}{{$e := index $.Data.Matrix $m.ID $c.Name}}<td><span class="badge ef-{{$e.Effect}}" title="{{$e.Reason}}">{{$e.Effect}}</span></td>{{end}}
+    </tr>{{end}}</tbody>
+  </table></div>
+</section>
+<section class="grid cols-3-1">
+  <div class="card">
+    <h2>Rules</h2>
+    {{if .Data.Policies}}<table class="table compact"><thead><tr><th>Scope</th><th>Capability</th><th>Target</th><th>Action</th><th>Hours</th><th>Effect</th><th>Reason</th><th>By</th>{{if $admin}}<th></th>{{end}}</tr></thead>
+      <tbody>{{range .Data.Policies}}<tr><td class="small">{{if .MindID}}{{index $.Data.MindNames .MindID}}{{else}}<em>global</em>{{end}}</td><td><code>{{.Capability}}</code></td><td class="mono small">{{.TargetPattern}}</td><td class="small">{{.ActionKind}}</td><td class="small">{{if .HoursFrom}}{{deref_int .HoursFrom}}–{{deref_int .HoursTo}}{{else}}always{{end}}</td><td><span class="badge ef-{{.Effect}}">{{.Effect}}</span></td><td class="small">{{.Reason}}</td><td class="small muted">{{.CreatedBy}}</td>
+        {{if $admin}}<td><form method="post" action="/policies/{{.ID}}/delete" class="inline"><input type="hidden" name="_csrf" value="{{$.CSRF}}"><button class="btn small btn-danger" data-confirm="Delete this rule?">Delete</button></form></td>{{end}}</tr>{{end}}</tbody></table>
+    {{else}}<p class="muted">No rules yet: every capability uses its default (ASK for reads and writes, DENY for locked).</p>{{end}}
+    {{if .Data.Grants}}<h3>Active session grants</h3><table class="table compact"><tbody>{{range .Data.Grants}}<tr><td>{{index $.Data.MindNames .MindID}}</td><td><code>{{.Capability}}</code></td><td class="mono small">{{.TargetPattern}}</td><td class="small muted">by {{.GrantedBy}} until {{.ExpiresAt.Local.Format "15:04"}}</td><td>{{if $.Principal.User.Role.AtLeast "operator"}}<form method="post" action="/policies/grants/{{.ID}}/revoke" class="inline"><input type="hidden" name="_csrf" value="{{$.CSRF}}"><button class="btn small">Revoke</button></form>{{end}}</td></tr>{{end}}</tbody></table>{{end}}
+  </div>
+  {{if $admin}}
+  <div class="card">
+    <h2>Add rule</h2>
+    <form method="post" action="/policies" class="stack">
+      <input type="hidden" name="_csrf" value="{{.CSRF}}">
+      <label>Scope <select name="mind_id"><option value="">global</option>{{range .Data.Minds}}<option value="{{.ID}}">{{.DisplayName}}</option>{{end}}</select></label>
+      <label>Capability <select name="capability"><option value="*">* (all)</option>{{range .Data.Capabilities}}<option value="{{.Name}}">{{.Name}}</option>{{end}}</select></label>
+      <label>Target pattern <input name="target_pattern" value="*" placeholder="web-* or https://example.com/*"></label>
+      <label>Effect <select name="effect"><option value="ask">ask</option><option value="allow">allow</option><option value="deny">deny</option></select></label>
+      <div class="grid cols-2 tight"><label>Hours from <input type="number" name="hours_from" min="0" max="23" placeholder="any"></label><label>to <input type="number" name="hours_to" min="0" max="23"></label></div>
+      <label>Reason <input name="reason" maxlength="200"></label>
+      <div><button class="btn btn-primary" type="submit">Add rule</button></div>
+    </form>
+    <p class="muted small">ALLOW rules on high-risk capabilities are shown with a warning in the matrix. sudo_shell and delete_database are locked to DENY.</p>
+  </div>
+  {{end}}
+</section>
+{{end}}

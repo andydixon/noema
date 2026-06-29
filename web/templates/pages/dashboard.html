@@ -3,7 +3,7 @@
 <section class="grid cols-3">
   <div class="card stat"><div class="stat-label">Active minds</div><div class="stat-value">{{len .Data.Minds}}</div><div class="muted small">{{range .Data.Minds}}<a href="/minds/{{.Slug}}">{{.DisplayName}}</a> {{else}}No minds yet. Create one under Minds.{{end}}</div></div>
   <div class="card stat"><div class="stat-label">System health</div><div class="stat-value">{{if .Data.Status.Database.OK}}<span class="ok">Healthy</span>{{else}}<span class="danger">Degraded</span>{{end}}</div><div class="muted small">Database {{if .Data.Status.Database.OK}}connected{{else}}unavailable{{end}} · up {{duration .Data.Status.UptimeSeconds}}</div></div>
-  <div class="card stat"><div class="stat-label">Outstanding approvals</div><div class="stat-value">0</div><div class="muted small">Capability layer arrives in a later phase.</div></div>
+  <div class="card stat"><div class="stat-label">Outstanding approvals</div><div class="stat-value">{{.Data.Pending}}</div><div class="muted small"><a href="/approvals">Approval centre</a> · <a href="/policies">policies</a></div></div>
 </section>
 <section class="grid cols-2">
   <div class="card">

@@ -78,6 +78,8 @@ func Rules(ev events.Event, cfg minds.CognitiveConfig, p minds.Personality) []Ca
 		if ev.Metadata["check"] == "overconfidence" || ev.Metadata["check"] == "loop" {
 			out = append(out, Candidate{Level: "warn", Title: "Metacognitive warning", Body: ev.Summary, Rule: "metacognition", Reason: map[string]any{"check": ev.Metadata["check"]}, AggregateKey: "meta:" + str(ev.Metadata["check"]), SourceEvent: ev.ID})
 		}
+	case events.ToolRequested:
+		out = append(out, Candidate{Level: "alert", Title: "An action needs your approval", Body: ev.Summary, Rule: "tool_requested", Reason: map[string]any{"risk": ev.Metadata["risk"]}, AggregateKey: "approval:" + str(ev.Metadata["approval_id"]), SourceEvent: ev.ID})
 	case events.ToolDenied:
 		out = append(out, Candidate{Level: "alert", Title: "An action was denied by policy", Body: ev.Summary, Rule: "tool_denied", Reason: map[string]any{}, AggregateKey: "denied:" + str(ev.Metadata["capability"]), SourceEvent: ev.ID})
 	case events.Observation:

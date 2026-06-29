@@ -38,6 +38,7 @@ func (h Handlers) Register(r *brain.Registry) {
 	r.Handle("goal", h.goal)
 	r.Handle("question", h.question)
 	r.Handle("metacognition", h.metacognition)
+	r.Handle("action", h.action)
 }
 
 // emitter adapts the cycle to the beliefs store's Emitter.

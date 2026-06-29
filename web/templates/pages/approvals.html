@@ -1,0 +1,33 @@
+{{define "content"}}
+<div class="pagehead"><h1>Approval centre</h1><p class="muted">Actions a mind wants to take that policy marks ASK. Approvals are bound to the exact request; modified parameters are re-validated and recorded.</p></div>
+{{$op := .Principal.User.Role.AtLeast "operator"}}
+<section class="card">
+  <h2>Pending <span class="muted small">{{len .Data.Pending}}</span></h2>
+  {{if .Data.Pending}}{{range .Data.Pending}}
+  <div class="approval">
+    <div class="approval-head"><span class="badge rk-{{.Risk}}">{{.Risk}}</span> <strong>{{index $.Data.MindNames .MindID}}</strong> wants <code>{{.Capability}}</code>{{if .Target}} on <span class="mono">{{.Target}}</span>{{end}} <span class="muted small">· requested {{ago .CreatedAt}} · expires {{.ExpiresAt.Local.Format "02 Jan 15:04"}}{{if .EventID}} · <a href="/events/{{.EventID}}">event</a>{{end}}</span></div>
+    <div class="grid cols-2 tight">
+      <div><h3>Reason</h3><p>{{if .Reason}}{{.Reason}}{{else}}<em class="muted">none given</em>{{end}}</p>
+        {{if .Evidence}}<h3>Evidence</h3><ul class="plain small">{{range .Evidence}}<li><span class="badge">{{.Kind}}</span> {{if eq .Kind "event"}}<a href="/events/{{.ID}}">{{.ID}}</a>{{else}}{{.ID}}{{end}} {{.Note}}</li>{{end}}</ul>{{end}}</div>
+      <div><h3>Parameters</h3><pre class="json">{{pretty (jsonOf .Params)}}</pre></div>
+    </div>
+    {{if $op}}
+    <form method="post" action="/approvals/{{.ID}}/decide" class="stack">
+      <input type="hidden" name="_csrf" value="{{$.CSRF}}">
+      <details><summary class="small">Modify parameters before approving</summary><textarea name="params" rows="3" class="mono" placeholder="JSON object; leave empty to keep">{{pretty (jsonOf .Params)}}</textarea></details>
+      <div class="row"><input name="note" placeholder="note (shown to the mind)" class="grow" maxlength="500">
+        <button class="btn btn-primary" name="decision" value="approve">Approve once</button>
+        <button class="btn" name="decision" value="session" title="Also allow matching requests for this session">Approve for session</button>
+        <button class="btn btn-danger" name="decision" value="deny">Deny</button></div>
+    </form>
+    {{end}}
+  </div>{{end}}
+  {{else}}<p class="muted">Nothing is waiting.</p>{{end}}
+</section>
+<section class="grid cols-2">
+  <div class="card"><h2>Decided recently</h2>
+    {{if .Data.Decided}}<table class="table compact"><thead><tr><th>Status</th><th>Mind</th><th>Action</th><th>By</th><th>Note</th><th>When</th></tr></thead><tbody>{{range .Data.Decided}}<tr><td><span class="badge ap-{{.Status}}">{{.Status}}</span></td><td class="small">{{index $.Data.MindNames .MindID}}</td><td><code>{{.Capability}}</code> <span class="mono small">{{.Target}}</span>{{if .Error}}<div class="small danger">{{.Error}}</div>{{end}}</td><td class="small">{{.DecisionBy}}</td><td class="small">{{.DecisionNote}}</td><td class="small muted nowrap">{{ago .CreatedAt}}</td></tr>{{end}}</tbody></table>{{else}}<p class="muted">None.</p>{{end}}</div>
+  <div class="card"><h2>Executions</h2>
+    {{if .Data.Executions}}<table class="table compact"><thead><tr><th>Mind</th><th>Capability</th><th>Target</th><th>Result</th><th class="num">ms</th><th></th></tr></thead><tbody>{{range .Data.Executions}}<tr><td class="small">{{index $.Data.MindNames .MindID}}</td><td><code>{{.Capability}}</code></td><td class="mono small">{{.Target}}</td><td class="small">{{if .Error}}<span class="danger">{{trunc .Error 80}}</span>{{else}}{{payloadField .Result "summary"}}{{end}}</td><td class="num">{{.DurationMS}}</td><td>{{if .EventID}}<a class="small" href="/events/{{.EventID}}">event</a>{{end}}</td></tr>{{end}}</tbody></table>{{else}}<p class="muted">None yet.</p>{{end}}</div>
+</section>
+{{end}}
