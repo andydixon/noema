@@ -1,0 +1,43 @@
+{{define "content"}}
+{{$m := .Data.Mind}}{{$c := $m.Config}}
+<div class="pagehead mindhead"><div><h1>{{$m.DisplayName}} <span class="muted small">dreaming</span></h1><p class="muted">An optional idle mode: replay a deterministic sample of memories, link pairs that share vocabulary but were never connected, and propose speculative hypotheses. Every hypothesis starts at low confidence and waits here for review. Dreams run in a context where no capability can execute.</p></div>
+  <div class="row">{{if .Data.Paused}}<span class="badge warn">dreaming paused globally</span>{{end}}{{if not $c.DreamingEnabled}}<span class="badge">disabled for this mind</span>{{end}}</div></div>
+{{template "mind_tabs" (dict "M" $m "Active" "dreams")}}
+<section class="grid cols-3-1">
+  <div class="stack">
+    <div class="card">
+      <h2>Proposed hypotheses <span class="muted small">{{len .Data.Pending}} awaiting review</span></h2>
+      {{if .Data.Pending}}<table class="table compact"><thead><tr><th>Proposition</th><th class="num">Conf.</th><th>Basis</th><th>Dreamt</th><th></th></tr></thead><tbody>
+        {{range .Data.Pending}}<tr><td><a href="/minds/{{$m.Slug}}/beliefs/{{.BeliefID}}">{{.Proposition}}</a><div class="small muted">{{range .MemoryIDs}}<a href="/minds/{{$m.Slug}}/memory/{{.}}">memory</a> {{end}}· {{.Wording}} wording</div></td><td class="num">{{conf .Confidence}}</td><td class="small muted">{{trunc .Basis 120}}</td><td class="small muted nowrap">{{ago .CreatedAt}}</td>
+          <td>{{if $.Principal.User.Role.AtLeast "operator"}}<form method="post" class="inline stack-tight"><input type="hidden" name="_csrf" value="{{$.CSRF}}"><input type="hidden" name="hypothesis_id" value="{{.ID}}"><input name="note" placeholder="note" size="12">
+            <button class="btn small" formaction="/minds/{{$m.Slug}}/dreams/promote">promote</button> <button class="btn small btn-danger" formaction="/minds/{{$m.Slug}}/dreams/reject">reject</button></form>{{end}}</td></tr>{{end}}</tbody></table>
+      {{else}}<p class="muted">Nothing awaiting review.</p>{{end}}
+    </div>
+    <div class="card">
+      <h2>Dreams</h2>
+      {{if .Principal.User.Role.AtLeast "operator"}}<form method="post" action="/minds/{{$m.Slug}}/dreams/run" class="row"><input type="hidden" name="_csrf" value="{{.CSRF}}"><button class="btn">Dream now</button>
+        {{if .Principal.User.Role.AtLeast "administrator"}}<button class="btn btn-ghost" formaction="/dreams/pause" name="paused" value="{{if .Data.Paused}}0{{else}}1{{end}}">{{if .Data.Paused}}Resume scheduled dreams{{else}}Pause scheduled dreams{{end}}</button>{{end}}</form>{{end}}
+      {{if .Data.Dreams}}<table class="table compact"><thead><tr><th>When</th><th>Status</th><th>Trigger</th><th class="num">Sampled</th><th class="num">Links</th><th class="num">Hypotheses</th><th class="num">Model calls</th></tr></thead><tbody>
+        {{range .Data.Dreams}}<tr><td class="small muted nowrap">{{ago .CreatedAt}}</td><td><span class="badge {{if eq .Status "done"}}ok{{else if eq .Status "failed"}}danger{{else}}warn{{end}}">{{.Status}}</span>{{with .Error}} <span class="small muted">{{.}}</span>{{end}}</td><td class="small">{{.Trigger}} {{.CreatedBy}}</td><td class="num">{{.Sampled}}</td><td class="num">{{.Associations}}</td><td class="num">{{.Hypotheses}}</td><td class="num">{{.LLMCalls}}</td></tr>{{end}}</tbody></table>
+      {{else}}<p class="muted">No dreams yet.</p>{{end}}
+    </div>
+    {{if .Data.Reviewed}}<div class="card"><h2>Reviewed</h2><table class="table compact"><tbody>{{range .Data.Reviewed}}<tr><td><span class="badge {{if eq .Status "promoted"}}ok{{else}}{{end}}">{{.Status}}</span></td><td><a href="/minds/{{$m.Slug}}/beliefs/{{.BeliefID}}">{{trunc .Proposition 110}}</a></td><td class="num">{{conf .Confidence}}</td><td class="small muted">{{.ReviewedBy}}{{with .ReviewNote}}: {{.}}{{end}}</td></tr>{{end}}</tbody></table></div>{{end}}
+  </div>
+  <div class="card">
+    <h2>Settings</h2>
+    {{if .Principal.User.Role.AtLeast "administrator"}}
+    <form method="post" action="/minds/{{$m.Slug}}/dreams/settings" class="stack">
+      <input type="hidden" name="_csrf" value="{{.CSRF}}">
+      <label class="check"><input type="checkbox" name="enabled" {{if $c.DreamingEnabled}}checked{{end}}> Dreaming enabled</label>
+      <label>Allowed hours <span class="muted small">(local, HH-HH; blank = any)</span> <input name="hours" value="{{$c.DreamHours}}" pattern="^$|^\d{1,2}-\d{1,2}$" placeholder="01-06"></label>
+      <label>Interval <input name="interval" value="{{$c.DreamInterval}}" placeholder="24h"></label>
+      <label>Model calls per dream <input type="number" name="llm_calls" value="{{$c.DreamLLMCalls}}" min="0" max="20"></label>
+      <label>Memories sampled <input type="number" name="max_memories" value="{{$c.DreamMaxMemories}}" min="4" max="200"></label>
+      <label>Hypotheses per dream <input type="number" name="max_hypotheses" value="{{$c.DreamMaxHypotheses}}" min="1" max="20"></label>
+      <div><button class="btn btn-primary">Save</button></div>
+    </form>
+    {{else}}<dl class="kv"><dt>Enabled</dt><dd>{{$c.DreamingEnabled}}</dd><dt>Hours</dt><dd>{{or $c.DreamHours "any"}}</dd><dt>Interval</dt><dd>{{$c.DreamInterval}}</dd><dt>Model calls</dt><dd>{{$c.DreamLLMCalls}}</dd><dt>Memories</dt><dd>{{$c.DreamMaxMemories}}</dd></dl>{{end}}
+    <p class="small muted">Scheduled dreams need all of: enabled, inside the hours window, interval elapsed, not paused. "Dream now" ignores the hours window but never the pause.</p>
+  </div>
+</section>
+{{end}}

@@ -18,6 +18,7 @@ import (
 	"github.com/andydixon/noema/internal/config"
 	"github.com/andydixon/noema/internal/consolidation"
 	"github.com/andydixon/noema/internal/conversation"
+	"github.com/andydixon/noema/internal/dreaming"
 	"github.com/andydixon/noema/internal/events"
 	"github.com/andydixon/noema/internal/goals"
 	"github.com/andydixon/noema/internal/graph"
@@ -60,6 +61,7 @@ type Deps struct {
 	Graph         *graph.Store
 	Capabilities  *capabilities.Service
 	Integrations  *integrations.Manager
+	Dreaming      *dreaming.Service
 	LLM           *router.Router
 	LLMStore      *router.Store
 	Prompts       *prompts.Store

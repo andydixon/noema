@@ -24,6 +24,7 @@ import (
 	"github.com/andydixon/noema/internal/config"
 	"github.com/andydixon/noema/internal/consolidation"
 	"github.com/andydixon/noema/internal/conversation"
+	"github.com/andydixon/noema/internal/dreaming"
 	evstore "github.com/andydixon/noema/internal/events"
 	"github.com/andydixon/noema/internal/goals"
 	"github.com/andydixon/noema/internal/graph"
@@ -149,6 +150,7 @@ func run() error {
 	deps.Narrative = narrative.NewStore(db)
 	deps.Notifications = notifications.NewStore(db)
 	deps.Consolidation = &consolidation.Service{DB: db, Memory: deps.Memory, Beliefs: deps.Beliefs, Events: deps.Events, LLM: deps.LLM, Prompts: deps.Prompts, Minds: deps.Minds, Log: log}
+	deps.Dreaming = &dreaming.Service{DB: db, Memory: deps.Memory, Beliefs: deps.Beliefs, Events: deps.Events, LLM: deps.LLM, Prompts: deps.Prompts, Log: log}
 	deps.Reflection = &reflection.Service{DB: db, Events: deps.Events, Beliefs: deps.Beliefs, Goals: deps.Goals, Memory: deps.Memory, Predictions: deps.Predictions, LLM: deps.LLM, Prompts: deps.Prompts, Log: log}
 	registry := brain.NewRegistry().AddProcess(cognition.Attend{}).AddProcess(cognition.Retrieve{}).AddProcess(cognition.Associate{}).AddProcess(cognition.Perceive{}).
 		AddProcess(cognition.GoalMonitor{}).AddProcess(cognition.Curiosity{}).AddProcess(cognition.Metacognition{}).AddProcess(cognition.Act{}).
@@ -286,6 +288,15 @@ func backgroundCognition(ctx context.Context, d app.Deps) error {
 				d.Brain.Command(ctx, m.ID, "setmode", map[string]bool{"consolidating": true}) //nolint:errcheck
 				if _, err := d.Consolidation.Run(ctx, m, "schedule", "noemad"); err != nil {
 					d.Log.Warn("consolidation failed", "mind", m.Slug, "err", err)
+				}
+				d.Brain.Command(ctx, m.ID, "setmode", map[string]bool{"awake": true}) //nolint:errcheck
+			}
+		}
+		if m.Config.DreamingEnabled && !dreaming.IsPaused() && dreaming.InWindow(m.Config.DreamHours, time.Now()) {
+			if ds, _ := d.Dreaming.Dreams(ctx, m.ID, 1); len(ds) == 0 || time.Since(ds[0].CreatedAt) >= m.Config.DreamInterval.D() {
+				d.Brain.Command(ctx, m.ID, "setmode", map[string]bool{"dreaming": true}) //nolint:errcheck
+				if _, err := d.Dreaming.Run(ctx, m, "schedule", "noemad"); err != nil {
+					d.Log.Warn("dream failed", "mind", m.Slug, "err", err)
 				}
 				d.Brain.Command(ctx, m.ID, "setmode", map[string]bool{"awake": true}) //nolint:errcheck
 			}

@@ -164,7 +164,7 @@ An administrator can: start Noema → log in → create a mind → configure per
 - ☑ research folder watcher (fingerprints, safe extraction, provenance), git repositories, Prometheus/VictoriaMetrics, generic webhooks (HMAC); integration health UI, `read_metrics` and `repository.read` capabilities
 
 ### Phase 14 – Dreaming and associative cognition
-- ☐ dream mode, hours, budgets, association process, promotion/rejection UI
+- ☑ dream mode, hours, budgets, association process, promotion/rejection UI (forbidden capability context; hypotheses start ≤0.35)
 
 ### Phase 15 – Snapshots, forking, replay, experiments, export/import
 - ☐ snapshots, fork with shared history, comparison tools, replay engine and UI, experiment framework with exportable results, mind export/import archives

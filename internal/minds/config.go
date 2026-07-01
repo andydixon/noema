@@ -33,6 +33,15 @@ type CognitiveConfig struct {
 	NotifyMinConfidence      float64  `json:"notify_min_confidence"`
 	NotifyMinSalience        float64  `json:"notify_min_salience"`
 	NotifyCooldown           Duration `json:"notify_cooldown"`
+
+	// Dreaming (spec §19): off by default, confined to allowed hours, with its
+	// own model-call and memory budgets. Dreams can never act.
+	DreamingEnabled    bool     `json:"dreaming_enabled"`
+	DreamHours         string   `json:"dream_hours"` // "HH-HH" local, e.g. "01-06"; empty = any hour
+	DreamInterval      Duration `json:"dream_interval"`
+	DreamLLMCalls      int      `json:"dream_llm_calls"`
+	DreamMaxMemories   int      `json:"dream_max_memories"`
+	DreamMaxHypotheses int      `json:"dream_max_hypotheses"`
 }
 
 // AttentionFeatures is the fixed set of scoring features (spec §6). Weights are
@@ -48,7 +57,8 @@ func DefaultConfig() CognitiveConfig {
 		LLMCallsPerCycle: 3, DailyTokenBudget: 500_000, WorkingMemoryDecay: 0.85, LoopDetectWindow: 20, LoopDetectThreshold: 5,
 		ConsolidationEnabled: true, ConsolidationInterval: Duration(6 * time.Hour), ConsolidationMinEpisodes: 3, ConsolidationLLMCalls: 5,
 		ReflectionEnabled: true, ReflectionInterval: Duration(12 * time.Hour), ReflectionLLMCalls: 2, NarrativeLLM: false,
-		NotifyMinConfidence: 0.85, NotifyMinSalience: 0.7, NotifyCooldown: Duration(time.Hour)}
+		NotifyMinConfidence: 0.85, NotifyMinSalience: 0.7, NotifyCooldown: Duration(time.Hour),
+		DreamingEnabled: false, DreamHours: "01-06", DreamInterval: Duration(24 * time.Hour), DreamLLMCalls: 2, DreamMaxMemories: 40, DreamMaxHypotheses: 5}
 }
 
 // Normalise fills gaps from defaults and clamps ranges.
@@ -106,6 +116,18 @@ func (c *CognitiveConfig) Normalise() {
 	}
 	if c.ConsolidationLLMCalls < 0 || c.ConsolidationLLMCalls > 50 {
 		c.ConsolidationLLMCalls = d.ConsolidationLLMCalls
+	}
+	if c.DreamInterval < Duration(30*time.Minute) {
+		c.DreamInterval = d.DreamInterval
+	}
+	if c.DreamLLMCalls < 0 || c.DreamLLMCalls > 20 {
+		c.DreamLLMCalls = d.DreamLLMCalls
+	}
+	if c.DreamMaxMemories < 4 || c.DreamMaxMemories > 200 {
+		c.DreamMaxMemories = d.DreamMaxMemories
+	}
+	if c.DreamMaxHypotheses < 1 || c.DreamMaxHypotheses > 20 {
+		c.DreamMaxHypotheses = d.DreamMaxHypotheses
 	}
 	if c.ReflectionInterval < Duration(10*time.Minute) {
 		c.ReflectionInterval = d.ReflectionInterval
