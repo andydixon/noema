@@ -32,6 +32,11 @@ const cursorConsumer = "brain"
 // skipped forever (see ADR-0002 and PLAN risk R3).
 const settle = 250 * time.Millisecond
 
+// SettleWindow is how long an event must have been recorded before a cycle
+// reads it. Synchronous drivers (replay, experiments) wait this long after
+// injecting a stimulus so the next Step sees it.
+const SettleWindow = settle + 50*time.Millisecond
+
 // processTimeout bounds one process's Observe call.
 const processTimeout = 15 * time.Second
 
@@ -349,6 +354,16 @@ func (r *Runtime) runCycle(ctx context.Context, trigger string) {
 		r.log.Warn("cycle rate limit reached; skipping", "trigger", trigger)
 		return
 	}
+	if _, err := r.Step(ctx, trigger); err != nil {
+		r.log.Error("cycle failed", "trigger", trigger, "err", err)
+	}
+}
+
+// Step runs exactly one cycle synchronously and returns the events it
+// committed. Run calls it from the loop goroutine; replay and experiment
+// drivers call it directly on runtimes they own and never Run. It bypasses
+// the rate budget and the paused check because the caller is the clock.
+func (r *Runtime) Step(ctx context.Context, trigger string) ([]events.Event, error) {
 	start := r.now()
 	cctx, cancel := context.WithTimeout(ctx, 60*time.Second)
 	defer cancel()
@@ -361,10 +376,10 @@ func (r *Runtime) runCycle(ctx context.Context, trigger string) {
 	})
 	if err != nil {
 		r.state = before // the transaction rolled back; forget in-memory changes too
-		r.log.Error("cycle failed", "trigger", trigger, "err", err)
-		return
+		return nil, err
 	}
 	r.events.Publish(emitted...) // only after commit, so subscribers never see phantom events
+	return emitted, nil
 }
 
 func (r *Runtime) cycle(ctx context.Context, tx pgx.Tx, trigger string, start time.Time) ([]events.Event, error) {

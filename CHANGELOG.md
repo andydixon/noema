@@ -5,6 +5,7 @@ All notable changes to Noema are recorded here. Format follows Keep a Changelog;
 ## [Unreleased]
 
 ### Added
+- Phase 15 study tools: mind snapshots (checksummed JSON archives of full state), forks that share history by reference with remapped ids, deterministic mind comparison, export and hostile-input import, cognitive replay in disabled sandbox minds with exact/approximate/diverged labelling and recorded model responses, and an experiment framework (overrides, stimulus scripts, expectations, exportable results with the subject archive).
 - Phase 14 dreaming: opt-in idle mode with allowed hours, interval and budgets; deterministic memory replay sample, vocabulary-based association of unlinked memories, speculative hypotheses as low-prior beliefs with optional model wording; promotion/rejection review in UI, API and CLI; dreams run in a forbidden capability context so they can never act.
 - Phase 13 integrations: research folder watcher with safe extraction and fingerprints, shallow bare git mirrors with co-change stats, Prometheus/VictoriaMetrics threshold and change detection, HMAC-signed webhooks with replay protection and rate limiting, per-integration health, runs and document ledger in UI/API/CLI, `read_metrics` and `repository.read` capabilities.
 - Phase 12 capabilities: single policy-governed action path with ALLOW/ASK/DENY rules, locked capabilities, request-bound approvals (once, session, modified), tool output as tool-trust observations, self-model synchronisation, approval centre and policy matrix.

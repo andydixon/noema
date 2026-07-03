@@ -4,6 +4,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"flag"
 	"fmt"
@@ -26,6 +27,7 @@ import (
 	"github.com/andydixon/noema/internal/conversation"
 	"github.com/andydixon/noema/internal/dreaming"
 	evstore "github.com/andydixon/noema/internal/events"
+	"github.com/andydixon/noema/internal/experiments"
 	"github.com/andydixon/noema/internal/goals"
 	"github.com/andydixon/noema/internal/graph"
 	"github.com/andydixon/noema/internal/integrations"
@@ -39,8 +41,10 @@ import (
 	"github.com/andydixon/noema/internal/observability"
 	"github.com/andydixon/noema/internal/predictions"
 	"github.com/andydixon/noema/internal/reflection"
+	"github.com/andydixon/noema/internal/replay"
 	"github.com/andydixon/noema/internal/scheduler"
 	"github.com/andydixon/noema/internal/security/secrets"
+	"github.com/andydixon/noema/internal/snapshots"
 	"github.com/andydixon/noema/internal/storage"
 	"github.com/andydixon/noema/internal/ui"
 	"github.com/andydixon/noema/internal/version"
@@ -156,9 +160,27 @@ func run() error {
 		AddProcess(cognition.GoalMonitor{}).AddProcess(cognition.Curiosity{}).AddProcess(cognition.Metacognition{}).AddProcess(cognition.Act{}).
 		AddHook(cognition.MotivationHook{Store: deps.Motivation}).AddHook(cognition.NarrativeHook{Store: deps.Narrative}).AddHook(cognition.NotifyHook{Store: deps.Notifications})
 	cognition.Handlers{Memory: deps.Memory, Beliefs: deps.Beliefs, Conversations: deps.Conversations, Graph: deps.Graph}.Register(registry)
-	deps.Brain = brain.NewManager(brain.Config{DB: db, Events: deps.Events, Minds: deps.Minds, Registry: registry, Pool: scheduler.NewPool(cfg.MaxWorkers),
+	brainCfg := brain.Config{DB: db, Events: deps.Events, Minds: deps.Minds, Registry: registry, Pool: scheduler.NewPool(cfg.MaxWorkers),
 		Log: log, Metrics: metrics, Services: brain.Services{Events: deps.Events, Memory: deps.Memory, Beliefs: deps.Beliefs, LLM: deps.LLM, Prompts: deps.Prompts,
-			Goals: deps.Goals, Motivation: deps.Motivation, Predictions: deps.Predictions, Capabilities: deps.Capabilities}}, group)
+			Goals: deps.Goals, Motivation: deps.Motivation, Predictions: deps.Predictions, Capabilities: deps.Capabilities}}
+	deps.Brain = brain.NewManager(brainCfg, group)
+	// Sandbox runtimes (replay, experiments) share the registry but use a
+	// router that serves recorded model responses when it can.
+	replayLLM := router.NewRouter(deps.LLMStore, sec, log, metrics, cfg.MaxConcurrentLLM)
+	replayLLM.Replay = true
+	replayLLM.DailyTokenBudget, replayLLM.MindBudget = deps.LLM.DailyTokenBudget, deps.LLM.MindBudget
+	sandboxCfg := brainCfg
+	sandboxCfg.Pool = scheduler.NewPool(2)
+	sandboxCfg.Services.LLM = replayLLM
+	deps.Snapshots = &snapshots.Store{DB: db, Events: deps.Events, Minds: deps.Minds}
+	deps.Replay = &replay.Service{DB: db, Events: deps.Events, Minds: deps.Minds, Snapshots: deps.Snapshots, Brain: sandboxCfg, Log: log}
+	deps.Experiments = &experiments.Service{DB: db, Minds: deps.Minds, Snapshots: deps.Snapshots, Brain: sandboxCfg, Log: log, Routing: func(ctx context.Context) []map[string]any {
+		roles, _ := deps.LLMStore.ListRoles(ctx)
+		b, _ := json.Marshal(roles)
+		var out []map[string]any
+		json.Unmarshal(b, &out) //nolint:errcheck
+		return out
+	}}
 	selfSync.Sync(ctx, ids.Nil)
 	group.Every("integrations.tick", time.Minute, deps.Integrations.Tick)
 	group.Every("approvals.expire", 5*time.Minute, func(ctx context.Context) error { _, err := deps.Capabilities.ExpirePending(ctx); return err })
@@ -193,6 +215,7 @@ func run() error {
 		},
 		ResetState:  func(r *http.Request, mind ids.ID) (motivation.State, error) { return srv.ResetState(r, mind) },
 		Consolidate: func(r *http.Request, mind ids.ID) (consolidation.Job, error) { return srv.RunConsolidation(r, mind) },
+		Study:       func() *api.Server { return srv },
 		Reflect:     func(r *http.Request, mind ids.ID) (reflection.Reflection, error) { return srv.RunReflection(r, mind) },
 		Entity:      func(r *http.Request, mind, id ids.ID) (api.EntityDetail, error) { return srv.EntityDetail(r, mind, id) },
 		Merge: func(r *http.Request, mind ids.ID, e graph.Entity, other string) error {

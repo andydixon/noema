@@ -1,0 +1,20 @@
+{{define "content"}}
+{{$m := .Data.Mind}}
+<div class="pagehead mindhead"><div><h1>{{$m.DisplayName}} <span class="muted small">cognitive replay</span></h1><p class="muted">Rebuild the mind from a snapshot, feed it the same perception events again, and compare what it produces with what was recorded. Steps are <strong>exact</strong> when the deterministic code produced the same events and any model calls were served from recordings, <strong>approximate</strong> when a live model call was needed, and <strong>diverged</strong> when a deterministic step differed. Replays run in a disabled sandbox mind and can never act.</p></div></div>
+{{template "mind_tabs" (dict "M" $m "Active" "replays")}}
+<section class="grid cols-3-1">
+  <div class="card">
+    {{if .Data.Replays}}<table class="table compact"><thead><tr><th>Started</th><th>Status</th><th class="num">Events</th><th class="num">Steps</th><th class="num">Exact</th><th class="num">Approx.</th><th class="num">Diverged</th><th class="num">Live model calls</th></tr></thead><tbody>
+      {{range .Data.Replays}}<tr><td class="small muted nowrap"><a href="/replays/{{.ID}}">{{ago .CreatedAt}}</a> · {{.CreatedBy}}</td><td><span class="badge {{if eq .Status "done"}}ok{{else if eq .Status "failed"}}danger{{else}}warn{{end}}">{{.Status}}</span>{{with .Error}} <span class="small danger">{{.}}</span>{{end}}</td><td class="num small">{{.FromSeq}}–{{.ToSeq}}</td><td class="num">{{.Summary.Steps}}</td><td class="num">{{.Summary.Exact}}</td><td class="num">{{.Summary.Approximate}}</td><td class="num">{{.Summary.Diverged}}</td><td class="num">{{.Summary.LLMLive}}</td></tr>{{end}}</tbody></table>
+    {{else}}<p class="muted">No replays yet.</p>{{end}}
+  </div>
+  <div class="card"><h2>Replay</h2>
+    {{if not .Data.Snapshots}}<p class="muted small">Take a <a href="/minds/{{$m.Slug}}/snapshots">snapshot</a> first; replay starts from one.</p>
+    {{else if .Principal.User.Role.AtLeast "operator"}}<form method="post" action="/minds/{{$m.Slug}}/replays" class="stack"><input type="hidden" name="_csrf" value="{{.CSRF}}">
+      <label>Snapshot <select name="snapshot_id">{{range .Data.Snapshots}}<option value="{{.ID}}">{{.Name}} (event {{.EventSeq}})</option>{{end}}</select></label>
+      <label>From event <input type="number" name="from_seq" value="0" min="0"> <span class="muted small">0 = snapshot position</span></label>
+      <label>To event <input type="number" name="to_seq" value="{{.Data.LastSeq}}" min="0"> <span class="muted small">latest is {{.Data.LastSeq}}</span></label>
+      <div><button class="btn btn-primary">Start replay</button></div></form>{{end}}
+  </div>
+</section>
+{{end}}

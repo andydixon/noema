@@ -69,6 +69,7 @@ func (s *Server) routes() {
 	s.capabilityRoutes()
 	s.integrationRoutes()
 	s.dreamRoutes()
+	s.studyRoutes()
 
 	m.HandleFunc("/api/", func(w http.ResponseWriter, r *http.Request) {
 		writeError(w, r, http.StatusNotFound, "not_found", "no such endpoint")

@@ -1,0 +1,22 @@
+{{define "content"}}
+<div class="pagehead"><h1>Experiments</h1><p class="muted">A controlled run: a snapshot, configuration or personality overrides, a stimulus script, expectations, a seed and a duration. The subject is a disabled fork that cannot act; results are stored and exportable, and the subject stays for comparison.</p></div>
+<section class="grid cols-3-1">
+  <div class="card">
+    {{if .Data.Experiments}}<table class="table compact"><thead><tr><th>Name</th><th>Status</th><th>Snapshot</th><th class="num">Stimuli</th><th>Expectations</th><th>Created</th></tr></thead><tbody>
+      {{range .Data.Experiments}}<tr><td><a href="/experiments/{{.ID}}"><strong>{{.Name}}</strong></a>{{with .Hypothesis}}<div class="small muted">{{trunc . 100}}</div>{{end}}</td><td><span class="badge {{if eq .Status "done"}}ok{{else if eq .Status "failed"}}danger{{else if eq .Status "running"}}warn{{end}}">{{.Status}}</span></td><td class="small mono">{{trunc (printf "%s" .SnapshotID) 13}}</td><td class="num">{{len .Definition.Stimuli}}</td><td class="small">{{len .Definition.Expected}}</td><td class="small muted nowrap">{{ago .CreatedAt}} · {{.CreatedBy}}</td></tr>{{end}}</tbody></table>
+    {{else}}<p class="muted">No experiments yet.</p>{{end}}
+  </div>
+  {{if .Principal.User.Role.AtLeast "operator"}}
+  <div class="card"><h2>New experiment</h2>
+    {{if not .Data.Snapshots}}<p class="muted small">Take a snapshot of a mind first.</p>{{else}}
+    <form method="post" action="/experiments" class="stack"><input type="hidden" name="_csrf" value="{{.CSRF}}">
+      <label>Name <input name="name" required maxlength="80"></label>
+      <label>Hypothesis <input name="hypothesis" maxlength="300" placeholder="what you expect to see and why"></label>
+      <label>Baseline snapshot <select name="snapshot_id">{{range .Data.Snapshots}}<option value="{{.ID}}">{{index $.Data.MindNames .MindID}} · {{.Name}}</option>{{end}}</select></label>
+      <label>Definition (JSON) <textarea name="definition" rows="16" class="mono" required>{{.Data.Sample}}</textarea></label>
+      <p class="small muted">config: CognitiveConfig fields by JSON name · personality: sections by JSON name · expected: event_type + optional contains / absent.</p>
+      <div><button class="btn btn-primary">Create</button></div></form>{{end}}
+  </div>
+  {{end}}
+</section>
+{{end}}

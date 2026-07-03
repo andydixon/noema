@@ -1,0 +1,15 @@
+{{define "content"}}
+{{$r := .Data.Replay}}{{$m := .Data.Mind}}
+<div class="pagehead mindhead"><div><p class="muted small"><a href="/minds/{{$m.Slug}}/replays">Replays</a> › {{$m.DisplayName}}</p><h1>Replay <span class="badge {{if eq $r.Status "done"}}ok{{else if eq $r.Status "failed"}}danger{{else}}warn{{end}}">{{$r.Status}}</span></h1>
+  <p class="muted">From snapshot <strong>{{.Data.Snapshot.Name}}</strong> (event {{.Data.Snapshot.EventSeq}}), events {{$r.FromSeq}}–{{$r.ToSeq}} · {{$r.Summary.Steps}} steps · {{$r.Summary.Cycles}} cycles · model calls: {{$r.Summary.LLMReplayed}} replayed, {{$r.Summary.LLMLive}} live{{with $r.Error}} · <span class="danger">{{.}}</span>{{end}}</p>
+  {{with .Data.Sandbox}}<p class="small">Sandbox mind: <a href="/minds/{{.Slug}}">{{.Slug}}</a> (disabled; kept for inspection) · <a href="/minds/{{$m.Slug}}/compare?with={{.Slug}}">compare with source</a></p>{{end}}</div>
+  <div class="row"><span class="badge ok">{{$r.Summary.Exact}} exact</span> <span class="badge warn">{{$r.Summary.Approximate}} approximate</span> <span class="badge danger">{{$r.Summary.Diverged}} diverged</span></div></div>
+{{if eq $r.Status "running"}}<p class="muted small" data-live-refresh="5000">Running… this page refreshes.</p>{{end}}
+<div class="card">
+  {{if .Data.Steps}}{{range .Data.Steps}}<div class="replay-step">
+    <div class="row"><span class="badge {{if eq .Label "exact"}}ok{{else if eq .Label "approximate"}}warn{{else}}danger{{end}}">{{.Label}}</span> <strong>{{.Index}}.</strong> <a href="/events/{{.StimulusID}}">{{trunc .Summary 120}}</a> <span class="small muted">· {{.Cycles}} cycle(s){{if .LLMReplayed}} · {{.LLMReplayed}} recorded model response(s){{end}}{{if .LLMLive}} · {{.LLMLive}} live call(s){{end}}</span></div>
+    {{with .Note}}<p class="small muted">{{.}}</p>{{end}}
+    <div class="grid cols-2"><div><h3 class="small muted">Recorded</h3><ul class="small mono">{{range .Original}}<li>{{.}}</li>{{else}}<li class="muted">nothing</li>{{end}}</ul></div><div><h3 class="small muted">Replayed</h3><ul class="small mono">{{range .Replayed}}<li>{{.}}</li>{{else}}<li class="muted">nothing</li>{{end}}</ul></div></div>
+  </div>{{end}}{{else}}<p class="muted">No steps recorded{{if eq $r.Status "running"}} yet{{end}}.</p>{{end}}
+</div>
+{{end}}

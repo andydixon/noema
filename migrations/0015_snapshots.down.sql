@@ -1,0 +1,3 @@
+DROP TABLE IF EXISTS experiments;
+DROP TABLE IF EXISTS replays;
+DROP TABLE IF EXISTS snapshots;

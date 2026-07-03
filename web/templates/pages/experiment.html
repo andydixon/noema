@@ -1,0 +1,21 @@
+{{define "content"}}
+{{$e := .Data.E}}{{$r := .Data.Results}}
+<div class="pagehead mindhead"><div><p class="muted small"><a href="/experiments">Experiments</a></p><h1>{{$e.Name}} <span class="badge {{if eq $e.Status "done"}}ok{{else if eq $e.Status "failed"}}danger{{else if eq $e.Status "running"}}warn{{end}}">{{$e.Status}}</span></h1>
+  <p class="muted">{{$e.Hypothesis}}</p><p class="small">Baseline: <a href="/minds/{{.Data.Base.Slug}}">{{.Data.Base.DisplayName}}</a> snapshot <strong>{{.Data.Snapshot.Name}}</strong> (event {{.Data.Snapshot.EventSeq}}){{with .Data.Subject}} · Subject: <a href="/minds/{{.Slug}}">{{.Slug}}</a> · <a href="/minds/{{$.Data.Base.Slug}}/compare?with={{.Slug}}">compare with baseline</a>{{end}}{{with $e.Error}} · <span class="danger">{{.}}</span>{{end}}</p></div>
+  <div class="row">{{if .Principal.User.Role.AtLeast "operator"}}<form method="post" action="/experiments/{{$e.ID}}/run"><input type="hidden" name="_csrf" value="{{.CSRF}}"><button class="btn btn-primary" {{if eq $e.Status "running"}}disabled{{end}}>{{if eq $e.Status "draft"}}Run{{else}}Run again{{end}}</button></form>{{end}}
+    {{if ne $e.Status "draft"}}<a class="btn" href="/api/v1/experiments/{{$e.ID}}/export">Export results</a>{{end}}
+    {{if .Principal.User.Role.AtLeast "administrator"}}<form method="post" action="/experiments/{{$e.ID}}/delete"><input type="hidden" name="_csrf" value="{{.CSRF}}"><button class="btn btn-danger" data-confirm="Delete this experiment? The subject mind is archived.">Delete</button></form>{{end}}</div></div>
+{{if eq $e.Status "running"}}<p class="muted small" data-live-refresh="5000">Running… this page refreshes.</p>{{end}}
+<section class="grid cols-2">
+  <div class="card"><h2>Definition</h2><pre class="json">{{.Data.DefinitionJSON}}</pre></div>
+  <div class="card"><h2>Results</h2>
+    {{if eq $e.Status "done" "failed"}}
+    <table class="kv-table"><tr><th>Duration</th><td>{{$r.DurationMS}} ms · {{$r.Cycles}} cycles{{if $r.TruncatedAfter}} · <span class="danger">stopped after stimulus {{$r.TruncatedAfter}} (duration cap)</span>{{end}}</td></tr><tr><th>Memories / goals</th><td>{{$r.Memories}} / {{$r.Goals}}</td></tr><tr><th>Model calls</th><td>{{index $r.LLMCalls "live"}} live · {{index $r.LLMCalls "replayed"}} replayed</td></tr></table>
+    {{if $r.Expectations}}<h3>Expectations</h3><table class="table compact"><tbody>{{range $r.Expectations}}<tr><td><span class="badge {{if .Met}}ok{{else}}danger{{end}}">{{if .Met}}met{{else}}not met{{end}}</span></td><td class="mono small">{{.EventType}}{{with .Contains}} ∋ "{{.}}"{{end}}{{if .Absent}} (absent){{end}}</td><td class="small muted">{{trunc .Matched 90}}</td></tr>{{end}}</tbody></table>{{end}}
+    {{if $r.EventsByType}}<h3>Events produced</h3><p class="small mono">{{range $t, $n := $r.EventsByType}}{{$t}} {{$n}} · {{end}}</p>{{end}}
+    {{if $r.Beliefs}}<h3>Beliefs of the subject</h3><table class="table compact"><tbody>{{range $r.Beliefs}}<tr><td>{{.Proposition}}</td><td class="num">{{conf .Confidence}}</td><td class="small muted">{{.Status}} · {{.Source}}</td></tr>{{end}}</tbody></table>{{end}}
+    {{else}}<p class="muted">Not run yet.</p>{{end}}
+  </div>
+</section>
+{{if $r.Steps}}<div class="card"><h2>Stimuli</h2>{{range $r.Steps}}<div class="replay-step"><div><strong>{{.Index}}.</strong> <a href="/events/{{.EventID}}">{{.Text}}</a> <span class="small muted">· {{.Cycles}} cycle(s)</span></div><ul class="small mono">{{range .Produced}}<li>{{.}}</li>{{else}}<li class="muted">nothing produced</li>{{end}}</ul></div>{{end}}</div>{{end}}
+{{end}}

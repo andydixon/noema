@@ -167,7 +167,7 @@ An administrator can: start Noema → log in → create a mind → configure per
 - ☑ dream mode, hours, budgets, association process, promotion/rejection UI (forbidden capability context; hypotheses start ≤0.35)
 
 ### Phase 15 – Snapshots, forking, replay, experiments, export/import
-- ☐ snapshots, fork with shared history, comparison tools, replay engine and UI, experiment framework with exportable results, mind export/import archives
+- ☑ snapshots, fork with shared history, comparison tools, replay engine and UI (exact / approximate / diverged), experiment framework with exportable results, mind export/import archives (hostile-input validation)
 
 ### Phase 16 – Hardening and release
 - ☐ TOTP + recovery codes, security test suite, performance pass, OpenAPI document, docs set, screenshots, `go test -race`, `go vet`, staticcheck, gosec, govulncheck, release notes

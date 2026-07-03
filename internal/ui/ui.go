@@ -55,6 +55,7 @@ type UI struct {
 	resolveF  func(r *http.Request, mind, id ids.ID, outcome predictions.Status, reason string) (predictions.Result, error)
 	resetF    func(r *http.Request, mind ids.ID) (motivation.State, error)
 	consolF   func(r *http.Request, mind ids.ID) (consolidation.Job, error)
+	studyF    func() *api.Server
 	reflF     func(r *http.Request, mind ids.ID) (reflection.Reflection, error)
 	entF      func(r *http.Request, mind, id ids.ID) (api.EntityDetail, error)
 	mergeF    func(r *http.Request, mind ids.ID, e graph.Entity, other string) error
@@ -79,6 +80,7 @@ type Actions struct {
 	Resolve     func(r *http.Request, mind, id ids.ID, outcome predictions.Status, reason string) (predictions.Result, error)
 	ResetState  func(r *http.Request, mind ids.ID) (motivation.State, error)
 	Consolidate func(r *http.Request, mind ids.ID) (consolidation.Job, error)
+	Study       func() *api.Server // snapshots, forks, import, replay, experiments (audited server paths)
 	Reflect     func(r *http.Request, mind ids.ID) (reflection.Reflection, error)
 	Entity      func(r *http.Request, mind, id ids.ID) (api.EntityDetail, error)
 	Merge       func(r *http.Request, mind ids.ID, e graph.Entity, other string) error
@@ -114,7 +116,7 @@ func New(deps app.Deps, a Actions) (*UI, error) {
 			deps.Log.Info("ui: serving templates and static files from ./web (development)")
 		}
 	}
-	u := &UI{deps: deps, static: staticFS, statusF: a.Status, ctxF: a.Context, wsF: a.Workspace, memF: a.Memory, belF: a.Belief, emitF: a.Emitter, postF: a.Post, goalF: a.Goal, goalUpdF: a.GoalUpdate, predF: a.Predict, resolveF: a.Resolve, resetF: a.ResetState, consolF: a.Consolidate, reflF: a.Reflect, entF: a.Entity, mergeF: a.Merge, distinctF: a.Distinct, policyF: a.Policy, decideF: a.Decide}
+	u := &UI{deps: deps, static: staticFS, statusF: a.Status, ctxF: a.Context, wsF: a.Workspace, memF: a.Memory, belF: a.Belief, emitF: a.Emitter, postF: a.Post, goalF: a.Goal, goalUpdF: a.GoalUpdate, predF: a.Predict, resolveF: a.Resolve, resetF: a.ResetState, consolF: a.Consolidate, studyF: a.Study, reflF: a.Reflect, entF: a.Entity, mergeF: a.Merge, distinctF: a.Distinct, policyF: a.Policy, decideF: a.Decide}
 	if err := u.parse(tmplFS); err != nil {
 		return nil, err
 	}
@@ -381,6 +383,7 @@ func (u *UI) Register(m *http.ServeMux) {
 	u.capabilityRoutes(m)
 	u.integrationRoutes(m)
 	u.dreamRoutes(m)
+	u.studyRoutes(m)
 
 	for _, p := range []struct{ path, title, note string }{} {
 		m.Handle("GET "+p.path, u.require(auth.RoleObserver, func(w http.ResponseWriter, r *http.Request) { u.render(w, r, "placeholder", p.title, p.note) }))

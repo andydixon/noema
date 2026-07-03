@@ -1,0 +1,23 @@
+{{define "content"}}
+{{$m := .Data.Mind}}
+<div class="pagehead mindhead"><div><h1>{{$m.DisplayName}} <span class="muted small">snapshots &amp; forks</span></h1><p class="muted">A snapshot captures the mind's whole state (identity, personality, configuration, workspace, memories, beliefs, goals, relationships) at a point in its history. Forks start from a snapshot and share the history before it by reference.</p>
+  {{with .Data.Parent}}<p class="small">Forked from <a href="/minds/{{.Slug}}">{{.DisplayName}}</a>{{with $m.ForkedFromSnapshot}} · <a href="/minds/{{$.Data.Parent.Slug}}/snapshots">snapshot</a>{{end}} · <a href="/minds/{{$m.Slug}}/compare?with={{.Slug}}">compare</a></p>{{end}}</div>
+  <div class="row"><a class="btn" href="/api/v1/minds/{{$m.Slug}}/export">Export archive</a></div></div>
+{{template "mind_tabs" (dict "M" $m "Active" "snapshots")}}
+<section class="grid cols-3-1">
+  <div class="card">
+    {{if .Data.Snapshots}}<table class="table compact"><thead><tr><th>Name</th><th>Taken</th><th class="num">Event</th><th>Contents</th><th class="num">Size</th><th></th></tr></thead><tbody>
+      {{range .Data.Snapshots}}<tr><td><strong>{{.Name}}</strong>{{with .Note}}<div class="small muted">{{.}}</div>{{end}}</td><td class="small muted nowrap">{{ago .CreatedAt}} · {{.CreatedBy}}</td><td class="num">{{.EventSeq}}</td>
+        <td class="small muted">{{range $t, $n := .Counts}}{{$t}} {{$n}} · {{end}}</td><td class="num small">{{.SizeBytes}}</td>
+        <td class="nowrap">{{if $.Principal.User.Role.AtLeast "operator"}}<a class="btn small" href="/api/v1/snapshots/{{.ID}}/archive">download</a>{{end}}
+          {{if $.Principal.User.Role.AtLeast "administrator"}}<form method="post" action="/snapshots/{{.ID}}/fork" class="inline"><input type="hidden" name="_csrf" value="{{$.CSRF}}"><input name="slug" placeholder="new-slug" size="12" pattern="[a-z0-9-]+" required> <button class="btn small">fork</button></form>
+          <form method="post" action="/snapshots/{{.ID}}/delete" class="inline"><input type="hidden" name="_csrf" value="{{$.CSRF}}"><button class="btn small btn-danger" data-confirm="Delete this snapshot?">delete</button></form>{{end}}</td></tr>{{end}}</tbody></table>
+    {{else}}<p class="muted">No snapshots yet.</p>{{end}}
+  </div>
+  <div class="stack">
+    {{if .Principal.User.Role.AtLeast "operator"}}<div class="card"><h2>Take snapshot</h2><form method="post" action="/minds/{{$m.Slug}}/snapshots" class="stack"><input type="hidden" name="_csrf" value="{{.CSRF}}"><label>Name <input name="name" maxlength="80" placeholder="before experiment"></label><label>Note <input name="note" maxlength="200"></label><div><button class="btn btn-primary">Snapshot now</button></div></form></div>{{end}}
+    <div class="card"><h2>Compare</h2><form method="get" action="/minds/{{$m.Slug}}/compare" class="row"><select name="with">{{range .Data.Others}}<option value="{{.Slug}}">{{.DisplayName}} ({{.Slug}})</option>{{end}}</select> <button class="btn">Compare</button></form><p class="small muted">Side-by-side counts, belief differences, personality and configuration diffs.</p></div>
+    <div class="card"><h2>Replay</h2><p class="small">Re-run this mind's recorded cognition from a snapshot: <a href="/minds/{{$m.Slug}}/replays">replays</a>.</p></div>
+  </div>
+</section>
+{{end}}
