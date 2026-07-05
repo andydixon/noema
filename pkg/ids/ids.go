@@ -7,6 +7,7 @@ package ids
 
 import (
 	"crypto/rand"
+	"encoding/binary"
 	"encoding/hex"
 	"errors"
 	"sync"
@@ -51,14 +52,14 @@ func New() ID {
 	seq := lastSeq
 	mu.Unlock()
 
-	b[0] = byte(ms >> 40)
-	b[1] = byte(ms >> 32)
-	b[2] = byte(ms >> 24)
-	b[3] = byte(ms >> 16)
-	b[4] = byte(ms >> 8)
-	b[5] = byte(ms)
-	b[6] = 0x70 | byte(seq>>8)  // version 7 + high 4 bits of counter
-	b[7] = byte(seq)            // low 8 bits of counter
+	b[0] = byte(ms >> 40) // #nosec G115 -- deliberate byte packing of a 48-bit millisecond timestamp
+	b[1] = byte(ms >> 32) // #nosec G115 -- deliberate byte packing (UUIDv7 layout)
+	b[2] = byte(ms >> 24) // #nosec G115 -- deliberate byte packing (UUIDv7 layout)
+	b[3] = byte(ms >> 16) // #nosec G115 -- deliberate byte packing (UUIDv7 layout)
+	b[4] = byte(ms >> 8)  // #nosec G115 -- deliberate byte packing (UUIDv7 layout)
+	b[5] = byte(ms)       // #nosec G115 -- deliberate byte packing (UUIDv7 layout)
+	// Version 7 in the high nibble of byte 6, then the 12-bit counter.
+	binary.BigEndian.PutUint16(b[6:8], 0x7000|(seq&0x0fff))
 	b[8] = 0x80 | (b[8] & 0x3f) // RFC 4122 variant
 	return ID(format(b))
 }

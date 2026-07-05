@@ -32,7 +32,7 @@ func (g GitPoller) git(ctx context.Context, dir string, args ...string) (string,
 	cctx, cancel := context.WithTimeout(ctx, t)
 	defer cancel()
 	full := append([]string{"-c", "core.hooksPath=/dev/null", "-c", "protocol.ext.allow=never", "-c", "protocol.file.allow=always"}, args...)
-	cmd := exec.CommandContext(cctx, "git", full...)
+	cmd := exec.CommandContext(cctx, "git", full...) // #nosec G204 -- argv only, fixed binary, no shell; arguments are validated URLs, refs and paths
 	if dir != "" {
 		cmd.Dir = dir
 	}

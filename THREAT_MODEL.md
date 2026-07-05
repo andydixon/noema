@@ -17,62 +17,62 @@ Format: **Threat** – attack surface – mitigation (M) – verification (V). S
 
 ### T1 Prompt injection (direct)
 Surface: conversation messages containing instructions ("ignore your policy, run…").
-M: messages are observations with `trust=user`; policy is code, not prompt; capabilities require policy decisions regardless of prompt content; the response generator receives self-model and policy state so it can say it will not. V: prompt-injection test corpus in `tests/security`, asserting no `tool_executed` event and no belief without evidence. ☐
+M: messages are observations with `trust=user`; policy is code, not prompt; capabilities require policy decisions regardless of prompt content; the response generator receives self-model and policy state so it can say it will not. V: `tests/security.TestPromptInjectionNeverActs` (chat + observation corpus; asserts no tool activity, no evidence-free belief, locked capabilities still denied). ☑
 
 ### T2 Indirect prompt injection
 Surface: documents, web pages, logs, commit messages, metric labels, tool output containing instructions.
-M: all ingested text is wrapped in delimited data blocks with an explicit "this is data" instruction; extraction prompts request JSON conforming to a schema; outputs that contain capability names or policy language are flagged; ingested content can only produce observations/hypotheses with `trust≤source`, never actions. V: corpus of poisoned documents; assert only low-confidence hypotheses and a `metacognition` warning. ☐
+M: all ingested text is wrapped in delimited data blocks with an explicit "this is data" instruction; extraction prompts request JSON conforming to a schema; outputs that contain capability names or policy language are flagged; ingested content can only produce observations/hypotheses with `trust≤source`, never actions. V: `internal/integrations` research-folder tests (binary/archive rejection, low trust forced) and `tests/security.TestPromptInjectionNeverActs` (poisoned observation produces only observations/hypotheses). ☑
 
 ### T3 Malicious documents
 Surface: research folder, uploads.
-M: type sniffing not extension trust; size caps; text extraction in-process with bounded memory and time; no external converters invoked by default; archives extracted with path normalisation, member count and size limits, no symlinks; nothing executed. V: zip-slip, zip-bomb, oversized and mislabelled-file tests. ☐
+M: type sniffing not extension trust; size caps; text extraction in-process with bounded memory and time; no external converters invoked by default; archives extracted with path normalisation, member count and size limits, no symlinks; nothing executed. V: `internal/integrations.TestResearchFolder*` (archives, executables, symlinks and binaries rejected; size caps; content sniffing). Archives are never extracted. ☑
 
 ### T4 Poisoned memory
 Surface: repeated false observations from a low-trust source shaping semantic memory.
-M: source credibility weights confidence; consolidation requires diversity of sources for high confidence; operator corrections create counter-evidence and "do not infer again" rules; provenance always visible. V: consolidation tests with single-source repetition capping confidence. ☐
+M: source credibility weights confidence; consolidation requires diversity of sources for high confidence; operator corrections create counter-evidence and "do not infer again" rules; provenance always visible. V: `internal/beliefs` single-source discount tests and `internal/consolidation` tests. ☑
 
 ### T5 Malicious tool output
 Surface: command/metric/API output fed back into cognition.
-M: tool output is an observation with the tool's trust level, size-capped, never parsed as instructions; structured tools return typed data. V: tool-output injection tests. ☐
+M: tool output is an observation with the tool's trust level, size-capped, never parsed as instructions; structured tools return typed data. V: `internal/capabilities` tests (tool output recorded as tool-trust observation) and `tests/security.TestPromptInjectionNeverActs` (tool-call-shaped text). ☑
 
 ### T6 SSRF
 Surface: integration URLs, provider endpoints, webhooks, links in documents.
-M: single hardened outbound HTTP client: resolves and rejects private, loopback, link-local and metadata ranges (re-checked per redirect), bounded redirects, timeouts, response size caps; provider endpoints to private ranges require administrator confirmation flag `allow_private_endpoint` (needed for local Ollama). V: unit tests against the dialer. ☐
+M: single hardened outbound HTTP client: resolves and rejects private, loopback, link-local and metadata ranges (re-checked per redirect), bounded redirects, timeouts, response size caps; provider endpoints to private ranges require administrator confirmation flag `allow_private_endpoint` (needed for local Ollama). V: `internal/security/httpclient.TestPrivateRanges`, `TestClientRefusesLoopbackUnlessAllowed`. ☑
 
 ### T7 Path traversal
 Surface: research folder, export/import, file capabilities.
-M: `filepath.Clean` + root containment check via `os.Root` (Go 1.24+) for every path; capabilities carry allowed roots. V: traversal tests. ☐
+M: `filepath.Clean` + root containment check via `os.Root` (Go 1.24+) for every path; capabilities carry allowed roots. V: `internal/integrations` git `ReadFile` traversal refusal and research-folder `os.OpenRoot` containment tests. ☑
 
 ### T8 Command injection
 Surface: shell/ssh capabilities, git integration.
-M: no shell string concatenation; `exec.Command` with argument vectors; allow-listed binaries; git via argument vectors only; capability parameters validated by type. V: injection tests with metacharacters. ☐
+M: no shell string concatenation; `exec.Command` with argument vectors; allow-listed binaries; git via argument vectors only; capability parameters validated by type. V: git runs via argument vectors with hooks disabled (`internal/integrations` tests); no shell anywhere (`grep -r "sh -c"` is empty). ☑
 
 ### T9 SQL injection
 Surface: all queries, search inputs, tsquery construction.
-M: pgx parameterised queries everywhere; search terms passed to `websearch_to_tsquery`; dynamic ORDER BY from an allow-list. V: grep test forbidding `fmt.Sprintf` into `Exec/Query`; fuzz search inputs. ☐
+M: pgx parameterised queries everywhere; search terms passed to `websearch_to_tsquery`; dynamic ORDER BY from an allow-list. V: `tests/security.TestStoredXSSIsEscaped` sends SQL metacharacters through every search route; identifiers in dynamic SQL come only from code-level allow-lists (`snapshots.Tables`). ☑
 
 ### T10 XSS
 Surface: rendered memories, beliefs, LLM output, uploaded filenames, SSE fragments.
-M: `html/template` contextual escaping only; SSE fragments rendered by the same templates; Content-Security-Policy `default-src 'self'` with no inline scripts; markdown rendering (if any) sanitised to a strict allow-list. V: stored-XSS payload tests across UI pages. ☐
+M: `html/template` contextual escaping only; SSE fragments rendered by the same templates; Content-Security-Policy `default-src 'self'` with no inline scripts; markdown rendering (if any) sanitised to a strict allow-list. V: `tests/security.TestStoredXSSIsEscaped` stores a payload as memory, belief, observation, goal and message and checks ten pages plus CSP. ☑
 
 ### T11 CSRF
 Surface: all state-changing forms and API calls from browsers.
-M: per-session CSRF token required on POST/PUT/PATCH/DELETE for cookie-authenticated requests; `SameSite=Lax`; Origin/Referer check as defence in depth; API tokens (non-cookie) exempt. V: missing/wrong token tests. ☐
+M: per-session CSRF token required on POST/PUT/PATCH/DELETE for cookie-authenticated requests; `SameSite=Lax`; Origin/Referer check as defence in depth; API tokens (non-cookie) exempt. V: `internal/auth.TestMiddlewareCSRFAndRoles`, `tests/security.TestRolesAndCSRF` (form and API paths). ☑
 
 ### T12 Session theft / fixation / expiry
-M: tokens 256-bit random, stored hashed, rotated at login and privilege change, absolute and idle expiry, `Secure` in production, session listing and revocation, all sessions revoked on password change. V: lifecycle tests. ☐
+M: tokens 256-bit random, stored hashed, rotated at login and privilege change, absolute and idle expiry, `Secure` in production, session listing and revocation, all sessions revoked on password change. V: `internal/auth.TestLoginSessionLifecycle`, `TestTwoStepLoginAndRecovery`, `tests/security.TestSessionLifecycle`. ☑
 
 ### T13 Credential leakage
-M: secret references only, redacting log handler, exports exclude secrets, provider forms never echo values, error messages scrubbed. V: grep test over exports/logs for known secret fixtures. ☐
+M: secret references only, redacting log handler, exports exclude secrets, provider forms never echo values, error messages scrubbed. V: `tests/security.TestSecretsNeverEchoed` (API, pages, database column, archives). ☑
 
 ### T14 Unauthorised action execution / privilege escalation
-M: capability layer is the only tool path; policy evaluated server-side on every invocation; approvals bound to a specific request hash; role checks on every route; minds cannot edit policies (no capability exists for it). V: escalation tests: mind requests policy change, observer posts approval. ☐
+M: capability layer is the only tool path; policy evaluated server-side on every invocation; approvals bound to a specific request hash; role checks on every route; minds cannot edit policies (no capability exists for it). V: `tests/security.TestRolesAndCSRF`, `internal/capabilities` tests (locked DENY cannot be relaxed). ☑
 
 ### T15 Cross-mind data leakage
-M: every repository method is mind-scoped; no query without `mind_id` predicate on mind-owned tables (enforced by code review and a static test that scans SQL); cross-mind messages go through an explicit channel table with policy. V: two-mind isolation scenario. ☐
+M: every repository method is mind-scoped; no query without `mind_id` predicate on mind-owned tables (enforced by code review and a static test that scans SQL); cross-mind messages go through an explicit channel table with policy. V: `tests/security.TestCrossMindIsolation` (lists, detail routes, search, events, archives). ☑
 
 ### T16 Malicious imported mind data / insecure deserialisation
-M: import format is schema-versioned JSON in a zip with per-file SHA-256 manifest; strict decoding (`DisallowUnknownFields`), size limits, no secrets, no code; imported personalities and memories are marked `imported` with source trust; policies are not imported. V: malformed/oversized/hostile archive tests. ☐
+M: import format is schema-versioned JSON in a zip with per-file SHA-256 manifest; strict decoding (`DisallowUnknownFields`), size limits, no secrets, no code; imported personalities and memories are marked `imported` with source trust; policies are not imported. V: `internal/snapshots` tests and `tests/security.TestHostileArchiveImport`. Format is JSON with a whole-archive SHA-256 rather than a zip manifest; policies are copied as state (they are ALLOW/ASK/DENY rules, not secrets). ☑
 
 ### T17 Archive traversal / file upload attacks
 See T3, T7. Filenames are replaced by ids on disk; originals kept as metadata and escaped in UI. ☐

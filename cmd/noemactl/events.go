@@ -66,9 +66,9 @@ func cmdEvent(args []string) int {
 		if base == "" {
 			base = "http://127.0.0.1:8080"
 		}
-		req, _ := http.NewRequest("GET", strings.TrimRight(base, "/")+"/api/v1/minds/"+args[1]+"/events/stream", nil)
+		req, _ := http.NewRequest("GET", strings.TrimRight(base, "/")+"/api/v1/minds/"+args[1]+"/events/stream", nil) // #nosec G704 -- NOEMA_URL is the operator\'s own server
 		req.Header.Set("Authorization", "Bearer "+os.Getenv("NOEMA_API_TOKEN"))
-		res, err := (&http.Client{Timeout: 0}).Do(req)
+		res, err := (&http.Client{Timeout: 0}).Do(req) // #nosec G704 -- NOEMA_URL is the operator's own server
 		if err != nil {
 			fmt.Fprintln(os.Stderr, "error:", err)
 			return exitFail

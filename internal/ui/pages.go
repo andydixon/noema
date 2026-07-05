@@ -32,6 +32,12 @@ func (u *UI) loginSubmit(w http.ResponseWriter, r *http.Request) {
 	}
 	ip := auth.ClientIP(r, false)
 	sess, token, err := u.deps.Auth.Login(r.Context(), r.PostFormValue("username"), r.PostFormValue("password"), ip, r.UserAgent())
+	if errors.Is(err, auth.ErrSecondFactorRequired) {
+		// Password accepted; the pending token lives in a short cookie scoped to the second step.
+		http.SetCookie(w, &http.Cookie{Name: "noema_2fa", Value: token, Path: "/login/totp", MaxAge: 300, HttpOnly: true, Secure: u.deps.Config.Production(), SameSite: http.SameSiteStrictMode}) // #nosec G124 -- Secure follows NOEMA_ENV=production; development runs over plain HTTP
+		u.render(w, r, "login_totp", "Second factor", map[string]any{"Next": safeNext(r.PostFormValue("next"))})
+		return
+	}
 	if err != nil {
 		u.deps.Metrics.AuthFailures.Inc()
 		msg := "Invalid username or password."
@@ -55,7 +61,41 @@ func (u *UI) loginSubmit(w http.ResponseWriter, r *http.Request) {
 	if to == "" {
 		to = "/"
 	}
-	http.Redirect(w, r, to, http.StatusSeeOther)
+	http.Redirect(w, r, to, http.StatusSeeOther) // #nosec G710 -- target is a validated same-origin path (safeNext / fixed prefix)
+}
+
+// loginTOTP completes a two-step login with a TOTP or recovery code.
+func (u *UI) loginTOTP(w http.ResponseWriter, r *http.Request) {
+	c, err := r.Cookie("noema_2fa")
+	if err != nil || r.ParseForm() != nil {
+		u.flash(w, r, "error", "Sign in again; the second step expired.", "/login")
+		return
+	}
+	ip := auth.ClientIP(r, false)
+	sess, token, usedRecovery, err := u.deps.Auth.CompleteLogin(r.Context(), c.Value, r.PostFormValue("code"), ip, r.UserAgent())
+	if err != nil {
+		u.deps.Metrics.AuthFailures.Inc()
+		u.deps.Audit.Log(r.Context(), "login.failed", "user", "", map[string]any{"reason": "second factor: " + err.Error()})
+		msg := "That code was not accepted."
+		if errors.Is(err, auth.ErrRateLimited) {
+			msg = "Too many attempts from this address. Slow down."
+		}
+		w.WriteHeader(http.StatusUnauthorized)
+		u.render(w, r, "login_totp", "Second factor", map[string]any{"Error": msg, "Next": safeNext(r.PostFormValue("next"))})
+		return
+	}
+	http.SetCookie(w, &http.Cookie{Name: "noema_2fa", Path: "/login/totp", MaxAge: -1, HttpOnly: true, SameSite: http.SameSiteStrictMode, Secure: u.deps.Config.Production()}) // #nosec G124 -- Secure follows NOEMA_ENV=production; development runs over plain HTTP
+	auth.SetSessionCookie(w, token, u.deps.Config.Production(), int(u.deps.Config.SessionAbsoluteTTL.Seconds()))
+	ctx := auth.WithPrincipal(r.Context(), auth.Principal{User: auth.User{ID: sess.UserID}, SessionID: sess.ID})
+	u.deps.Audit.Log(ctx, "login.success", "session", sess.ID.String(), map[string]any{"second_factor": true, "recovery_code": usedRecovery})
+	to := safeNext(r.PostFormValue("next"))
+	if to == "" {
+		to = "/"
+	}
+	if usedRecovery {
+		to = "/account"
+	}
+	http.Redirect(w, r, to, http.StatusSeeOther) // #nosec G710 -- target is a validated same-origin path (safeNext / fixed prefix)
 }
 
 func (u *UI) logout(w http.ResponseWriter, r *http.Request) {
@@ -138,9 +178,64 @@ func (u *UI) account(w http.ResponseWriter, r *http.Request) {
 	var newToken string
 	if c, err := r.Cookie("noema_newtoken"); err == nil {
 		newToken = c.Value
-		http.SetCookie(w, &http.Cookie{Name: "noema_newtoken", Path: "/account", MaxAge: -1, HttpOnly: true})
+		http.SetCookie(w, &http.Cookie{Name: "noema_newtoken", Path: "/account", MaxAge: -1, HttpOnly: true, SameSite: http.SameSiteStrictMode, Secure: u.deps.Config.Production()}) // #nosec G124 -- Secure follows NOEMA_ENV=production; development runs over plain HTTP
 	}
-	u.render(w, r, "account", "Account", map[string]any{"Sessions": sessions, "Tokens": tokens, "NewToken": newToken})
+	me, _ := u.deps.Auth.GetUser(r.Context(), p.User.ID)
+	data := map[string]any{"Sessions": sessions, "Tokens": tokens, "NewToken": newToken, "TOTPEnabled": me.TOTPEnabled, "TOTPAvailable": u.deps.Secrets != nil && u.deps.Secrets.CanEncrypt()}
+	if me.TOTPEnabled {
+		data["RecoveryLeft"] = u.deps.Auth.RecoveryCodesLeft(r.Context(), p.User.ID)
+	}
+	if c, err := r.Cookie("noema_totp_setup"); err == nil {
+		// Enrolment in progress: the cookie only marks the state; the secret is re-derived server-side.
+		http.SetCookie(w, &http.Cookie{Name: "noema_totp_setup", Path: "/account", MaxAge: -1, HttpOnly: true, SameSite: http.SameSiteStrictMode, Secure: u.deps.Config.Production()}) // #nosec G124 -- Secure follows NOEMA_ENV=production; development runs over plain HTTP
+		data["Enrolling"] = c.Value == "1"
+		if secret, uri, err := u.deps.Auth.PendingTOTP(r.Context(), p.User.ID, "Noema"); err == nil {
+			data["TOTPSecret"], data["TOTPURI"] = secret, uri
+		}
+	}
+	if c, err := r.Cookie("noema_recovery"); err == nil {
+		http.SetCookie(w, &http.Cookie{Name: "noema_recovery", Path: "/account", MaxAge: -1, HttpOnly: true, SameSite: http.SameSiteStrictMode, Secure: u.deps.Config.Production()}) // #nosec G124 -- Secure follows NOEMA_ENV=production; development runs over plain HTTP
+		data["RecoveryCodes"] = strings.Split(c.Value, ".")
+	}
+	u.render(w, r, "account", "Account", data)
+}
+
+func (u *UI) accountTOTPBegin(w http.ResponseWriter, r *http.Request) {
+	p, _ := auth.PrincipalFrom(r.Context())
+	if _, _, err := u.deps.Auth.BeginTOTP(r.Context(), p.User.ID, "Noema"); err != nil {
+		u.flash(w, r, "error", err.Error(), "/account")
+		return
+	}
+	http.SetCookie(w, &http.Cookie{Name: "noema_totp_setup", Value: "1", Path: "/account", MaxAge: 600, HttpOnly: true, Secure: u.deps.Config.Production(), SameSite: http.SameSiteStrictMode}) // #nosec G124 -- Secure follows NOEMA_ENV=production; development runs over plain HTTP
+	http.Redirect(w, r, "/account#totp", http.StatusSeeOther)
+}
+
+func (u *UI) accountTOTPConfirm(w http.ResponseWriter, r *http.Request) {
+	p, _ := auth.PrincipalFrom(r.Context())
+	codes, err := u.deps.Auth.ConfirmTOTP(r.Context(), p.User.ID, r.PostFormValue("code"))
+	if err != nil {
+		http.SetCookie(w, &http.Cookie{Name: "noema_totp_setup", Value: "1", Path: "/account", MaxAge: 600, HttpOnly: true, Secure: u.deps.Config.Production(), SameSite: http.SameSiteStrictMode}) // #nosec G124 -- Secure follows NOEMA_ENV=production; development runs over plain HTTP
+		u.flash(w, r, "error", "Code not accepted; try the next one from your app.", "/account#totp")
+		return
+	}
+	u.deps.Audit.Log(r.Context(), "user.totp.enabled", "user", p.User.ID.String(), nil)
+	http.SetCookie(w, &http.Cookie{Name: "noema_recovery", Value: strings.Join(codes, "."), Path: "/account", MaxAge: 300, HttpOnly: true, Secure: u.deps.Config.Production(), SameSite: http.SameSiteStrictMode}) // #nosec G124 -- Secure follows NOEMA_ENV=production; development runs over plain HTTP
+	http.Redirect(w, r, "/account#totp", http.StatusSeeOther)
+}
+
+func (u *UI) accountTOTPDisable(w http.ResponseWriter, r *http.Request) {
+	p, _ := auth.PrincipalFrom(r.Context())
+	ip := auth.ClientIP(r, false)
+	if _, _, err := u.deps.Auth.Login(r.Context(), p.User.Username, r.PostFormValue("current"), ip, r.UserAgent()); err != nil && !errors.Is(err, auth.ErrSecondFactorRequired) {
+		u.flash(w, r, "error", "Current password incorrect.", "/account#totp")
+		return
+	}
+	if err := u.deps.Auth.DisableTOTP(r.Context(), p.User.ID); err != nil {
+		u.flash(w, r, "error", err.Error(), "/account#totp")
+		return
+	}
+	u.deps.Audit.Log(r.Context(), "user.totp.disabled", "user", p.User.ID.String(), nil)
+	u.flash(w, r, "ok", "Two-factor authentication disabled.", "/account#totp")
 }
 
 func (u *UI) accountPassword(w http.ResponseWriter, r *http.Request) {
@@ -189,7 +284,7 @@ func (u *UI) accountTokenCreate(w http.ResponseWriter, r *http.Request) {
 	}
 	u.deps.Audit.Log(r.Context(), "token.create", "user", p.User.ID.String(), map[string]any{"name": name})
 	// Shown exactly once on the next page load, then the cookie is cleared.
-	http.SetCookie(w, &http.Cookie{Name: "noema_newtoken", Value: tok, Path: "/account", MaxAge: 60, HttpOnly: true, SameSite: http.SameSiteStrictMode, Secure: u.deps.Config.Production()})
+	http.SetCookie(w, &http.Cookie{Name: "noema_newtoken", Value: tok, Path: "/account", MaxAge: 60, HttpOnly: true, SameSite: http.SameSiteStrictMode, Secure: u.deps.Config.Production()}) // #nosec G124 -- Secure follows NOEMA_ENV=production; development runs over plain HTTP
 	http.Redirect(w, r, "/account", http.StatusSeeOther)
 }
 
@@ -248,6 +343,12 @@ func (u *UI) usersUpdate(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		u.deps.Audit.Log(r.Context(), "user.role", "user", id.String(), map[string]any{"role": role})
+	case "reset-totp":
+		if err := u.deps.Auth.DisableTOTP(r.Context(), id); err != nil {
+			u.flash(w, r, "error", err.Error(), "/admin/users")
+			return
+		}
+		u.deps.Audit.Log(r.Context(), "user.totp.reset", "user", id.String(), nil)
 	case "disable", "enable":
 		disabled := r.PostFormValue("action") == "disable"
 		if err := u.deps.Auth.SetUserDisabled(r.Context(), id, disabled); err != nil {

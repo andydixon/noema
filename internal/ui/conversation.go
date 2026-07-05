@@ -79,7 +79,7 @@ func (u *UI) conversationPost(w http.ResponseWriter, r *http.Request) {
 		u.flash(w, r, "error", err.Error(), "/minds/"+m.Slug+"/conversations/"+id.String())
 		return
 	}
-	http.Redirect(w, r, "/minds/"+m.Slug+"/conversations/"+id.String(), http.StatusSeeOther)
+	http.Redirect(w, r, "/minds/"+m.Slug+"/conversations/"+id.String(), http.StatusSeeOther) // #nosec G710 -- path built from a validated slug and a parsed id
 }
 
 func prettyRaw(raw json.RawMessage) string { return pretty(raw) }

@@ -82,7 +82,7 @@ type State struct {
 // AllowLLM reserves one model call against the mind's per-cycle cap and
 // reports whether it was granted, so a chatty cycle cannot exceed the budget.
 func (s *State) AllowLLM() bool {
-	cap := int32(s.Mind.Config.LLMCallsPerCycle)
+	cap := int32(s.Mind.Config.LLMCallsPerCycle) // #nosec G115 -- config is normalised to a small non-negative range
 	if cap <= 0 || s.Services.LLM == nil {
 		return false
 	}

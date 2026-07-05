@@ -1,6 +1,7 @@
 package api
 
 import (
+	_ "embed"
 	"net/http"
 
 	"github.com/prometheus/client_golang/prometheus/promhttp"
@@ -11,6 +12,10 @@ import (
 )
 
 // Server composes the API routes, the web UI and the middleware chain.
+//
+//go:embed openapi.json
+var openAPI []byte
+
 type Server struct {
 	deps           app.Deps
 	mux            *http.ServeMux
@@ -42,6 +47,10 @@ func (s *Server) routes() {
 	m.Handle("GET /metrics", require(auth.RoleObserver, promhttp.HandlerFor(s.deps.Metrics.Registry, promhttp.HandlerOpts{}).ServeHTTP))
 
 	m.Handle("GET /api/v1/system/status", require(auth.RoleObserver, s.systemStatus))
+	m.HandleFunc("GET /api/v1/openapi.json", func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.Write(openAPI) //nolint:errcheck
+	})
 	m.Handle("GET /api/v1/audit", require(auth.RoleOperator, s.auditList))
 
 	m.Handle("GET /api/v1/users", require(auth.RoleAdministrator, s.usersList))

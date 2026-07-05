@@ -112,6 +112,7 @@ func run() error {
 		return err
 	}
 	deps.Secrets = sec
+	authSvc.SetSecrets(sec)
 	if !sec.CanEncrypt() {
 		log.Warn("NOEMA_MASTER_KEY not set: API keys must be given as env: or file: references")
 	}

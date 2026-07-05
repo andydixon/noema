@@ -18,7 +18,8 @@
         <td>{{if .TOTPEnabled}}<span class="badge ok">TOTP</span>{{else}}<span class="muted">off</span>{{end}}</td>
         <td class="muted small nowrap">{{date .CreatedAt}}</td>
         <td>{{if ne .ID $.Principal.User.ID}}<form method="post" action="/admin/users/{{.ID}}" class="inline"><input type="hidden" name="_csrf" value="{{$.CSRF}}">
-          {{if .Disabled}}<button class="btn small" name="action" value="enable">Enable</button>{{else}}<button class="btn small btn-danger" name="action" value="disable" data-confirm="Disable {{.Username}} and revoke their sessions?">Disable</button>{{end}}</form>{{end}}</td>
+          {{if .Disabled}}<button class="btn small" name="action" value="enable">Enable</button>{{else}}<button class="btn small btn-danger" name="action" value="disable" data-confirm="Disable {{.Username}} and revoke their sessions?">Disable</button>{{end}}
+          {{if .TOTPEnabled}}<button class="btn small" name="action" value="reset-totp" data-confirm="Remove {{.Username}}'s second factor and recovery codes? They should re-enrol.">Reset 2FA</button>{{end}}</form>{{end}}</td>
       </tr>{{end}}</tbody>
     </table>
   </div>

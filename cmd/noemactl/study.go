@@ -67,7 +67,7 @@ func cmdSnapshots(args []string) int {
 		if len(args) < 4 {
 			return exitUsage
 		}
-		raw, err := os.ReadFile(args[2])
+		raw, err := os.ReadFile(args[2]) // #nosec G703 -- operator-chosen file on the operator\'s own machine
 		if err != nil {
 			fmt.Fprintln(os.Stderr, "error:", err)
 			return exitUsage
@@ -202,7 +202,7 @@ func cmdExperiments(args []string) int {
 		if args[1] == "-" {
 			raw, err = io.ReadAll(os.Stdin)
 		} else {
-			raw, err = os.ReadFile(args[1])
+			raw, err = os.ReadFile(args[1]) // #nosec G703 -- operator-chosen file on the operator\'s own machine
 		}
 		if err != nil {
 			fmt.Fprintln(os.Stderr, "error:", err)

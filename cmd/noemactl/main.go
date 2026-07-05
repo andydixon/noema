@@ -85,7 +85,7 @@ func apiRequest(method, path string, body any, out any) (int, error) {
 		b, _ := json.Marshal(body)
 		rd = strings.NewReader(string(b))
 	}
-	req, err := http.NewRequest(method, strings.TrimRight(base, "/")+path, rd)
+	req, err := http.NewRequest(method, strings.TrimRight(base, "/")+path, rd) // #nosec G704 -- NOEMA_URL is the operator\'s own server
 	if err != nil {
 		return 0, err
 	}
@@ -95,7 +95,7 @@ func apiRequest(method, path string, body any, out any) (int, error) {
 	if body != nil {
 		req.Header.Set("Content-Type", "application/json")
 	}
-	res, err := (&http.Client{Timeout: 30 * time.Second}).Do(req)
+	res, err := (&http.Client{Timeout: 30 * time.Second}).Do(req) // #nosec G704 -- NOEMA_URL is the operator's own server
 	if err != nil {
 		return 0, err
 	}

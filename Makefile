@@ -32,7 +32,7 @@ fmt: ## gofmt
 	gofmt -l -w $$(git ls-files '*.go')
 
 security: ## gosec + govulncheck
-	gosec -quiet ./... ; govulncheck ./...
+	gosec -quiet -exclude=G104 ./... ; govulncheck ./...
 
 run: build ## run the daemon with .env
 	set -a; [ -f .env ] && source .env; set +a; ./bin/noemad

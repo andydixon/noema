@@ -48,7 +48,7 @@ An administrator can: start Noema → log in → create a mind → configure per
 - ☑ `cmd/noemad` (graceful shutdown, bootstrap admin, supervised background tasks), `cmd/noemactl` (`status`, `migrate up|down|status`, `user create`, exit codes)
 - ☑ `deploy/`: compose (pgvector db + app), multi-stage Dockerfile
 - ☑ Tests: config precedence, migration up/down + append-only trigger, hashing, session lifecycle, lockout, CSRF, roles, API envelope
-- ☐ TOTP + recovery codes (moved to Phase 16 with the rest of hardening)
+- ☑ TOTP + recovery codes (delivered in Phase 16)
 
 ### Phase 2 – Mind model, identity, personality, self-model ☑
 - ☑ `migrations/0002_minds`: minds, personality_templates, personality_versions (append-only), self_models
@@ -170,7 +170,9 @@ An administrator can: start Noema → log in → create a mind → configure per
 - ☑ snapshots, fork with shared history, comparison tools, replay engine and UI (exact / approximate / diverged), experiment framework with exportable results, mind export/import archives (hostile-input validation)
 
 ### Phase 16 – Hardening and release
-- ☐ TOTP + recovery codes, security test suite, performance pass, OpenAPI document, docs set, screenshots, `go test -race`, `go vet`, staticcheck, gosec, govulncheck, release notes
+- ☑ TOTP + recovery codes, security test suite (`tests/security`), OpenAPI document (`docs/openapi.json`, served at `/api/v1/openapi.json`, coverage-tested), docs set, `go test -race`, `go vet`, staticcheck, gosec, govulncheck clean, release notes
+- ☐ screenshots (no browser available in the build environment; capture from a running instance and add to `docs/screenshots/`)
+- ☐ performance pass beyond indexes already in migrations (profile under a realistic load before tuning)
 
 ## 5. Deterministic vs LLM decisions
 See `ARCHITECTURE.md` §14. Rule: if a unit test can assert the exact output, it is code.

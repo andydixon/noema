@@ -62,7 +62,7 @@ func Defaults() Config {
 func Load(path string, lookup func(string) (string, bool)) (Config, error) {
 	c := Defaults()
 	if path != "" {
-		b, err := os.ReadFile(path)
+		b, err := os.ReadFile(path) // #nosec G304 -- operator-supplied config path from the command line
 		if err != nil {
 			return c, fmt.Errorf("config: read %s: %w", path, err)
 		}

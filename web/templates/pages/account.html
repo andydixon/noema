@@ -25,6 +25,20 @@
       <p class="muted small">Other sessions are signed out when the password changes.</p>
     </form>
   </div>
+  <div class="card" id="totp">
+    <h2>Two-factor authentication</h2>
+    {{if .Data.RecoveryCodes}}<div class="highlight"><p><strong>Recovery codes.</strong> Store these somewhere safe; each works once and they are not shown again.</p><pre class="token"><code>{{range .Data.RecoveryCodes}}{{.}}
+{{end}}</code></pre></div>{{end}}
+    {{if .Data.TOTPEnabled}}<p><span class="badge ok">enabled</span> {{.Data.RecoveryLeft}} recovery code(s) left.</p>
+      <form method="post" action="/account/totp/disable" class="stack"><input type="hidden" name="_csrf" value="{{.CSRF}}"><label>Current password <input type="password" name="current" required autocomplete="current-password"></label><button class="btn btn-danger" data-confirm="Disable two-factor authentication?">Disable</button></form>
+      <form method="post" action="/account/totp/begin" class="stack"><input type="hidden" name="_csrf" value="{{.CSRF}}"><button class="btn">Re-enrol (new secret and codes)</button></form>
+    {{else if .Data.TOTPSecret}}<p>Add this secret to your authenticator app, then confirm with a code.</p>
+      <p class="mono small">Secret: <code>{{.Data.TOTPSecret}}</code></p><p class="small muted break">URI: <code>{{.Data.TOTPURI}}</code></p>
+      <form method="post" action="/account/totp/confirm" class="row"><input type="hidden" name="_csrf" value="{{.CSRF}}"><input name="code" inputmode="numeric" autocomplete="one-time-code" placeholder="123456" required maxlength="6"> <button class="btn btn-primary">Confirm and enable</button></form>
+    {{else if .Data.TOTPAvailable}}<p class="muted small">Off. Enabling it adds a code from an authenticator app to every sign-in and gives you ten single-use recovery codes.</p>
+      <form method="post" action="/account/totp/begin"><input type="hidden" name="_csrf" value="{{.CSRF}}"><button class="btn btn-primary">Enable</button></form>
+    {{else}}<p class="muted small">Unavailable: the server has no <code>NOEMA_MASTER_KEY</code>, so the secret could not be stored encrypted.</p>{{end}}
+  </div>
   <div class="card">
     <h2>API tokens</h2>
     <table class="table compact">

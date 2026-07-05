@@ -123,5 +123,5 @@ func (u *UI) dreamPause(w http.ResponseWriter, r *http.Request) {
 	paused := r.PostFormValue("paused") == "1"
 	dreaming.SetPaused(paused)
 	u.deps.Audit.Log(r.Context(), "dream.pause", "system", "", map[string]any{"paused": paused})
-	http.Redirect(w, r, r.Referer(), http.StatusSeeOther)
+	http.Redirect(w, r, "/minds", http.StatusSeeOther)
 }

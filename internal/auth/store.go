@@ -10,6 +10,7 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"github.com/andydixon/noema/internal/security/secrets"
 	"github.com/andydixon/noema/internal/storage"
 	"github.com/andydixon/noema/pkg/ids"
 )
@@ -60,6 +61,8 @@ type Service struct {
 	absoluteTTL time.Duration
 	limiter     *ipLimiter
 	now         func() time.Time
+	secrets     *secrets.Resolver
+	pending     pendingStore
 }
 
 // NewService creates the authentication service.
@@ -68,7 +71,7 @@ func NewService(db *pgxpool.Pool, idleTTL, absoluteTTL time.Duration) *Service {
 }
 
 // SweepLimiter releases idle rate-limit buckets; call periodically.
-func (s *Service) SweepLimiter() { s.limiter.Sweep() }
+func (s *Service) SweepLimiter() { s.limiter.Sweep(); s.pending.sweep(s.now()) }
 
 // CreateUser adds an account. Usernames are unique case-insensitively.
 func (s *Service) CreateUser(ctx context.Context, username, password string, role Role) (User, error) {
@@ -214,6 +217,12 @@ func (s *Service) Login(ctx context.Context, username, password, ip, userAgent s
 	}
 	if _, err := s.db.Exec(ctx, `UPDATE users SET failed_attempts=0, locked_until=NULL WHERE id=$1`, u.ID); err != nil {
 		return Session{}, "", err
+	}
+	if u.TOTPEnabled {
+		// Password accepted; hand back a pending token instead of a session.
+		token, hash := newToken()
+		s.pending.put(string(hash), &pending{userID: u.ID, ip: clientKey(ip), ua: truncate(userAgent, 256), expires: s.now().Add(pendingTTL)})
+		return Session{}, token, ErrSecondFactorRequired
 	}
 	return s.createSession(ctx, u.ID, ip, userAgent)
 }

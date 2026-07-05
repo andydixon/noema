@@ -112,7 +112,8 @@ func (u *UI) snapshotDelete(w http.ResponseWriter, r *http.Request) {
 }
 
 func (u *UI) importArchive(w http.ResponseWriter, r *http.Request) {
-	if err := r.ParseMultipartForm(1 << 20); err != nil {
+	r.Body = http.MaxBytesReader(w, r.Body, snapshots.MaxArchiveBytes+(1<<20))
+	if err := r.ParseMultipartForm(1 << 20); err != nil { // #nosec G120 -- body bounded by MaxBytesReader on the previous line
 		u.flash(w, r, "error", "Upload too large or malformed.", "/minds")
 		return
 	}

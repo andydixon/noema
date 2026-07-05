@@ -91,7 +91,7 @@ func cmdMind(args []string) int {
 			fmt.Fprintln(os.Stderr, "usage: noemactl mind import <seed.json>")
 			return exitUsage
 		}
-		raw, err := os.ReadFile(args[1])
+		raw, err := os.ReadFile(args[1]) // #nosec G703 -- operator-chosen file on the operator\'s own machine
 		if err != nil {
 			fmt.Fprintln(os.Stderr, "error:", err)
 			return exitFail

@@ -39,4 +39,11 @@ Please report vulnerabilities privately to the maintainer (see repository owner 
 
 ## Security testing
 
-`make security` runs gosec and govulncheck. The test suite includes XSS, CSRF, SQL and command injection, path and archive traversal, webhook signature, prompt injection, cross-mind leakage, capability escalation and session lifecycle tests. See `PLAN.md` phase 16 and `tests/security`.
+- `make security` runs gosec (G104 excluded: unchecked errors are covered by staticcheck and explicit `//nolint:errcheck` markers) and govulncheck. Both are clean as of 0.1.0 with the pinned toolchain in `go.mod`.
+- `go test -race ./tests/security/...` runs the cross-cutting suite: prompt injection through chat and observations (no tool activity, no evidence-free beliefs), role and CSRF enforcement on form and API paths, cross-mind isolation, stored-XSS escaping and CSP on every page, secret non-disclosure (API, pages, database, archives), hostile archive import, session lifecycle and security headers.
+- Package tests cover the SSRF dialer, research-folder and git safety, webhook signatures and replay, capability policy and locked capabilities, TOTP vectors and two-step login.
+- `THREAT_MODEL.md` maps each threat to its mitigation and the test that verifies it.
+
+## Two-factor authentication
+
+Operators can enable TOTP (RFC 6238) on the account page. The secret is stored encrypted under `NOEMA_MASTER_KEY`; ten single-use recovery codes are stored hashed and shown once. Login becomes two steps: password, then a code exchanged against a five-minute pending token bound to the client address. Administrators can reset a user's second factor from the users page.

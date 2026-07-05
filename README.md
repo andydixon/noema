@@ -103,7 +103,7 @@ noemactl fork dani --snapshot <id> --name dani-test
 
 ## Status
 
-Milestone M1 is complete: start, log in, create a mind, shape its personality, configure a model, chat, watch cognitive events live, inspect working memory, the workspace, memories, beliefs and provenance, restart, and continue the same mind. `go test ./tests/m1/` exercises that slice end to end. Phases 9–16 (goals, drives, predictions, metacognition, reflection, consolidation, relationship graph, capabilities, integrations, dreaming, snapshots, replay, experiments, hardening) are in progress; see [PLAN.md](PLAN.md) and [CHANGELOG.md](CHANGELOG.md). Screenshots will be added once the UI stabilises.
+Version 0.1.0: all sixteen phases of [PLAN.md](PLAN.md) are implemented. Highlights beyond the first milestone: goals and motivation, predictions and calibration, metacognition, reflection and consolidation, the relationship graph, the capability and policy layer, integrations (research folder, git, Prometheus, webhooks), dreaming, snapshots and forks, cognitive replay, experiments, export/import, TOTP. See [CHANGELOG.md](CHANGELOG.md), [docs/RELEASE_NOTES.md](docs/RELEASE_NOTES.md) and the API document at [docs/openapi.json](docs/openapi.json) (also served at `/api/v1/openapi.json`).
 
 ## Licence
 

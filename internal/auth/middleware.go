@@ -126,7 +126,7 @@ func ClientIP(r *http.Request, trustProxy bool) string {
 
 // SetSessionCookie writes the session cookie with secure attributes.
 func SetSessionCookie(w http.ResponseWriter, token string, secure bool, maxAge int) {
-	http.SetCookie(w, &http.Cookie{Name: CookieName, Value: token, Path: "/", HttpOnly: true, Secure: secure,
+	http.SetCookie(w, &http.Cookie{Name: CookieName, Value: token, Path: "/", HttpOnly: true, Secure: secure, // #nosec G124 -- Secure follows NOEMA_ENV=production; development runs over plain HTTP
 		SameSite: http.SameSiteLaxMode, MaxAge: maxAge})
 }
 

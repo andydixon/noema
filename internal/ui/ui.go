@@ -307,7 +307,7 @@ func (u *UI) render(w http.ResponseWriter, r *http.Request, page, title string, 
 				v.Flash = &Flash{Kind: kind, Message: msg}
 			}
 		}
-		http.SetCookie(w, &http.Cookie{Name: flashCookie, Path: "/", MaxAge: -1, HttpOnly: true, SameSite: http.SameSiteLaxMode})
+		http.SetCookie(w, &http.Cookie{Name: flashCookie, Path: "/", MaxAge: -1, HttpOnly: true, SameSite: http.SameSiteLaxMode, Secure: u.deps.Config.Production()}) // #nosec G124 -- Secure follows NOEMA_ENV=production; development runs over plain HTTP
 	}
 	var buf bytes.Buffer
 	if err := t.ExecuteTemplate(&buf, "layout", v); err != nil {
@@ -323,8 +323,8 @@ func (u *UI) render(w http.ResponseWriter, r *http.Request, page, title string, 
 // flash stores a one-shot message and redirects.
 func (u *UI) flash(w http.ResponseWriter, r *http.Request, kind, msg, to string) {
 	val := base64.RawURLEncoding.EncodeToString([]byte(kind + "|" + msg))
-	http.SetCookie(w, &http.Cookie{Name: flashCookie, Value: val, Path: "/", MaxAge: 60, HttpOnly: true, SameSite: http.SameSiteLaxMode, Secure: u.deps.Config.Production()})
-	http.Redirect(w, r, to, http.StatusSeeOther)
+	http.SetCookie(w, &http.Cookie{Name: flashCookie, Value: val, Path: "/", MaxAge: 60, HttpOnly: true, SameSite: http.SameSiteLaxMode, Secure: u.deps.Config.Production()}) // #nosec G124 -- Secure follows NOEMA_ENV=production; development runs over plain HTTP
+	http.Redirect(w, r, to, http.StatusSeeOther)                                                                                                                              // #nosec G710 -- target is a validated same-origin path (safeNext / fixed prefix)
 }
 
 func (u *UI) errorPage(w http.ResponseWriter, r *http.Request, status int, msg string) {
@@ -354,6 +354,7 @@ func (u *UI) Register(m *http.ServeMux) {
 	m.Handle("GET /static/", http.StripPrefix("/static/", cacheStatic(http.FileServerFS(u.static))))
 	m.HandleFunc("GET /login", u.loginForm)
 	m.HandleFunc("POST /login", u.loginSubmit)
+	m.HandleFunc("POST /login/totp", u.loginTOTP)
 	m.HandleFunc("POST /logout", u.logout)
 	m.HandleFunc("GET /setup", u.setupForm)
 	m.HandleFunc("POST /setup", u.setupSubmit)
@@ -364,6 +365,9 @@ func (u *UI) Register(m *http.ServeMux) {
 	m.Handle("GET /audit", u.require(auth.RoleOperator, u.audit))
 	m.Handle("GET /account", u.require(auth.RoleObserver, u.account))
 	m.Handle("POST /account/password", u.require(auth.RoleObserver, u.accountPassword))
+	m.Handle("POST /account/totp/begin", u.require(auth.RoleObserver, u.accountTOTPBegin))
+	m.Handle("POST /account/totp/confirm", u.require(auth.RoleObserver, u.accountTOTPConfirm))
+	m.Handle("POST /account/totp/disable", u.require(auth.RoleObserver, u.accountTOTPDisable))
 	m.Handle("POST /account/sessions/{id}/revoke", u.require(auth.RoleObserver, u.accountSessionRevoke))
 	m.Handle("POST /account/tokens", u.require(auth.RoleObserver, u.accountTokenCreate))
 	m.Handle("POST /account/tokens/{id}/revoke", u.require(auth.RoleObserver, u.accountTokenRevoke))
