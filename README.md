@@ -38,6 +38,16 @@ Noema is also not a chatbot with a memory bolted on. A user message does not go 
 
 Full description: [ARCHITECTURE.md](ARCHITECTURE.md). Decisions: [docs/adr](docs/adr). Plan and status: [PLAN.md](PLAN.md).
 
+## Screenshots
+
+Captured from a running instance with the sample mind Dani (full set in [docs/screenshots](docs/screenshots)).
+
+| | |
+|---|---|
+| ![Mind overview](docs/screenshots/mind.png) | ![Thought stream](docs/screenshots/thoughts.png) |
+| ![Beliefs](docs/screenshots/beliefs.png) | ![Relationship graph](docs/screenshots/graph.png) |
+| ![Cognitive replay](docs/screenshots/replay.png) | ![Policies](docs/screenshots/policies.png) |
+
 ## Quick start
 
 Requirements: Go 1.26+, Docker with Compose, `make`.

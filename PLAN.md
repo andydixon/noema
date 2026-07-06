@@ -171,8 +171,8 @@ An administrator can: start Noema → log in → create a mind → configure per
 
 ### Phase 16 – Hardening and release
 - ☑ TOTP + recovery codes, security test suite (`tests/security`), OpenAPI document (`docs/openapi.json`, served at `/api/v1/openapi.json`, coverage-tested), docs set, `go test -race`, `go vet`, staticcheck, gosec, govulncheck clean, release notes
-- ☐ screenshots (no browser available in the build environment; capture from a running instance and add to `docs/screenshots/`)
-- ☐ performance pass beyond indexes already in migrations (profile under a realistic load before tuning)
+- ☑ screenshots captured with headless Chromium into `docs/screenshots/` (19 pages)
+- ☑ performance pass: `tests/perf` seeds 60k events / 6k memories / 1.5k beliefs, times hot reads against a ceiling and rejects sequential-scan plans; migration 0016 adds the indexes it found missing (see `docs/performance.md`)
 
 ## 5. Deterministic vs LLM decisions
 See `ARCHITECTURE.md` §14. Rule: if a unit test can assert the exact output, it is code.
