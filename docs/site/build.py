@@ -25,7 +25,7 @@ SITE = "https://dixon.cx"
 
 # Order, slug, title, summary. The page body comes from pages/<slug>.md.
 CHAPTERS = [
-    ("index", "Overview", "What Noema is, what it refuses to claim, and how the pieces fit."),
+    ("index", "Noema", "A persistent, inspectable artificial cognitive runtime: minds that remember, reason with evidence, say how sure they are, and can always show their working."),
     ("concepts", "Concepts and vocabulary", "Minds, events, epistemic kinds, memory kinds, beliefs, drives and the interpretation boundary."),
     ("architecture", "Architecture", "The daemon, the cognitive cycle, the storage model and the boundaries between deterministic code and language models."),
     ("getting-started", "Getting started", "From an empty machine to a running mind you can talk to, inspect and replay."),
@@ -73,6 +73,13 @@ STYLE = """
 .noema-doc dl dt{font-weight:600;margin-top:.6rem}.noema-doc dl dd{margin-left:0}
 .noema-doc .section-box p+p,.noema-doc .section-box p+ul,.noema-doc .section-box p+ol,.noema-doc .section-box ul+p,.noema-doc .section-box ol+p,.noema-doc .section-box .table-wrap+p,.noema-doc .section-box pre+p{margin-top:.9rem}
 .noema-doc .lead-ish{font-weight:600;opacity:.9;margin-bottom:1rem}
+.noema-doc .hero{margin:.5rem 0 0}.noema-doc .hero-kicker{font-family:monospace;letter-spacing:.08em;text-transform:uppercase;font-size:.78rem;opacity:.7;margin:0 0 .4rem}
+.noema-doc .hero-lead{font-size:1.15rem;line-height:1.55;margin:0 0 1rem}.noema-doc .hero-actions{display:flex;flex-wrap:wrap;gap:.5rem;margin:0}
+.noema-doc .pillars{display:grid;grid-template-columns:repeat(2,1fr);gap:1rem}@media(max-width:760px){.noema-doc .pillars{grid-template-columns:1fr}}
+.noema-doc .pillar{border:1px solid rgba(127,127,127,.3);border-radius:8px;padding:1rem 1.1rem}.noema-doc .pillar h3{margin:0 0 .5rem;font-size:1rem}.noema-doc .pillar p{margin:0;font-size:.95rem}
+.noema-doc .shots{display:grid;grid-template-columns:repeat(2,1fr);gap:1rem}@media(max-width:760px){.noema-doc .shots{grid-template-columns:1fr}}.noema-doc .shots figure{margin:0}
+.noema-doc .numbers{display:grid;grid-template-columns:repeat(3,1fr);gap:1rem;text-align:center}@media(max-width:760px){.noema-doc .numbers{grid-template-columns:repeat(2,1fr)}}
+.noema-doc .numbers div{border:1px solid rgba(127,127,127,.3);border-radius:8px;padding:1rem .6rem}.noema-doc .numbers b{display:block;font-size:1.9rem;line-height:1.1}.noema-doc .numbers span{display:block;font-size:.82rem;opacity:.8;margin-top:.3rem}
 </style>
 """
 
@@ -298,7 +305,7 @@ def openapi_markdown():
 
 def render_page(idx, slug, title, summary, md):
     md = expand(md)
-    conv = markdown.Markdown(extensions=["tables", "fenced_code", "toc", "sane_lists", "attr_list", "def_list"], extension_configs={"toc": {"toc_depth": "2-3"}})
+    conv = markdown.Markdown(extensions=["tables", "fenced_code", "toc", "sane_lists", "attr_list", "def_list", "md_in_html"], extension_configs={"toc": {"toc_depth": "2-3"}})
     body = conv.convert(md)
     body = rewrite_links(body)
     body = re.sub(r"<table>", '<div class="table-wrap"><table>', body).replace("</table>", "</table></div>")
@@ -350,6 +357,7 @@ def main():
         if f.endswith(".png"):
             shutil.copy(os.path.join(ROOT, "docs", "screenshots", f), os.path.join(out, "img", f))
     shutil.copy(os.path.join(ROOT, "internal", "api", "openapi.json"), os.path.join(out, "openapi.json"))
+    shutil.copy(os.path.join(ROOT, "docs", "site", "htaccess"), os.path.join(out, ".htaccess"))
     for i, (slug, title, summary) in enumerate(CHAPTERS):
         with open(os.path.join(PAGES, slug + ".md"), encoding="utf-8") as f:
             md = f.read()
