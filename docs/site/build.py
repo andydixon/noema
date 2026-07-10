@@ -92,7 +92,7 @@ HEAD = """<!doctype html>
 		<meta name="author" content="Andy Dixon">
 		<meta name="robots" content="noindex, nofollow">
 		<link rel="canonical" href="{canonical}">
-		<title>{title} | Noema | Andy Dixon</title>
+		<title>{titletag} | Andy Dixon</title>
 		<meta property="og:type" content="article">
 		<meta property="og:title" content="{title} | Noema">
 		<meta property="og:description" content="{desc}">
@@ -344,7 +344,7 @@ def render_page(idx, slug, title, summary, md):
 							{contents}
 						</div>'''
     canonical = SITE + BASE + ("" if slug == "index" else slug)
-    page = HEAD.format(title=html.escape(title), desc=html.escape(summary), canonical=canonical, style=STYLE) + head_box + "\n".join(boxes) + nav_box + TAIL
+    page = HEAD.format(title=html.escape(title), titletag=html.escape(title if slug == "index" else title + " | Noema"), desc=html.escape(summary), canonical=canonical, style=STYLE) + head_box + "\n".join(boxes) + nav_box + TAIL
     return page
 
 
