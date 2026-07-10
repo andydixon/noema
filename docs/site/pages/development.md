@@ -1,4 +1,4 @@
-Noema was built in sixteen explicit phases, each committed with tests and documentation before the next began. This page collects the contributing guide, the testing story, the phase plan, the changelog and the release notes.
+Noema was built in sixteen explicit phases, each committed with tests and documentation before the next began, and each verifiable on its own. This page records what each phase delivered, how the result was measured, and the release notes and changelog.
 
 ## How it was built
 
@@ -22,11 +22,13 @@ Noema was built in sixteen explicit phases, each committed with tests and docume
 | 15 | Snapshots, forks, comparison, export/import, replay, experiments |
 | 16 | Two-factor authentication, security suite, OpenAPI, scanners, performance pass, screenshots, release |
 
-## Testing
+## How it is verified
 
-`go test -race ./...` runs unit and integration tests; anything that needs PostgreSQL uses a fresh schema per test and is enabled by `NOEMA_TEST_DATABASE_URL`. `tests/m1` is the end-to-end acceptance test for the first milestone with a fake model. `tests/security` is the cross-cutting security suite. `tests/perf` is the opt-in load test. `make lint` runs staticcheck; `make security` runs gosec and govulncheck. All were clean at release.
+Every subsystem has unit tests that run against a fresh database schema; an end-to-end acceptance test drives the whole daemon with a fake model through the first milestone (start, log in, create a mind, converse, inspect memory and beliefs, restart and continue); a security suite exercises prompt injection, roles, cross-mind isolation, stored scripts, secret disclosure and hostile archives; and an opt-in load test seeds a realistic volume and rejects any hot query that drifts off its index. The race detector, staticcheck, gosec and govulncheck were clean at release.
 
-{{include CONTRIBUTING.md}}
+## Measured performance
+
+{{include docs/performance.md}}
 
 ## Release notes
 

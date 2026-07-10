@@ -1,12 +1,4 @@
-`noemactl` is a thin client for the HTTP API with a few offline commands that talk to the database directly. It prints tables by default and JSON with `-json` where a command supports it, exits non-zero on API errors with the error message, and never stores credentials.
-
-## Environment
-
-| Variable | Purpose |
-|---|---|
-| `NOEMA_URL` | base URL of the daemon, default `http://127.0.0.1:8080` |
-| `NOEMA_API_TOKEN` | bearer token from the account page; required for API commands |
-| `NOEMA_DATABASE_URL` | for the offline commands only (`migrate`, `user`) |
+`noemactl` gives an operator the whole system from a terminal: talk to a mind, watch it think, inspect and correct what it knows, govern what it may do, connect sources, and snapshot, fork, replay and experiment. Everything it does goes through the same API and the same audit trail as the interface.
 
 ## Commands
 

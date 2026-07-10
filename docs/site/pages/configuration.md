@@ -1,30 +1,8 @@
-Configuration has two layers. **Daemon configuration** is fixed at start: where to listen, which database, the master key, resource limits. **Cognitive configuration** belongs to each mind, lives in the database, is edited from the interface or API, and is reloaded into the running mind without a restart.
+Each mind carries its own cognitive configuration: how many thoughts it can hold, how it weighs what to attend to, how fast it cycles, how much it may spend on models, and which background processes run. These settings are data, edited from the interface or API, normalised on every write and reloaded into the running mind without a restart. They are the knobs an experiment turns.
 
-## Daemon configuration
+## The settings
 
-{{include docs/configuration.md}}
-
-### Environment reference
-
-| Variable | Default | Notes |
-|---|---|---|
-| `NOEMA_HTTP_ADDR` | `127.0.0.1:8080` | bind to a loopback address and put a TLS proxy in front, or bind `0.0.0.0` inside a container |
-| `NOEMA_ENV` | `development` | `production` forces `Secure` cookies and disables template reloading |
-| `NOEMA_LOG_LEVEL` / `NOEMA_LOG_FORMAT` | `info` / `text` | `json` for log shippers; the log handler redacts values that look like secrets |
-| `NOEMA_DATABASE_URL` | compose database | pgx connection string; `sslmode` as your database requires |
-| `NOEMA_MASTER_KEY` | unset | 32 bytes base64; required for encrypted secret references and TOTP |
-| `NOEMA_BOOTSTRAP_ADMIN_USER` / `_PASSWORD` | unset | first administrator when the users table is empty; remove after first start |
-| `NOEMA_RESEARCH_DIR` | `./research` | default path offered when creating a research-folder integration |
-| `NOEMA_MAX_WORKERS` | 8 | size of the cognitive worker pool shared by all minds |
-| `NOEMA_MAX_CONCURRENT_LLM` | 4 | concurrent model calls across the daemon |
-| `NOEMA_DAILY_TOKEN_BUDGET` | 2 000 000 | global hard stop on model tokens per day; per-mind budgets sit under it |
-| `NOEMA_SESSION_IDLE_TTL` / `NOEMA_SESSION_ABSOLUTE_TTL` | 12h / 7d | browser session expiry; API tokens have their own optional expiry |
-
-A JSON file passed with `noemad -config path` can set the same keys; environment variables override the file.
-
-## Cognitive configuration (per mind)
-
-Each mind carries a `CognitiveConfig` document. It is shown on the mind overview, edited from the personality and dreaming pages and through `PATCH /api/v1/minds/{mind}`, and normalised on every write: out-of-range values fall back to defaults rather than being rejected silently or accepted dangerously.
+Out-of-range values fall back to defaults rather than being rejected silently or accepted dangerously; every change is an operator action in the mind's history, and the mind encodes it as an autobiographical memory.
 
 | Field | Default | Effect |
 |---|---|---|
@@ -52,6 +30,6 @@ Attention scoring uses a fixed set of ten features, each computed deterministica
 
 A small set of tunables that are safe to change while running (the global consolidation and dreaming pause switches, notification behaviour) are stored in the database and edited in the interface; they take effect on the next scheduler tick. Everything else requires a restart or, for per-mind settings, a `reload` command that the interface issues automatically after an edit.
 
-## Development environment record
+## Daemon-wide limits
 
-{{include docs/ENVIRONMENT.md demote=1}}
+Above the per-mind settings sit a few daemon-wide limits: a global daily token budget that no mind can exceed, a cap on concurrent model calls, and the size of the worker pool that runs cognitive processes for every mind. Per-mind budgets are enforced under the global one, so one talkative mind cannot starve the others. Secrets used by any part of the system (provider keys, integration secrets, second-factor secrets) exist only as references encrypted under a master key, never as values in configuration.

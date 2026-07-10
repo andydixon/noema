@@ -28,8 +28,7 @@ CHAPTERS = [
     ("index", "Noema", "A persistent, inspectable artificial cognitive runtime: minds that remember, reason with evidence, say how sure they are, and can always show their working."),
     ("concepts", "Concepts and vocabulary", "Minds, events, epistemic kinds, memory kinds, beliefs, drives and the interpretation boundary."),
     ("architecture", "Architecture", "The daemon, the cognitive cycle, the storage model and the boundaries between deterministic code and language models."),
-    ("getting-started", "Getting started", "From an empty machine to a running mind you can talk to, inspect and replay."),
-    ("configuration", "Configuration", "Environment, config file, secret references, runtime settings and the per-mind cognitive configuration."),
+    ("configuration", "Cognitive configuration", "The per-mind settings that shape a mind: workspace capacity, attention weights, budgets and background cognition."),
     ("personality", "Identity and personality", "Versioned personalities, templates, traits and how they modulate attention and voice."),
     ("cognition", "The cognitive cycle", "Processes, attention scoring, the global workspace, executive dispatch, modes and metacognition."),
     ("memory", "Memory", "Episodic, semantic, procedural and autobiographical memory; retrieval, decay, consolidation and provenance."),
@@ -45,11 +44,10 @@ CHAPTERS = [
     ("snapshots-replay", "Snapshots, forks, replay and experiments", "Capturing state, branching minds, re-running cognition and running controlled experiments."),
     ("ui-tour", "Interface tour", "Every screen of the web interface, what it shows and what an operator does there."),
     ("api", "HTTP API", "Authentication, roles, the error envelope, streaming and every route."),
-    ("cli", "Command line", "noemactl: every command with examples."),
+    ("cli", "Command line", "What an operator can do from a terminal: every command, with examples."),
     ("security", "Security and threat model", "Trust boundaries, secret handling, sessions, two-factor authentication and the threat-by-threat verification table."),
-    ("operations", "Operating Noema", "Deployment, backups, scheduled jobs, metrics, audit, performance and upgrades."),
     ("decisions", "Architecture decision records", "The recorded decisions and the alternatives they rejected."),
-    ("development", "Development and history", "Contributing, testing, the phased plan, changelog and release notes."),
+    ("development", "How it was built", "The phased plan, what each phase delivered, measured performance, release notes and changelog."),
     ("glossary", "Glossary", "Short definitions of every term used across the documentation."),
 ]
 
@@ -209,7 +207,7 @@ LINK_MAP = {
     "docs/personality.md": "personality", "docs/cognition.md": "cognition", "docs/memory.md": "memory", "docs/beliefs.md": "beliefs",
     "docs/conversation.md": "conversation", "docs/motivation.md": "motivation", "docs/predictions.md": "predictions", "docs/graph.md": "graph",
     "docs/llm-providers.md": "llm-providers", "docs/capabilities.md": "capabilities", "docs/integrations.md": "integrations",
-    "docs/dreaming.md": "dreaming", "docs/snapshots-replay.md": "snapshots-replay", "docs/performance.md": "operations",
+    "docs/dreaming.md": "dreaming", "docs/snapshots-replay.md": "snapshots-replay", "docs/performance.md": "development",
     "docs/RELEASE_NOTES.md": "development", "docs/openapi.json": "api", "docs/adr": "decisions",
 }
 

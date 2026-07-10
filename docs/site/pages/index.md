@@ -1,7 +1,7 @@
 <div class="hero">
 <p class="hero-kicker">An artificial cognitive runtime</p>
 <p class="hero-lead">Most AI systems answer. <strong>Noema thinks, remembers, doubts and can show its working.</strong> It is a persistent runtime that hosts minds: long-lived cognitive entities with their own identity, memories, beliefs with evidence, goals, drives and an unbroken record of every thought they have ever had. Language models are plug-in services it calls when it needs language. The mind is the thing that stays.</p>
-<p class="hero-actions"><a class="button button-sm" href="/noema/getting-started">Run it in ten minutes</a> <a class="button button-sm button-outline" href="/noema/ui-tour">See every screen</a> <a class="button button-sm button-outline" href="/noema/architecture">Read the architecture</a></p>
+<p class="hero-actions"><a class="button button-sm" href="/noema/concepts">What it is</a> <a class="button button-sm button-outline" href="/noema/cognition">How it thinks</a> <a class="button button-sm button-outline" href="/noema/ui-tour">See every screen</a></p>
 </div>
 
 ## Why it is different
@@ -66,10 +66,11 @@ Noema assumes every external byte is hostile. Prompt injection is a threat model
 
 Noema does not claim consciousness, sentience or personhood. Its components borrow names from cognitive science because those names describe what each part does; they are data structures and deterministic rules, sometimes assisted by a model. That honesty is a feature: it is what lets you trust the rest. The [interpretation boundary](concepts#the-interpretation-boundary) is part of the specification.
 
-## Start here
+## Read next
 
-1. [Getting started](getting-started): database, binary, first mind, first conversation.
-2. [Concepts](concepts): the vocabulary in one page.
-3. [Interface tour](ui-tour): every screen with screenshots.
-4. [Capabilities](capabilities): how to let a mind do anything, safely.
+1. [Concepts](concepts): the vocabulary in one page, and the interpretation boundary.
+2. [The cognitive cycle](cognition): how a thought is proposed, scored, admitted and acted on.
+3. [Beliefs and evidence](beliefs): why confidence is a number you can check.
+4. [Capabilities and policy](capabilities): how a mind acts, and why the defaults say ask.
 5. [Snapshots, forks, replay and experiments](snapshots-replay): the laboratory.
+6. [Interface tour](ui-tour): every screen with screenshots.
