@@ -385,6 +385,10 @@ func scan(row pgx.Row) (events.Event, error) {
 }
 
 // Cursor returns the last sequence consumed by consumer for a mind.
+//
+// seq is an ordering key, not a counter: bigserial values are skipped when a
+// transaction rolls back, so consumers always ask for "seq > cursor" and
+// never for "cursor + 1" (ADR-0002).
 func (s *Store) Cursor(ctx context.Context, q storage.Querier, mind ids.ID, consumer string) (int64, error) {
 	var seq int64
 	err := q.QueryRow(ctx, `SELECT last_seq FROM mind_cursors WHERE mind_id=$1 AND consumer=$2`, mind, consumer).Scan(&seq)

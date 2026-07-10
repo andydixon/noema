@@ -112,3 +112,58 @@ func TestStoreAppendQueryImmutableAndCursors(t *testing.T) {
 		t.Fatalf("stats wrong: %+v", st)
 	}
 }
+
+// TestCursorsToleratePlaceholderGaps burns sequence values the way a rolled
+// back insert does and checks that cursors, forward paging and SSE-style
+// resumption (seq > last) see every real event and nothing else. A gap in
+// seq must never be mistaken for a missing event (ADR-0002).
+func TestCursorsToleratePlaceholderGaps(t *testing.T) {
+	pool := storage.TestPool(t, migrations.FS)
+	ctx := context.Background()
+	m, err := minds.NewStore(pool).Create(ctx, minds.CreateParams{Slug: "gaps"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	s := NewStore(pool, NewBus(10), nil)
+	first, err := s.Append(ctx, events.New{MindID: m.ID, Type: events.Observation, Source: "test", Summary: "one"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	// A failed insert consumes a sequence value and rolls back; emulate several.
+	for i := 0; i < 3; i++ {
+		if _, err := pool.Exec(ctx, `SELECT nextval(pg_get_serial_sequence('cognitive_events','seq'))`); err != nil {
+			t.Fatal(err)
+		}
+	}
+	tx, _ := pool.Begin(ctx)
+	if _, err := s.AppendIn(ctx, tx, events.New{MindID: m.ID, Type: events.Observation, Source: "test", Summary: "rolled back"}); err != nil {
+		t.Fatal(err)
+	}
+	tx.Rollback(ctx) //nolint:errcheck
+	second, err := s.Append(ctx, events.New{MindID: m.ID, Type: events.Observation, Source: "test", Summary: "two"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if second[0].Seq <= first[0].Seq+1 {
+		t.Fatalf("test did not create a gap: %d then %d", first[0].Seq, second[0].Seq)
+	}
+	// Forward paging from the cursor sees exactly the real events after it.
+	after, err := s.Query(ctx, Filter{MindID: m.ID, AfterSeq: first[0].Seq, Ascending: true, Limit: 10})
+	if err != nil || len(after) != 1 || after[0].ID != second[0].ID {
+		t.Fatalf("paging across a gap: %v %+v", err, after)
+	}
+	// A cursor parked inside the gap still resumes at the next real event.
+	if err := s.SetCursor(ctx, pool, m.ID, "test", first[0].Seq+2); err != nil {
+		t.Fatal(err)
+	}
+	cur, _ := s.Cursor(ctx, pool, m.ID, "test")
+	resume, _ := s.Query(ctx, Filter{MindID: m.ID, AfterSeq: cur, Ascending: true, Limit: 10})
+	if len(resume) != 1 || resume[0].ID != second[0].ID {
+		t.Fatalf("resume from inside a gap: %+v", resume)
+	}
+	// Stats count real rows, not sequence span.
+	st, _ := s.Stats(ctx, m.ID, time.Time{})
+	if st.Total != 2 || st.LastSeq != second[0].Seq {
+		t.Fatalf("stats: %+v", st)
+	}
+}
