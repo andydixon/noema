@@ -5,7 +5,7 @@
 A **snapshot** is a JSON archive of a mind's state at a point in its history:
 identity, personality, configuration, workspace and working memory, drives and
 affect, goals, beliefs (with evidence, versions, alternatives, links), memories
-(with relationships), predictions, entities, corrections, policies and
+(with relationships), predictions, entities, corrections, policy rules (kept by forks, never imported from archives) and
 conversations. It records the event sequence number at capture and a SHA-256
 checksum. Cognitive events are **not** copied.
 

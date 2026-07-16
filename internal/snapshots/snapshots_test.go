@@ -43,6 +43,10 @@ func TestSnapshotForkImportCompare(t *testing.T) {
 		Evidence: []beliefs.EvidenceInput{{Direction: "for", Kind: "memory", RefID: string(m1.ID), Source: "user", Weight: 0.5, Credibility: 0.9}}}); err != nil {
 		t.Fatal(err)
 	}
+	// An ALLOW rule travels with a fork (same operator) but never with an import.
+	if _, err := pool.Exec(ctx, `INSERT INTO policies (id, mind_id, capability, target_pattern, action_kind, effect, reason, created_by) VALUES ($1,$2,'http.fetch','*','*','allow','test','andy')`, ids.New(), src.ID); err != nil {
+		t.Fatal(err)
+	}
 	st := &Store{DB: pool, Events: es, Minds: ms}
 	sn, err := st.Create(ctx, src, "before", "test snapshot", "andy")
 	if err != nil {
@@ -110,9 +114,15 @@ func TestSnapshotForkImportCompare(t *testing.T) {
 	if _, err := st.Import(ctx, hostile, ForkOptions{Slug: "bad"}); err == nil {
 		t.Fatal("unknown table accepted")
 	}
-	imp, err := st.Import(ctx, a, ForkOptions{Slug: "imported", By: "andy"})
+	imp, omitted, err := st.ImportReport(ctx, a, ForkOptions{Slug: "imported", By: "andy"})
 	if err != nil {
 		t.Fatal(err)
+	}
+	var forkPolicies, importPolicies int
+	pool.QueryRow(ctx, `SELECT count(*) FROM policies WHERE mind_id=$1`, fork.ID).Scan(&forkPolicies)  //nolint:errcheck
+	pool.QueryRow(ctx, `SELECT count(*) FROM policies WHERE mind_id=$1`, imp.ID).Scan(&importPolicies) //nolint:errcheck
+	if forkPolicies != 1 || importPolicies != 0 || omitted["policies"] != 1 {
+		t.Fatalf("policy handling: fork=%d import=%d omitted=%v", forkPolicies, importPolicies, omitted)
 	}
 	if im, _ := mem.List(ctx, imp.ID, memory.Filter{Limit: 10}); len(im) != 2 {
 		t.Fatalf("import memories: %d", len(im))

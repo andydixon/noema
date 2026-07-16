@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 	"strconv"
 
@@ -190,15 +191,19 @@ func (s *Server) ImportArchive(ctx context.Context, raw []byte, slug, display, b
 	if err := dec.Decode(&a); err != nil {
 		return minds.Mind{}, ValidationError("invalid archive: " + err.Error())
 	}
-	m, err := s.deps.Snapshots.Import(ctx, a, snapshots.ForkOptions{Slug: slug, DisplayName: display, By: by, Notes: "imported archive of " + a.Source.Slug})
+	m, omitted, err := s.deps.Snapshots.ImportReport(ctx, a, snapshots.ForkOptions{Slug: slug, DisplayName: display, By: by, Notes: "imported archive of " + a.Source.Slug})
 	if err != nil {
 		if errors.Is(err, snapshots.ErrInvalid) {
 			return m, ValidationError(err.Error())
 		}
 		return m, mindErr(err)
 	}
-	s.deps.Audit.Log(ctx, "mind.import", "mind", m.ID.String(), map[string]any{"source": a.Source.Slug, "checksum": a.Checksum, "counts": a.Counts()})
-	s.deps.Events.OperatorAction(ctx, m.ID, by, "mind.import", "Mind imported from archive of "+a.Source.Slug+" ("+a.Checksum+")", map[string]any{"counts": a.Counts()})
+	s.deps.Audit.Log(ctx, "mind.import", "mind", m.ID.String(), map[string]any{"source": a.Source.Slug, "checksum": a.Checksum, "counts": a.Counts(), "omitted": omitted})
+	summary := "Mind imported from archive of " + a.Source.Slug + " (" + a.Checksum + ")"
+	if n := omitted["policies"]; n > 0 {
+		summary += fmt.Sprintf("; %d policy rule(s) in the archive were not imported: policies are set by this instance's operators", n)
+	}
+	s.deps.Events.OperatorAction(ctx, m.ID, by, "mind.import", summary, map[string]any{"counts": a.Counts(), "omitted": omitted})
 	s.deps.Brain.Reconcile(ctx) //nolint:errcheck
 	return m, nil
 }

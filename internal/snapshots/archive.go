@@ -248,13 +248,21 @@ func contains(xs []string, x string) bool {
 
 var uuidRe = regexp.MustCompile(`^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$`)
 
+// AuthorityTables hold rows that grant or shape authority rather than
+// describe cognitive state. They are copied by Fork (same operator, same
+// instance) but never by Import: an archive from elsewhere must not be able
+// to arrive carrying ALLOW rules for a mind (THREAT_MODEL T16).
+var AuthorityTables = map[string]bool{"policies": true}
+
 // Restore writes an archive's rows into mind `into`. Every row id found in
 // the archive gets a fresh id and all references to it (any uuid-shaped
 // string anywhere in the rows, including arrays and JSON detail) follow.
 // References to ids not in the archive (events, templates) are kept: that
 // is how history stays shared by reference. Must run in the caller's
-// transaction after the mind row exists.
-func Restore(ctx context.Context, tx pgx.Tx, cols map[string][]string, a Archive, into ids.ID) error {
+// transaction after the mind row exists. Tables named in skip are not
+// written; the returned map reports how many rows were omitted per table.
+func Restore(ctx context.Context, tx pgx.Tx, cols map[string][]string, a Archive, into ids.ID, skip map[string]bool) (map[string]int, error) {
+	omitted := map[string]int{}
 	remap := map[string]string{a.Source.MindID.String(): into.String()}
 	for _, t := range Tables {
 		for _, r := range a.Tables[t] {
@@ -270,9 +278,13 @@ func Restore(ctx context.Context, tx pgx.Tx, cols map[string][]string, a Archive
 		if len(rows) == 0 {
 			continue
 		}
+		if skip[t] {
+			omitted[t] = len(rows)
+			continue
+		}
 		cs := cols[t]
 		if len(cs) == 0 {
-			return fmt.Errorf("%w: table %s not present", ErrInvalid, t)
+			return omitted, fmt.Errorf("%w: table %s not present", ErrInvalid, t)
 		}
 		conflict := ""
 		if key, ok := keyedByMind[t]; ok {
@@ -291,11 +303,11 @@ func Restore(ctx context.Context, tx pgx.Tx, cols map[string][]string, a Archive
 			row["mind_id"] = into.String()
 			b, _ := json.Marshal(row)
 			if _, err := tx.Exec(ctx, sql, b); err != nil {
-				return fmt.Errorf("restore %s: %w", t, err)
+				return omitted, fmt.Errorf("restore %s: %w", t, err)
 			}
 		}
 	}
-	return nil
+	return omitted, nil
 }
 
 func remapValue(v any, remap map[string]string) any {
@@ -420,6 +432,10 @@ type ForkOptions struct {
 	Config                   *minds.CognitiveConfig
 	Personality              *minds.Personality
 	By                       string
+	// OmitAuthority skips AuthorityTables (policies). Import sets it; Fork does not.
+	OmitAuthority bool
+	// Omitted is filled by the restore with the rows skipped per table.
+	Omitted map[string]int
 }
 
 // Fork creates a new mind from a snapshot. The new mind's state equals the
@@ -430,7 +446,7 @@ func (s *Store) Fork(ctx context.Context, snapshotID ids.ID, o ForkOptions) (min
 	if err != nil {
 		return minds.Mind{}, err
 	}
-	m, err := s.restoreNew(ctx, a, o)
+	m, err := s.restoreNew(ctx, a, &o)
 	if err != nil {
 		return m, err
 	}
@@ -441,14 +457,26 @@ func (s *Store) Fork(ctx context.Context, snapshotID ids.ID, o ForkOptions) (min
 }
 
 // Import validates a hostile archive and restores it into a new mind.
+// Authority-bearing tables are never imported: an archive is data about a
+// mind, not a grant of permissions on this instance. The number of skipped
+// rows is reported in o.Omitted when the caller passes a pointer-free copy;
+// use ImportReport to receive it.
 func (s *Store) Import(ctx context.Context, a Archive, o ForkOptions) (minds.Mind, error) {
-	if err := Validate(a); err != nil {
-		return minds.Mind{}, err
-	}
-	return s.restoreNew(ctx, a, o)
+	m, _, err := s.ImportReport(ctx, a, o)
+	return m, err
 }
 
-func (s *Store) restoreNew(ctx context.Context, a Archive, o ForkOptions) (minds.Mind, error) {
+// ImportReport is Import that also returns the rows omitted per table.
+func (s *Store) ImportReport(ctx context.Context, a Archive, o ForkOptions) (minds.Mind, map[string]int, error) {
+	if err := Validate(a); err != nil {
+		return minds.Mind{}, nil, err
+	}
+	o.OmitAuthority = true
+	m, err := s.restoreNew(ctx, a, &o)
+	return m, o.Omitted, err
+}
+
+func (s *Store) restoreNew(ctx context.Context, a Archive, o *ForkOptions) (minds.Mind, error) {
 	cfg := a.Mind.Config
 	if o.Config != nil {
 		cfg = *o.Config
@@ -477,8 +505,14 @@ func (s *Store) restoreNew(ctx context.Context, a Archive, o ForkOptions) (minds
 	if err != nil {
 		return m, err
 	}
+	var skip map[string]bool
+	if o.OmitAuthority {
+		skip = AuthorityTables
+	}
 	err = storage.Tx(ctx, s.DB, func(tx pgx.Tx) error {
-		if err := Restore(ctx, tx, cols, a, m.ID); err != nil {
+		omitted, err := Restore(ctx, tx, cols, a, m.ID, skip)
+		o.Omitted = omitted
+		if err != nil {
 			return err
 		}
 		if o.Status != "" && o.Status != minds.StatusActive {
