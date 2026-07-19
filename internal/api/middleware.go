@@ -1,13 +1,16 @@
 package api
 
 import (
+	"bytes"
 	"context"
 	"crypto/rand"
 	"encoding/hex"
+	"io"
 	"log/slog"
 	"net/http"
 	"runtime/debug"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/andydixon/noema/internal/audit"
@@ -116,10 +119,33 @@ func (s *Server) securityHeaders(next http.Handler) http.Handler {
 	})
 }
 
+// bodyLimit bounds request bodies and refuses NUL bytes anywhere in the
+// request. PostgreSQL text cannot hold NUL, so a NUL that reached a query
+// would surface as an internal error; refusing it at the edge keeps the
+// answer a deliberate 400 and keeps error paths out of reach of a caller
+// probing for them. Bodies are buffered up to the limit, which the JSON and
+// form decoders would do anyway.
 func (s *Server) bodyLimit(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Body != nil {
+		if strings.Contains(r.URL.Path, "\x00") || strings.Contains(r.URL.RawPath, "%00") || strings.Contains(r.URL.RawQuery, "%00") || strings.Contains(r.URL.RawQuery, "\x00") {
+			writeError(w, r, http.StatusBadRequest, "invalid_input", "NUL bytes are not accepted")
+			return
+		}
+		if r.Body != nil && r.Body != http.NoBody {
 			r.Body = http.MaxBytesReader(w, r.Body, s.deps.Config.MaxRequestBody)
+			b, err := io.ReadAll(r.Body)
+			if err != nil {
+				writeError(w, r, http.StatusRequestEntityTooLarge, "too_large", "request body too large")
+				return
+			}
+			// A raw NUL, a JSON-escaped one or a form-encoded one all decode to the
+			// same byte the database refuses.
+			if bytes.IndexByte(b, 0) >= 0 || bytes.Contains(b, []byte(`\u0000`)) || bytes.Contains(b, []byte("%00")) {
+				writeError(w, r, http.StatusBadRequest, "invalid_input", "NUL bytes are not accepted")
+				return
+			}
+			r.Body = io.NopCloser(bytes.NewReader(b))
+			r.ContentLength = int64(len(b))
 		}
 		next.ServeHTTP(w, r)
 	})
