@@ -27,7 +27,13 @@ Local authentication is implemented first: Argon2id, opaque random session token
 
 ## External integration risk
 
-Integrations are disabled until configured, run at a declared trust level, are rate-limited, and only *observe* unless a capability is explicitly granted. Outbound HTTP uses a hardened client that blocks private and link-local addresses (SSRF), follows a bounded number of redirects, and caps response sizes. The research folder never executes content, extracts text in-process with size limits, and treats archive members as hostile paths.
+Integrations are disabled until configured, run at a declared trust level, are rate-limited, and only *observe* unless a capability is explicitly granted. Outbound HTTP uses a hardened client that blocks private and link-local addresses (SSRF), follows a bounded number of redirects, and caps response sizes. The research folder never executes content, extracts text in-process with size limits, and rejects archives, executables, symlinks and binaries outright rather than opening them.
+
+## Authority lives outside cognition
+
+> A mind may be deceived. Deception must not imply authority.
+
+Prompt injection, poisoned documents, hostile model output and manipulated memories can all change what a mind *thinks*. None of them can change what it may *do*. The boundary is `capabilities.Service.Invoke`: it looks the capability up in a registry built in code, validates parameters, evaluates the operator's policy rules, records the decision, and only then executes, asks or denies. Cognition can produce a request; it cannot produce a permission. There is no capability that edits policy, grants approvals or touches a mind's lifecycle, so there is nothing a deceived mind could ask for that would widen its own authority. Prompt delimiters and "this is data" markers are defence in depth for the quality of cognition; they are not the security boundary. `tests/security.TestDeceivedMindHasNoAuthority` forges action requests and hostile model output and checks that nothing executes and policy is unchanged.
 
 ## Capability policy defaults
 
@@ -42,7 +48,8 @@ Please report vulnerabilities privately to the maintainer (see repository owner 
 - `make security` runs gosec (G104 excluded: unchecked errors are covered by staticcheck and explicit `//nolint:errcheck` markers) and govulncheck. Both are clean as of 0.1.0 with the pinned toolchain in `go.mod`.
 - `go test -race ./tests/security/...` runs the cross-cutting suite: prompt injection through chat and observations (no tool activity, no evidence-free beliefs), role and CSRF enforcement on form and API paths, cross-mind isolation, stored-XSS escaping and CSP on every page, secret non-disclosure (API, pages, database, archives), hostile archive import, session lifecycle and security headers.
 - Package tests cover the SSRF dialer, research-folder and git safety, webhook signatures and replay, capability policy and locked capabilities, TOTP vectors and two-step login.
-- `THREAT_MODEL.md` maps each threat to its mitigation and the test that verifies it.
+- `THREAT_MODEL.md` maps each threat to its mitigation and the test that verifies it; a claim there cites only a test that asserts that claim.
+- Request edge: bodies are size-capped and buffered; NUL bytes in paths, queries or bodies are refused with a 400 before any query runs.
 
 ## Two-factor authentication
 

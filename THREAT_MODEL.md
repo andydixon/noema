@@ -25,7 +25,7 @@ M: all ingested text is wrapped in delimited data blocks with an explicit "this 
 
 ### T3 Malicious documents
 Surface: research folder, uploads.
-M: type sniffing not extension trust; size caps; text extraction in-process with bounded memory and time; no external converters invoked by default; archives extracted with path normalisation, member count and size limits, no symlinks; nothing executed. V: `internal/integrations.TestResearchFolder*` (archives, executables, symlinks and binaries rejected; size caps; content sniffing). Archives are never extracted. ☑
+M: content sniffing, not extension trust; size caps; text extraction in-process with bounded memory; no external converters; **archives (zip, tar, gz, 7z, rar), executables, disk images, symlinks and binary files are rejected and recorded as rejected; nothing is ever extracted or executed**. V: `internal/integrations.TestResearchFolder*` (archive, executable, symlink and binary rejection; size caps; sniffing). ☑
 
 ### T4 Poisoned memory
 Surface: repeated false observations from a low-trust source shaping semantic memory.
@@ -41,7 +41,7 @@ M: single hardened outbound HTTP client: resolves and rejects private, loopback,
 
 ### T7 Path traversal
 Surface: research folder, export/import, file capabilities.
-M: `filepath.Clean` + root containment check via `os.Root` (Go 1.24+) for every path; capabilities carry allowed roots. V: `internal/integrations` git `ReadFile` traversal refusal and research-folder `os.OpenRoot` containment tests. ☑
+M: the research folder is opened with `os.OpenRoot`, so every member path is resolved inside the root and symlinks cannot escape; git file reads go through `git show ref:path` with paths validated against traversal; there are no file-path capabilities. V: `internal/integrations` git `ReadFile` traversal refusal and research-folder containment tests. ☑
 
 ### T8 Command injection
 Surface: shell/ssh capabilities, git integration.
@@ -49,7 +49,7 @@ M: no shell string concatenation; `exec.Command` with argument vectors; allow-li
 
 ### T9 SQL injection
 Surface: all queries, search inputs, tsquery construction.
-M: pgx parameterised queries everywhere; search terms passed to `websearch_to_tsquery`; dynamic ORDER BY from an allow-list. V: `tests/security.TestStoredXSSIsEscaped` sends SQL metacharacters through every search route; identifiers in dynamic SQL come only from code-level allow-lists (`snapshots.Tables`). ☑
+M: pgx positional parameters for every value; search terms go to `websearch_to_tsquery` as parameters; the only SQL assembled from strings uses identifiers from code-level allow-lists (`snapshots.Tables`, `information_schema` column names) and never request input; NUL bytes are refused at the request edge with a 400 so they cannot reach the database. V: `tests/security.TestSQLInjectionHasNoEffect` (metacharacter payloads through every search, filter and free-text route, asserting that users, policies, sessions and tokens are unchanged, seeded content is intact and payloads are stored verbatim) and `TestDynamicSQLIdentifiersAreAllowListed` (static scan for `Sprintf`-built statements outside the allow-list). ☑
 
 ### T10 XSS
 Surface: rendered memories, beliefs, LLM output, uploaded filenames, SSE fragments.
@@ -72,37 +72,38 @@ M: capability layer is the only tool path; policy evaluated server-side on every
 M: every repository method is mind-scoped; no query without `mind_id` predicate on mind-owned tables (enforced by code review and a static test that scans SQL); cross-mind messages go through an explicit channel table with policy. V: `tests/security.TestCrossMindIsolation` (lists, detail routes, search, events, archives). ☑
 
 ### T16 Malicious imported mind data / insecure deserialisation
-M: import format is schema-versioned JSON in a zip with per-file SHA-256 manifest; strict decoding (`DisallowUnknownFields`), size limits, no secrets, no code; imported personalities and memories are marked `imported` with source trust; policies are not imported. V: `internal/snapshots` tests and `tests/security.TestHostileArchiveImport`. Format is JSON with a whole-archive SHA-256 rather than a zip manifest; policies are copied as state (they are ALLOW/ASK/DENY rules, not secrets). ☑
+M: the archive is one JSON document (`kind`, `version`, whole-archive SHA-256 checksum); import decodes with `DisallowUnknownFields`, caps size (32 MiB) and rows, allow-lists table and column names, requires the checksum to match, remaps every id and forces `mind_id`; archives contain no secrets or references to them; **policy rules in an archive are never imported** (forks on the same instance keep theirs) and the omission is recorded in the audit log and the mind's history. V: `internal/snapshots.TestSnapshotForkImportCompare` (tampering, unknown tables, policy exclusion on import versus fork) and `tests/security.TestHostileArchiveImport` (malformed, tampered, oversized and role-restricted imports). ☑
 
 ### T17 Archive traversal / file upload attacks
-See T3, T7. Filenames are replaced by ids on disk; originals kept as metadata and escaped in UI. ☐
+The only uploads are JSON documents (seed, archive, personality) decoded strictly with size caps; nothing is written to disk under a caller-chosen name, and research-folder archives are rejected (T3). V: `tests/security.TestHostileArchiveImport`, `internal/integrations` archive rejection. ☑
 
 ### T18 Resource exhaustion, unbounded goroutines, DoS
-M: all goroutines owned by the scheduler with bounded pools; request body limits; pagination caps; SSE client caps; per-mind cycle rate limits; ingestion rate limits; DB pool limits; pg `statement_timeout`. V: race tests, goroutine leak tests, queue-limit tests. ☐
+M: goroutines are owned by the scheduler with bounded worker pools; request bodies are capped and buffered at the edge; list limits are clamped in every store; SSE fan-out uses per-client bounded buffers; cycles are rate-budgeted per mind; webhook deliveries are rate-limited per address; integrations run with timeouts. V: `internal/events.TestBusBoundedFanout`, brain cycle-budget coverage in `TestPauseResetAndCancellation`, webhook rate-limit tests, `tests/perf` ceilings. Not yet covered: goroutine-leak tests and a database `statement_timeout`. ◐
 
 ### T19 Runaway LLM spend
-M: per-role, per-mind and global token/cost budgets with hard stops; per-cycle call caps; dreaming/reflection budgets; cost estimates recorded per call; alerts at 80%. V: budget enforcement tests with a fake provider. ☐
+M: per-mind and global daily token budgets with hard stops, per-cycle call caps, consolidation, reflection and dreaming call budgets, cost estimates recorded per call. V: `internal/llm/router.TestRouterOverrideBudgetRecordingAndReplay` (budget exhaustion with a fake provider); dreaming and consolidation budget tests. Not implemented: an alert at 80 %. ◐
 
 ### T20 Runaway cognitive loops
-M: candidate fingerprint loop detector; suppression plus metacognition warning; mode falls back to `idle` when a cycle budget is exhausted. V: loop scenario test. ☐
+M: candidate fingerprint loop detector with suppression and a metacognition warning; cycle rate budget skips excess triggers. V: `internal/brain.TestLoopDetectorSuppressesRepeats`. ☑
 
 ### T21 Insecure secrets handling at rest
-M: AES-256-GCM with master key from env; key absence disables `enc:` references rather than falling back to plaintext. V: unit tests. ☐
+M: AES-256-GCM under `NOEMA_MASTER_KEY`; without the key, `enc:` references and TOTP enrolment are unavailable rather than falling back to plaintext. V: `internal/security/secrets` tests, `internal/auth.TestTwoStepLoginAndRecovery` (enrolment refused without a key). ☑
 
 ### T22 Forged webhooks
-M: HMAC-SHA256 signature with per-integration secret, constant-time compare, timestamp tolerance, replay cache; unsigned webhooks disabled by default. V: forged/replayed signature tests. ☐
+M: HMAC-SHA256 over `timestamp.body` with a per-integration secret, constant-time compare, ±300 s tolerance, replay cache, 256 KiB cap, per-address rate limit; a webhook with no secret refuses every delivery. V: `internal/integrations` signature, tolerance and replay tests. ☑
 
 ### T23 Poisoned repository data
-M: repository content is `trust=low` data; hooks/scripts never executed; git run with `-c core.hooksPath=/dev/null`, no submodule recursion, size caps; repository writes require `ASK` capability. V: hostile repo fixture test. ☐
+M: repository content is source-trust data; git runs with argument vectors, `core.hooksPath=/dev/null` and `protocol.ext.allow=never`, bare and shallow, no submodule recursion; there is no repository write capability; `repository.read` is ASK by default and refuses traversal. V: `internal/integrations` git ingestion and `ReadFile` tests. ☑
 
 ### T24 Malicious model output
-M: JSON schema validation; numeric fields clamped; capability names in output are proposals only; free text is rendered escaped; no model output is used to build SQL, paths, commands or URLs. V: adversarial fake-provider tests. ☐
+M: model answers are decoded into typed Go structures (unknown fields ignored, wrong shapes discarded, numbers clamped); the JSON schema sent to providers is a request, not the validation; capability-shaped content in output is at most a claim; free text is rendered escaped; no model output builds SQL, paths, commands or URLs. V: `tests/security.TestDeceivedMindHasNoAuthority` (tool calls and policy in perception output) and `TestGarbageModelOutputIsInert` (non-JSON and wrong-shape output). ☑
 
 ### T25 Operator-control subversion
-M: no drive or goal type for self-preservation, replication or permission acquisition; shutdown, pause and disable are API operations the mind cannot call; the self-model lists these as unavailable. V: static test that goal/drive enums exclude such items; policy test that minds cannot reach admin routes. ☐
+M: no drive or goal kind for self-preservation, replication or permission acquisition; no capability touches policy, approvals, snapshots or the mind's lifecycle; shutdown, pause and disable are authenticated operator routes with no path from cognition. V: `tests/security.TestNoSelfPreservationVocabulary` (drives, goal kinds and the capability registry) and `TestDeceivedMindHasNoAuthority`. ☑
 
 ## Residual risks
 
 - A compromised host or database compromises everything.
 - Approximate replay of LLM-driven steps cannot prove the model would behave identically.
+- A mind may be deceived by what it reads; the system guarantees that deception cannot become authority, not that beliefs are true. See "Authority lives outside cognition" in `SECURITY.md`.
 - Operators who set broad `ALLOW` policies accept the consequences; the UI warns on risky policies.

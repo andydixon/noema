@@ -2,6 +2,16 @@
 
 All notable changes to Noema are recorded here. Format follows Keep a Changelog; versions follow SemVer.
 
+## [Unreleased]
+
+### Security
+- Archives never import policy rules; forks keep them. The omission is audited.
+- NUL bytes in any request path, query or body are refused with a 400 at the edge instead of surfacing as a database error.
+- Security suite: SQL-injection effect test, static allow-list scan for assembled SQL, deceived-mind authority test, garbage model output test, self-preservation vocabulary test; threat model rewritten so every verification cites a test that asserts the claim.
+
+### Fixed
+- ADR-0002 no longer describes the event sequence as gap-free; cursors tolerate gaps by construction and a regression test proves it.
+
 ## [0.1.0] - 2026-09-14
 
 First complete pass through all sixteen phases.
