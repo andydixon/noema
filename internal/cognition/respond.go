@@ -102,7 +102,8 @@ func (h Handlers) perceive(ctx context.Context, c *brain.Cycle, t workspace.Thou
 				w += 0.2
 			}
 			res, err := h.Beliefs.Create(ctx, c.Tx, emitter(c), beliefs.New{MindID: mind.ID, Proposition: cl.Proposition, Epistemic: concepts.Claim, Source: "conversation", OriginEvent: perc.ID, Causation: perc.ID, Correlation: c.State.CycleID,
-				Evidence: []beliefs.EvidenceInput{{Direction: "for", Kind: "event", RefID: srcID, Source: "said-by:" + actor, Weight: w, Credibility: trust.Credibility(), Note: actor + " " + cl.Certainty + " it"}}})
+				Evidence: []beliefs.EvidenceInput{{Direction: "for", Kind: "event", RefID: srcID, Source: "said-by:" + actor, Weight: w, Credibility: trust.Credibility(), Note: actor + " " + cl.Certainty + " it",
+					Derivation: beliefs.DerivationAssertion, Family: beliefs.FamilyForActor(actor), RootIDs: []string{srcID}}}})
 			if err != nil {
 				c.Emit(events.New{Type: events.Metacognition, Source: "brain.perceive", Summary: "claim not recorded: " + err.Error(), Salience: 0.3, Confidence: 1, Metadata: map[string]any{"check": "claim_rejected"}})
 				continue

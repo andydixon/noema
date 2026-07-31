@@ -136,6 +136,11 @@ type EvidenceInput struct {
 	Weight      float64
 	Credibility float64
 	Note        string
+	// Provenance (see Evidence). Family defaults to Source; Derivation
+	// defaults to direct. Producers that know their roots must say so.
+	Derivation string
+	Family     string
+	RootIDs    []string
 }
 
 // Result is a belief with its computed breakdown and the events written.
@@ -228,12 +233,29 @@ func normalise(e EvidenceInput) Evidence {
 	if e.Kind == "" {
 		e.Kind = "note"
 	}
-	return Evidence{Direction: e.Direction, Kind: e.Kind, RefID: e.RefID, Source: e.Source, Weight: e.Weight, Credibility: e.Credibility}
+	if e.Derivation == "" {
+		e.Derivation = DerivationDirect
+	}
+	if e.Family == "" {
+		e.Family = e.Source
+	}
+	return Evidence{Direction: e.Direction, Kind: e.Kind, RefID: e.RefID, Source: e.Source, Weight: e.Weight, Credibility: e.Credibility,
+		Derivation: e.Derivation, Family: e.Family, RootIDs: e.RootIDs, ProvenanceStatus: "recorded"}
 }
 
 func (s *Store) insertEvidence(ctx context.Context, q storage.Querier, b Belief, e Evidence, note string, eventID ids.ID) error {
-	_, err := q.Exec(ctx, `INSERT INTO belief_evidence (id, belief_id, mind_id, direction, kind, ref_id, source, weight, credibility, note, event_id) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`,
-		ids.New(), b.ID, b.MindID, e.Direction, e.Kind, e.RefID, e.Source, e.Weight, e.Credibility, note, nullID(eventID))
+	if e.Derivation == "" {
+		e.Derivation = DerivationDirect
+	}
+	if e.Family == "" {
+		e.Family = FamilyOf(e)
+	}
+	roots := e.RootIDs
+	if roots == nil {
+		roots = []string{}
+	}
+	_, err := q.Exec(ctx, `INSERT INTO belief_evidence (id, belief_id, mind_id, direction, kind, ref_id, source, weight, credibility, note, event_id, derivation, family, root_ids, provenance_status) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14::uuid[],'recorded')`,
+		ids.New(), b.ID, b.MindID, e.Direction, e.Kind, e.RefID, e.Source, e.Weight, e.Credibility, note, nullID(eventID), e.Derivation, e.Family, roots)
 	return err
 }
 
@@ -349,7 +371,7 @@ func (s *Store) EvidenceFor(ctx context.Context, q storage.Querier, mind, id ids
 	if q == nil {
 		q = s.db
 	}
-	rows, err := q.Query(ctx, `SELECT id, direction, kind, ref_id, source, weight, credibility, retracted, note, event_id, created_at FROM belief_evidence WHERE belief_id=$1 AND mind_id=$2 ORDER BY created_at`, id, mind)
+	rows, err := q.Query(ctx, `SELECT id, direction, kind, ref_id, source, weight, credibility, retracted, note, event_id, created_at, derivation, family, root_ids::text[], provenance_status FROM belief_evidence WHERE belief_id=$1 AND mind_id=$2 ORDER BY created_at`, id, mind)
 	if err != nil {
 		return nil, err
 	}
@@ -358,7 +380,7 @@ func (s *Store) EvidenceFor(ctx context.Context, q storage.Querier, mind, id ids
 	for rows.Next() {
 		var r EvidenceRow
 		var evID *string
-		if err := rows.Scan(&r.ID, &r.Direction, &r.Kind, &r.RefID, &r.Source, &r.Weight, &r.Credibility, &r.Retracted, &r.Note, &evID, &r.CreatedAt); err != nil {
+		if err := rows.Scan(&r.ID, &r.Direction, &r.Kind, &r.RefID, &r.Source, &r.Weight, &r.Credibility, &r.Retracted, &r.Note, &evID, &r.CreatedAt, &r.Derivation, &r.Family, &r.RootIDs, &r.ProvenanceStatus); err != nil {
 			return nil, err
 		}
 		if evID != nil {
@@ -519,10 +541,10 @@ func (s *Store) detectContradictions(ctx context.Context, q storage.Querier, emi
 			return nil, err
 		}
 		// Each belief becomes counter-evidence for the other, weighted by the other's confidence.
-		if err := s.insertEvidence(ctx, q, b, Evidence{Direction: "against", Kind: "belief", RefID: string(o.ID), Source: "contradiction", Weight: 0.5, Credibility: o.Confidence}, "contradicts: "+trunc(o.Proposition, 120), ev.ID); err != nil {
+		if err := s.insertEvidence(ctx, q, b, Evidence{Direction: "against", Kind: "belief", RefID: string(o.ID), Source: "contradiction", Weight: 0.5, Credibility: o.Confidence, Derivation: DerivationInference, Family: "belief:" + string(o.ID)}, "contradicts: "+trunc(o.Proposition, 120), ev.ID); err != nil {
 			return nil, err
 		}
-		if err := s.insertEvidence(ctx, q, o, Evidence{Direction: "against", Kind: "belief", RefID: string(b.ID), Source: "contradiction", Weight: 0.5, Credibility: b.Confidence}, "contradicts: "+trunc(b.Proposition, 120), ev.ID); err != nil {
+		if err := s.insertEvidence(ctx, q, o, Evidence{Direction: "against", Kind: "belief", RefID: string(b.ID), Source: "contradiction", Weight: 0.5, Credibility: b.Confidence, Derivation: DerivationInference, Family: "belief:" + string(b.ID)}, "contradicts: "+trunc(b.Proposition, 120), ev.ID); err != nil {
 			return nil, err
 		}
 		for _, x := range []Belief{b, o} {

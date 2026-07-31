@@ -386,8 +386,10 @@ func (s *Service) hypothesise(ctx context.Context, m minds.Mind, dream ids.ID, p
 			return out[0], nil
 		}
 		ev := []beliefs.EvidenceInput{
-			{Direction: "for", Kind: "memory", RefID: string(p.A.ID), Source: "dreaming/" + p.A.Source, Weight: 0.1, Credibility: p.A.Credibility, Note: "dream replay: " + excerpt(p.A.Content, 80)},
-			{Direction: "for", Kind: "memory", RefID: string(p.B.ID), Source: "dreaming/" + p.B.Source, Weight: 0.1, Credibility: p.B.Credibility, Note: "dream replay: " + excerpt(p.B.Content, 80)},
+			{Direction: "for", Kind: "memory", RefID: string(p.A.ID), Source: "dreaming/" + p.A.Source, Weight: 0.1, Credibility: p.A.Credibility, Note: "dream replay: " + excerpt(p.A.Content, 80),
+				Derivation: beliefs.DerivationDream, Family: s.familyOf(ctx, p.A), RootIDs: rootsOf(p.A)},
+			{Direction: "for", Kind: "memory", RefID: string(p.B.ID), Source: "dreaming/" + p.B.Source, Weight: 0.1, Credibility: p.B.Credibility, Note: "dream replay: " + excerpt(p.B.Content, 80),
+				Derivation: beliefs.DerivationDream, Family: s.familyOf(ctx, p.B), RootIDs: rootsOf(p.B)},
 		}
 		detail := map[string]any{"dream_id": dream, "wording": w.Wording, "rationale": w.Rationale, "shared": p.Shared}
 		if !w.CallID.IsZero() {
@@ -516,4 +518,23 @@ func excerpt(s string, n int) string {
 		return s[:n-1] + "…"
 	}
 	return s
+}
+
+// familyOf traces a memory to the actor or channel behind its origin event.
+func (s *Service) familyOf(ctx context.Context, m memory.Memory) string {
+	if !m.OriginEvent.IsZero() && s.Events != nil {
+		if ev, err := s.Events.Get(ctx, m.OriginEvent); err == nil {
+			if f := beliefs.FamilyFromEvent(ev); f != "" {
+				return f
+			}
+		}
+	}
+	return "memory:" + m.Source
+}
+
+func rootsOf(m memory.Memory) []string {
+	if !m.OriginEvent.IsZero() {
+		return []string{string(m.OriginEvent)}
+	}
+	return []string{string(m.ID)}
 }

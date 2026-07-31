@@ -128,7 +128,8 @@ func (r *Resolver) ResolveIn(ctx context.Context, q storage.Querier, p Predictio
 			evs = append(evs, out[0])
 			return out[0], nil
 		}
-		if _, err := r.Beliefs.AddEvidence(ctx, q, emit, p.MindID, p.BeliefID, beliefs.EvidenceInput{Direction: dir, Kind: "prediction", RefID: string(p.ID), Source: "prediction:" + string(p.ID), Weight: weight, Credibility: 0.9, Note: "prediction " + string(o.Status) + ": " + p.Statement}, "prediction "+string(o.Status), evs[0].ID, ids.Nil); err != nil {
+		if _, err := r.Beliefs.AddEvidence(ctx, q, emit, p.MindID, p.BeliefID, beliefs.EvidenceInput{Direction: dir, Kind: "prediction", RefID: string(p.ID), Source: "prediction:" + string(p.ID), Weight: weight, Credibility: 0.9, Note: "prediction " + string(o.Status) + ": " + p.Statement,
+			Derivation: beliefs.DerivationPrediction, Family: "prediction:" + string(p.ID), RootIDs: refIDs(o.Evidence)}, "prediction "+string(o.Status), evs[0].ID, ids.Nil); err != nil {
 			r.Log.Warn("belief feedback failed", "belief", p.BeliefID, "err", err)
 		}
 	}
@@ -140,4 +141,15 @@ func minTime(a, b time.Time) time.Time {
 		return a
 	}
 	return b
+}
+
+// refIDs lists the event ids an outcome was judged against.
+func refIDs(refs []events.EvidenceRef) []string {
+	var out []string
+	for _, r := range refs {
+		if r.Kind == "event" && r.ID != "" {
+			out = append(out, r.ID)
+		}
+	}
+	return out
 }

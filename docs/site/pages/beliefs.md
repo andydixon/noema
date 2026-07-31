@@ -2,13 +2,13 @@ Beliefs are the mind's propositions about the world, each with a confidence that
 
 ## Confidence
 
-A belief starts from a prior set by its epistemic kind (a hypothesis at 0.25, a claim at 0.50, a fact at 0.80; the full table is under [concepts](concepts)). Each piece of evidence contributes its weight multiplied by the credibility of its source, for or against. Confidence is
+A belief starts from a prior set by its epistemic kind (a hypothesis at 0.25, a claim at 0.50, a fact at 0.80; the full table is under [concepts](concepts)). Evidence is then grouped by **family**, the independent source a row ultimately rests on: a person, an integration, an operator, a prediction. Within a family the strongest primary item counts in full, each further primary item adds a quarter, and the total is capped at one and a half times the strongest; derived items (a consolidated memory, an inference, a reflection, a dream, a recalled memory) count only when the family has no primary item at all, because they re-express information rather than corroborate it. The confidence is
 
 ```
 confidence = sigmoid( logit(prior) + 1.5 × (for × diversity − against) )
 ```
 
-where `diversity` rises from 0.6 for a single source to 1.0 for three or more independent sources, so repetition from one place is discounted. The result is bounded to [0.02, 0.98]: a mind is never certain and never certain of the negation. The breakdown (prior, each evidence row, the diversity factor, the formula) is stored with every version and shown on the belief page.
+where `for` and `against` are the sums of family contributions and `diversity` rises from 0.6 for a single family to 1.0 for three or more. The result is bounded to [0.02, 0.98]: a mind is never certain and never certain of the negation. Every evidence row carries its derivation, family and root ids; the breakdown, family by family, is stored with every version and shown on the belief page. Rows written before provenance was recorded are marked as legacy and grouped by their source string; no ancestry is invented for them.
 
 ## Statuses
 

@@ -145,7 +145,7 @@ func (h Handlers) metacognition(ctx context.Context, c *brain.Cycle, t workspace
 	if bid, ok := t.Content["belief_id"].(string); ok && bid != "" && h.Beliefs != nil {
 		switch check {
 		case "insufficient_evidence", "single_source", "fluent_without_evidence":
-			_, err := h.Beliefs.AddEvidence(ctx, c.Tx, emitter(c), c.State.Mind.ID, ids.ID(bid), beliefs.EvidenceInput{Direction: "against", Kind: "metacognition", RefID: string(ev.ID), Source: "metacognition:" + check, Weight: 0.15 + 0.15*severity, Credibility: 0.9, Note: "self-check: " + check}, "metacognitive discount: "+check, ev.ID, c.State.CycleID)
+			_, err := h.Beliefs.AddEvidence(ctx, c.Tx, emitter(c), c.State.Mind.ID, ids.ID(bid), beliefs.EvidenceInput{Direction: "against", Kind: "metacognition", RefID: string(ev.ID), Source: "metacognition:" + check, Weight: 0.15 + 0.15*severity, Credibility: 0.9, Note: "self-check: " + check, Derivation: beliefs.DerivationReflection, Family: "metacognition"}, "metacognitive discount: "+check, ev.ID, c.State.CycleID)
 			if err != nil {
 				return err
 			}

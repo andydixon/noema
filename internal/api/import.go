@@ -87,7 +87,7 @@ func (s *Server) mindImport(w http.ResponseWriter, r *http.Request) {
 			weight = 0.5
 		}
 		_, err := s.deps.Beliefs.Create(r.Context(), s.deps.DB, s.Emitter(), beliefs.New{MindID: m.ID, Proposition: sb.Proposition, Subject: sb.Subject, Epistemic: sb.Epistemic, Source: "seed",
-			Evidence: []beliefs.EvidenceInput{{Direction: "for", Kind: "operator", Source: "seed:" + actor(r), Weight: weight, Credibility: events.TrustOperator.Credibility(), Note: firstNonEmpty(sb.Note, "seeded by "+actor(r))}}})
+			Evidence: []beliefs.EvidenceInput{{Direction: "for", Kind: "operator", Source: "seed:" + actor(r), Weight: weight, Credibility: events.TrustOperator.Credibility(), Note: firstNonEmpty(sb.Note, "seeded by "+actor(r)), Derivation: beliefs.DerivationOperator, Family: "seed:" + actor(r)}}})
 		if err != nil {
 			if errors.Is(err, beliefs.ErrInvalid) || errors.Is(err, beliefs.ErrBlocked) {
 				problems = append(problems, "belief: "+err.Error())

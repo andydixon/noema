@@ -66,13 +66,19 @@ func (h Handlers) hypothesis(ctx context.Context, c *brain.Cycle, t workspace.Th
 			continue
 		}
 		cred := 0.6
+		family := "event:" + ref.ID
 		if e, err := c.Runtime.Events().Get(ctx, ids.ID(ref.ID)); err == nil {
 			var p events.ObservationPayload
 			if json.Unmarshal(e.Payload, &p) == nil && p.Trust.Valid() {
 				cred = p.Trust.Credibility()
 			}
+			if f := beliefs.FamilyFromEvent(e); f != "" {
+				family = f
+			}
 		}
-		ev = append(ev, beliefs.EvidenceInput{Direction: "for", Kind: "event", RefID: ref.ID, Source: "co-occurrence:" + ref.ID, Weight: 0.15, Credibility: cred, Note: "temporal co-occurrence (" + ref.Note + ")"})
+		// The two observations are the roots; the causal reading is an inference over them.
+		ev = append(ev, beliefs.EvidenceInput{Direction: "for", Kind: "event", RefID: ref.ID, Source: "co-occurrence:" + ref.ID, Weight: 0.15, Credibility: cred, Note: "temporal co-occurrence (" + ref.Note + ")",
+			Derivation: beliefs.DerivationInference, Family: family, RootIDs: []string{ref.ID}})
 	}
 	res, err := h.Beliefs.Create(ctx, c.Tx, emitter(c), beliefs.New{MindID: c.State.Mind.ID, Proposition: prop, Epistemic: concepts.Hypothesis, Source: "brain.associate",
 		Evidence: ev, Alternatives: []string{"coincidence: the two events are unrelated", "a third factor caused both"}, OriginEvent: t.EventID, Causation: t.EventID, Correlation: c.State.CycleID,

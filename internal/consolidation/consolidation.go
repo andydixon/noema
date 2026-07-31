@@ -307,7 +307,19 @@ func (s *Service) consolidate(ctx context.Context, m minds.Mind, c Cluster, llmB
 		var refs []events.EvidenceRef
 		var epIDs []ids.ID
 		for _, e := range c.Episodes {
-			ev = append(ev, beliefs.EvidenceInput{Direction: "for", Kind: "memory", RefID: string(e.ID), Source: e.Source + "/" + string(e.Trust), Weight: 0.3, Credibility: e.Credibility, Note: "episode: " + truncate(e.Content, 80)})
+			// Ancestry: the episode's origin event names the actor or channel it
+			// came from; five episodes from one person are one family.
+			family, roots := "memory:"+e.Source, []string{string(e.ID)}
+			if !e.OriginEvent.IsZero() {
+				roots = []string{string(e.OriginEvent)}
+				if oe, err := s.Events.Get(ctx, e.OriginEvent); err == nil {
+					if f := beliefs.FamilyFromEvent(oe); f != "" {
+						family = f
+					}
+				}
+			}
+			ev = append(ev, beliefs.EvidenceInput{Direction: "for", Kind: "memory", RefID: string(e.ID), Source: e.Source + "/" + string(e.Trust), Weight: 0.3, Credibility: e.Credibility, Note: "episode: " + truncate(e.Content, 80),
+				Derivation: beliefs.DerivationConsolidation, Family: family, RootIDs: roots})
 			refs = append(refs, events.EvidenceRef{Kind: "memory", ID: string(e.ID), Note: "episode"})
 			epIDs = append(epIDs, e.ID)
 		}

@@ -110,7 +110,7 @@ func (s *Server) beliefsCreate(w http.ResponseWriter, r *http.Request) {
 		in.Weight = 0.7
 	}
 	res, err := s.deps.Beliefs.Create(r.Context(), s.deps.DB, s.Emitter(), beliefs.New{MindID: m.ID, Proposition: in.Proposition, Subject: in.Subject, Epistemic: in.Epistemic, Source: "operator",
-		Evidence:     []beliefs.EvidenceInput{{Direction: "for", Kind: "operator", Source: "operator:" + actor(r), Weight: in.Weight, Credibility: events.TrustOperator.Credibility(), Note: firstNonEmpty(in.Note, "asserted by operator "+actor(r))}},
+		Evidence:     []beliefs.EvidenceInput{{Direction: "for", Kind: "operator", Source: "operator:" + actor(r), Weight: in.Weight, Credibility: events.TrustOperator.Credibility(), Note: firstNonEmpty(in.Note, "asserted by operator "+actor(r)), Derivation: beliefs.DerivationOperator, Family: "operator:" + actor(r)}},
 		Alternatives: in.Alternatives})
 	if err != nil {
 		fail(w, r, beliefErr(err))
@@ -235,7 +235,7 @@ func (s *Server) beliefEvidence(w http.ResponseWriter, r *http.Request) {
 	if in.Kind == "" {
 		in.Kind = "operator"
 	}
-	res, err := s.deps.Beliefs.AddEvidence(r.Context(), s.deps.DB, s.Emitter(), m.ID, id, beliefs.EvidenceInput{Direction: in.Direction, Kind: in.Kind, RefID: in.RefID, Source: "operator:" + actor(r), Weight: in.Weight, Credibility: events.TrustOperator.Credibility(), Note: in.Note}, "operator evidence: "+in.Note, ids.Nil, ids.Nil)
+	res, err := s.deps.Beliefs.AddEvidence(r.Context(), s.deps.DB, s.Emitter(), m.ID, id, beliefs.EvidenceInput{Direction: in.Direction, Kind: in.Kind, RefID: in.RefID, Source: "operator:" + actor(r), Weight: in.Weight, Credibility: events.TrustOperator.Credibility(), Note: in.Note, Derivation: beliefs.DerivationOperator, Family: "operator:" + actor(r)}, "operator evidence: "+in.Note, ids.Nil, ids.Nil)
 	if err != nil {
 		fail(w, r, beliefErr(err))
 		return

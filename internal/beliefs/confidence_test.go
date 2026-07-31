@@ -67,3 +67,61 @@ func TestContradicts(t *testing.T) {
 		t.Fatal("identical propositions flagged")
 	}
 }
+
+// TestProvenanceGroupingPreventsInflation pins the family arithmetic:
+// independent families add up; derived re-expressions of one source add
+// nothing to it; repetition within a family is heavily discounted; legacy
+// rows (family = source) behave as primary evidence.
+func TestProvenanceGroupingPreventsInflation(t *testing.T) {
+	ev := func(fam, deriv string, w float64) Evidence {
+		return Evidence{Direction: "for", Kind: "event", RefID: fam + deriv, Source: fam, Family: fam, Derivation: deriv, Weight: w, Credibility: 1}
+	}
+	one := Compute(0.5, []Evidence{ev("actor:andy", DerivationAssertion, 0.6)})
+	threeIndependent := Compute(0.5, []Evidence{ev("actor:andy", DerivationAssertion, 0.6), ev("source:prometheus:prod", DerivationExternal, 0.6), ev("operator:admin", DerivationOperator, 0.6)})
+	threeDerived := Compute(0.5, []Evidence{
+		ev("actor:andy", DerivationAssertion, 0.6),     // E1: what Andy said
+		ev("actor:andy", DerivationConsolidation, 0.6), // S1: a semantic memory consolidated from it
+		ev("actor:andy", DerivationInference, 0.6),     // I1: an inference drawn from S1
+	})
+	repeated := Compute(0.5, []Evidence{ev("actor:andy", DerivationAssertion, 0.6), ev("actor:andy", DerivationAssertion, 0.6), ev("actor:andy", DerivationAssertion, 0.6)})
+	if threeDerived.Confidence != one.Confidence {
+		t.Fatalf("derived copies inflated confidence: one=%.4f derived=%.4f", one.Confidence, threeDerived.Confidence)
+	}
+	if threeDerived.SourcesFor != 1 || threeIndependent.SourcesFor != 3 {
+		t.Fatalf("family counting wrong: derived=%d independent=%d", threeDerived.SourcesFor, threeIndependent.SourcesFor)
+	}
+	if !(threeIndependent.Confidence > repeated.Confidence && repeated.Confidence > one.Confidence) {
+		t.Fatalf("ordering wrong: independent=%.4f repeated=%.4f one=%.4f", threeIndependent.Confidence, repeated.Confidence, one.Confidence)
+	}
+	// Repetition is capped at 1.5× the strongest item however many times it recurs.
+	many := make([]Evidence, 20)
+	for i := range many {
+		many[i] = ev("actor:andy", DerivationAssertion, 0.6)
+	}
+	if got := Compute(0.5, many).For; got > 0.6*1.5+1e-9 {
+		t.Fatalf("repetition not capped: for=%.4f", got)
+	}
+	// Derived evidence stands in only when nothing primary exists for the family.
+	onlyDerived := Compute(0.5, []Evidence{ev("actor:andy", DerivationConsolidation, 0.3), ev("actor:andy", DerivationInference, 0.2)})
+	if onlyDerived.For != 0.3 {
+		t.Fatalf("only-derived family should count its strongest item once: %.4f", onlyDerived.For)
+	}
+	// Legacy rows: family falls back to source and they count as primary.
+	legacy := Compute(0.5, []Evidence{{Direction: "for", Kind: "event", RefID: "x", Source: "metrics", Weight: 0.6, Credibility: 1, Derivation: DerivationLegacy}, {Direction: "for", Kind: "event", RefID: "y", Source: "logs", Weight: 0.6, Credibility: 1}})
+	if legacy.SourcesFor != 2 || len(legacy.Families) != 2 {
+		t.Fatalf("legacy grouping: %+v", legacy.Families)
+	}
+	// Counter-evidence is grouped the same way.
+	against := Compute(0.5, []Evidence{{Direction: "against", Kind: "belief", RefID: "b", Source: "contradiction", Family: "belief:b", Derivation: DerivationInference, Weight: 0.5, Credibility: 0.8},
+		{Direction: "against", Kind: "belief", RefID: "b", Source: "contradiction", Family: "belief:b", Derivation: DerivationInference, Weight: 0.5, Credibility: 0.8}})
+	if against.Against != 0.4 {
+		t.Fatalf("against grouping: %.4f", against.Against)
+	}
+	// Families derive from event payloads: an actor beats a channel beats the component.
+	if f := FamilyForActor(" Andy "); f != "actor:andy" {
+		t.Fatal(f)
+	}
+	if f := FamilyForSource("Prometheus", "prod"); f != "source:prometheus:prod" {
+		t.Fatal(f)
+	}
+}

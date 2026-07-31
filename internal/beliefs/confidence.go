@@ -4,10 +4,13 @@
 package beliefs
 
 import (
+	"encoding/json"
 	"math"
 	"sort"
+	"strings"
 
 	"github.com/andydixon/noema/pkg/concepts"
+	"github.com/andydixon/noema/pkg/events"
 )
 
 // Status of a belief.
@@ -70,44 +73,186 @@ type Evidence struct {
 	Weight      float64 `json:"weight"`      // how strongly it bears on the proposition, (0,1]
 	Credibility float64 `json:"credibility"` // trust in the source, [0,1]
 	Retracted   bool    `json:"retracted"`
+	// Provenance. Family is the independent-source key (an actor, an
+	// integration, an operator); Derivation says how this row relates to its
+	// roots; RootIDs are the originating event or memory ids. Derived rows
+	// (consolidation, inference, reflection, dream, retrieval) never add
+	// weight to a family that already has a primary member: they carry no
+	// information their roots did not.
+	Derivation       string   `json:"derivation,omitempty"`
+	Family           string   `json:"family,omitempty"`
+	RootIDs          []string `json:"root_ids,omitempty"`
+	ProvenanceStatus string   `json:"provenance_status,omitempty"` // recorded | legacy_unknown
+}
+
+// Derivations. Primary derivations bring information from outside the
+// belief system; derived ones re-express information already present.
+const (
+	DerivationDirect        = "direct"        // an observation or event from the source itself
+	DerivationAssertion     = "assertion"     // somebody stated the proposition
+	DerivationOperator      = "operator"      // an operator asserted or endorsed it
+	DerivationExternal      = "external"      // external corroboration (integration, tool result)
+	DerivationPrediction    = "prediction"    // a prediction resolved against events
+	DerivationConsolidation = "consolidation" // generalised from episodes
+	DerivationInference     = "inference"     // reasoned from other items
+	DerivationReflection    = "reflection"    // produced by reflection or metacognition
+	DerivationDream         = "dream"         // proposed while dreaming
+	DerivationRetrieval     = "retrieval"     // a recalled memory offered as support
+	DerivationLegacy        = "legacy"        // written before provenance existed; treated as primary
+)
+
+// Derived reports whether a derivation re-expresses existing information.
+func Derived(d string) bool {
+	switch d {
+	case DerivationConsolidation, DerivationInference, DerivationReflection, DerivationDream, DerivationRetrieval:
+		return true
+	}
+	return false
+}
+
+// FamilyOf returns the grouping key for a piece of evidence: its recorded
+// family, else its source, else its reference.
+func FamilyOf(e Evidence) string {
+	if e.Family != "" {
+		return e.Family
+	}
+	if e.Source != "" {
+		return e.Source
+	}
+	return e.Kind + ":" + e.RefID
+}
+
+// FamilyForActor is the family key for statements made by a person or agent.
+func FamilyForActor(actor string) string {
+	actor = strings.ToLower(strings.TrimSpace(actor))
+	if actor == "" {
+		return ""
+	}
+	return "actor:" + actor
+}
+
+// FamilyForSource is the family key for an integration or channel that has
+// no individual actor (metrics, webhooks, repositories).
+func FamilyForSource(source, channel string) string {
+	source = strings.ToLower(strings.TrimSpace(source))
+	if source == "" {
+		return ""
+	}
+	if channel = strings.ToLower(strings.TrimSpace(channel)); channel != "" {
+		return "source:" + source + ":" + channel
+	}
+	return "source:" + source
+}
+
+// FamilyFromEvent derives the family of an observation from its payload:
+// the actor who spoke, else the integration or channel it came from, else
+// the event's source component.
+func FamilyFromEvent(ev events.Event) string {
+	var p events.ObservationPayload
+	if len(ev.Payload) > 0 {
+		json.Unmarshal(ev.Payload, &p) //nolint:errcheck // absent payload fields simply fall through
+	}
+	if f := FamilyForActor(p.Actor); f != "" {
+		return f
+	}
+	if f := FamilyForSource(p.Source, p.Channel); f != "" {
+		return f
+	}
+	return FamilyForSource(ev.Source, "")
+}
+
+// FamilyShare explains one family's contribution to a confidence.
+type FamilyShare struct {
+	Family       string  `json:"family"`
+	Direction    string  `json:"direction"`
+	Items        int     `json:"items"`
+	Primary      int     `json:"primary"`
+	Contribution float64 `json:"contribution"`
 }
 
 // Breakdown explains a confidence value.
 type Breakdown struct {
-	Prior          float64  `json:"prior"`
-	For            float64  `json:"for"`             // Σ weight×credibility, supporting
-	Against        float64  `json:"against"`         // Σ weight×credibility, opposing
-	SourcesFor     int      `json:"sources_for"`     // distinct sources supporting
-	DiversityScale float64  `json:"diversity_scale"` // discount when support comes from one source
-	LogOdds        float64  `json:"log_odds"`
-	Confidence     float64  `json:"confidence"`
-	Formula        string   `json:"formula"`
-	Notes          []string `json:"notes,omitempty"`
+	Prior          float64       `json:"prior"`
+	Families       []FamilyShare `json:"families,omitempty"` // per independent-source group
+	For            float64       `json:"for"`                // Σ weight×credibility, supporting
+	Against        float64       `json:"against"`            // Σ weight×credibility, opposing
+	SourcesFor     int           `json:"sources_for"`        // distinct sources supporting
+	DiversityScale float64       `json:"diversity_scale"`    // discount when support comes from one source
+	LogOdds        float64       `json:"log_odds"`
+	Confidence     float64       `json:"confidence"`
+	Formula        string        `json:"formula"`
+	Notes          []string      `json:"notes,omitempty"`
 }
 
-// Compute derives confidence from prior and evidence. Support from a single
-// source is discounted (T4: poisoned memory) so repetition alone cannot make
-// a belief strong.
+// Compute derives confidence from prior and evidence.
+//
+// Evidence is grouped by family (independent source). Within a family the
+// strongest primary item counts in full and each further primary item adds
+// a quarter of its value, capped at one and a half times the strongest, so
+// repetition from one source is worth little. Derived items (consolidation,
+// inference, reflection, dream, retrieval) contribute only when their family
+// has no primary item, and then only the strongest of them: a semantic
+// memory consolidated from five episodes, and an inference drawn from it,
+// re-express the episodes rather than corroborate them. Diversity counts
+// families, not rows (T4: poisoned memory; review pass item 2).
 func Compute(prior float64, ev []Evidence) Breakdown {
-	b := Breakdown{Prior: clampP(prior), Formula: "confidence = sigmoid(logit(prior) + slope × (for × diversity − against))"}
-	sources := map[string]struct{}{}
+	b := Breakdown{Prior: clampP(prior), Formula: "confidence = sigmoid(logit(prior) + slope × (for × diversity − against)); for/against sum per-family contributions (strongest primary + ¼ of the rest, capped at 1.5×; derived items only when no primary exists)"}
+	type group struct {
+		primary, derived []float64
+		items            int
+	}
+	groups := map[string]map[string]*group{"for": {}, "against": {}}
+	var order []string
 	for _, e := range ev {
 		if e.Retracted || e.Weight <= 0 {
 			continue
 		}
 		v := clamp01(e.Weight) * clamp01(e.Credibility)
+		dir := "for"
 		if e.Direction == "against" {
-			b.Against += v
+			dir = "against"
+		}
+		fam := FamilyOf(e)
+		g := groups[dir][fam]
+		if g == nil {
+			g = &group{}
+			groups[dir][fam] = g
+			order = append(order, dir+"\x00"+fam)
+		}
+		g.items++
+		if Derived(e.Derivation) {
+			g.derived = append(g.derived, v)
+		} else {
+			g.primary = append(g.primary, v)
+		}
+	}
+	contribution := func(g *group) float64 {
+		if len(g.primary) > 0 {
+			sort.Sort(sort.Reverse(sort.Float64Slice(g.primary)))
+			c := g.primary[0]
+			for _, v := range g.primary[1:] {
+				c += 0.25 * v
+			}
+			return math.Min(c, 1.5*g.primary[0])
+		}
+		best := 0.0
+		for _, v := range g.derived {
+			best = math.Max(best, v)
+		}
+		return best
+	}
+	for _, key := range order {
+		dir, fam, _ := strings.Cut(key, "\x00")
+		g := groups[dir][fam]
+		c := contribution(g)
+		b.Families = append(b.Families, FamilyShare{Family: fam, Direction: dir, Items: g.items, Primary: len(g.primary), Contribution: round4(c)})
+		if dir == "against" {
+			b.Against += c
 			continue
 		}
-		b.For += v
-		key := e.Source
-		if key == "" {
-			key = e.Kind + ":" + e.RefID
-		}
-		sources[key] = struct{}{}
+		b.For += c
 	}
-	b.SourcesFor = len(sources)
+	b.SourcesFor = len(groups["for"])
 	// One source: 60% of face value; three or more independent sources: full.
 	b.DiversityScale = 1
 	if b.SourcesFor > 0 {

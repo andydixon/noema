@@ -18,17 +18,24 @@ A **belief** is a proposition the mind holds with an explicit, evidence-derived 
 Confidence is never typed in by a person or produced by a model. It is:
 
 ```
-for      = Σ weight × credibility over supporting evidence
-against  = Σ weight × credibility over opposing evidence
-diversity = 0.6 + 0.4 × min(1, (distinct supporting sources − 1) / 2)
-confidence = sigmoid( logit(prior) + 1.5 × (for × diversity − against) )   clamped to [0.02, 0.98]
+value(e)      = weight × credibility                       for each live evidence row e
+family(e)     = the independent source e ultimately rests on (an actor, an integration, an operator, a prediction)
+contribution(family) = strongest primary item + ¼ × each further primary item, capped at 1.5 × the strongest
+                       (if the family has no primary item: its strongest derived item alone)
+for           = Σ contribution over supporting families
+against       = Σ contribution over opposing families
+diversity     = 0.6 + 0.4 × min(1, (supporting families − 1) / 2)
+confidence    = sigmoid( logit(prior) + 1.5 × (for × diversity − against) )   clamped to [0.02, 0.98]
 ```
 
 - The **prior** depends on the epistemic kind: hypothesis 0.25, assumption/opinion 0.4, claim 0.5, observation/memory 0.6, fact 0.8.
-- **Diversity** discounts support that all comes from one source, so repetition from a single feed cannot manufacture certainty (threat T4).
+- **Families** are the unit of independence. Five messages from one person, the episodes they became, the semantic memory consolidated from them and an inference drawn from that memory are all one family: they carry one person's information however many times it has been re-expressed.
+- **Derivations** say how a row relates to its roots. *Primary* derivations bring information in from outside the belief system: `direct`, `assertion`, `operator`, `external`, `prediction`. *Derived* ones re-express it: `consolidation`, `inference`, `reflection`, `dream`, `retrieval`. Derived rows never add weight to a family that already has a primary row, which is what stops recursive cognition inflating confidence.
+- **Repetition** within a family is worth a quarter per extra item and never more than half again in total, so a single feed cannot manufacture certainty (threat T4), while three genuinely independent families can.
+- **Diversity** counts families, not rows.
 - Absolute certainty is unreachable; the bounds are deliberate (spec §10).
 
-The breakdown (prior, for, against, sources, diversity, log-odds, formula, notes) is stored with every version and shown on the belief page.
+Every evidence row records its `derivation`, `family`, `root_ids` (the originating events or memories) and a `provenance_status`. Rows written before provenance existed are marked `legacy_unknown` with `family = source`; no ancestry is invented for them. The breakdown (prior, per-family contributions, for, against, families, diversity, log-odds, formula, notes) is stored with every version and shown on the belief page under "Independent sources".
 
 ## Status
 
