@@ -19,6 +19,7 @@ type Status string
 // Statuses in rough order of commitment.
 const (
 	StatusHypothesis Status = "hypothesis"
+	StatusUnknown    Status = "unknown" // recorded, but no live evidence for or against: not false, not known
 	StatusTentative  Status = "tentative"
 	StatusLikely     Status = "likely"
 	StatusAccepted   Status = "accepted"
@@ -30,7 +31,7 @@ const (
 // Valid reports whether s is known.
 func (s Status) Valid() bool {
 	switch s {
-	case StatusHypothesis, StatusTentative, StatusLikely, StatusAccepted, StatusContested, StatusRejected, StatusSuperseded:
+	case StatusHypothesis, StatusTentative, StatusLikely, StatusAccepted, StatusContested, StatusRejected, StatusSuperseded, StatusUnknown:
 		return true
 	}
 	return false
@@ -269,10 +270,17 @@ func Compute(prior float64, ev []Evidence) Breakdown {
 }
 
 // Derive maps a breakdown to a status. Contested requires real evidence on
-// both sides; rejected requires the evidence to have pushed confidence low.
+// both sides; rejected requires the evidence to have pushed confidence low;
+// unknown means nothing live bears on the proposition either way, which is
+// deliberately distinct from tentative belief at the prior (absence of
+// evidence is not evidence of falsity). Hypotheses keep their own status
+// because they are proposals awaiting evidence by construction.
 func Derive(b Breakdown, epistemic concepts.Epistemic) Status {
 	if b.For > 0 && b.Against > 0 && b.Against >= 0.5*b.For*b.DiversityScale && b.Confidence >= 0.2 && b.Confidence <= 0.8 {
 		return StatusContested
+	}
+	if b.For == 0 && b.Against == 0 && epistemic != concepts.Hypothesis {
+		return StatusUnknown
 	}
 	switch {
 	case b.Confidence < 0.15:

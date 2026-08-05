@@ -13,6 +13,22 @@ A **belief** is a proposition the mind holds with an explicit, evidence-derived 
 | `belief_versions` | append-only history with the confidence breakdown and the event that caused each change |
 | `corrections` | operator statements: belief wrong, memory inaccurate, do not infer, entity same/different |
 
+## What the numbers mean
+
+Every numeric epistemic value in Noema has one defined meaning. None of them is a calibrated probability unless the page says so.
+
+| Value | Range | Meaning |
+|---|---|---|
+| **epistemic score** (`confidence` on a belief) | [0.02, 0.98] | the deterministic output of the arithmetic below over the recorded evidence: a ranking of how well supported a proposition is *given what this mind has seen and how it weighs it*. It is comparable between beliefs of one mind; it is **not** "an 83 % chance of being true". |
+| **calibrated estimate** | [0, 1] or absent | the observed hit rate of this mind's *resolved predictions* whose stated confidence fell in the same range as the score, shown only when at least 20 predictions have been decided in that range. Predictions are the one place a score meets reality, so they are the only empirical basis offered. |
+| **prior** | (0, 1) | the starting score for the epistemic kind before evidence (hypothesis 0.25, claim 0.5, fact 0.8, …). |
+| **weight** (evidence) | (0, 1] | how strongly a piece of evidence bears on the proposition, set by the producer: an emphatic first-hand assertion weighs more than a hedged second-hand one; a prediction miss weighs 0.5. |
+| **credibility** (evidence) | [0, 1] | how much the source is trusted for this row: the trust level of the channel (operator 0.95, user 0.85, system 0.9, tool 0.8, source 0.7, low 0.4), adjusted by the source's recorded reliability in the belief's domain where enough history exists. |
+| **contribution** (family) | ≥ 0 | what one independent source adds after repetition and derivation discounts. |
+| **diversity** | [0.6, 1] | the multiplier on support that reflects how many independent families agree. |
+| **interpretation confidence** (assertion) | [0, 1] | how sure the deterministic reading of an utterance is (who is attributed, what stance, whether it was sarcasm or a hypothetical). It is about understanding the speaker, not about the world. |
+| **primary uncertainty** | text | the deterministic reason the score should be doubted most: a single family, second-hand only, conflicting evidence, little evidence, or an unclear reading. |
+
 ## Confidence arithmetic
 
 Confidence is never typed in by a person or produced by a model. It is:
@@ -42,6 +58,13 @@ Every evidence row records its `derivation`, `family`, `root_ids` (the originati
 Statements people make reach beliefs only through assertions (`docs/conversation.md`). An `assertion` evidence row carries the attributed actor as its family, the source message as its root, and a weight that already reflects hedging, reporting and interpretation confidence. Nothing is silently upgraded: a claim stays a claim until evidence from another family arrives.
 
 ## Status
+
+Statuses: `unknown` (recorded, but no live evidence for or against), `hypothesis` (a proposal awaiting evidence), `tentative`, `likely`, `accepted`, `contested` (real evidence on both sides), `rejected` (evidence or an operator pushed it low) and `superseded` (replaced by a corrected proposition).
+
+### Absence of evidence
+
+Lack of evidence never collapses towards "false". A belief whose evidence has all been retracted, or that was recorded without any, becomes `unknown` and its score is not quoted; introspection answers "I do not know whether X". A belief is `rejected` only when evidence against it, or an operator, drove its score below 0.15. Hypotheses are the one exception: they carry the `hypothesis` status until evidence arrives because they are proposals by construction.
+
 
 Derived from the breakdown unless an operator pinned it:
 

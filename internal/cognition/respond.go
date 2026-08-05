@@ -289,6 +289,11 @@ func (h Handlers) addKnowledge(ctx context.Context, c *brain.Cycle, in *Intent, 
 				if b.Status == beliefs.StatusRejected {
 					continue
 				}
+				if b.Status == beliefs.StatusUnknown {
+					// Recorded but unsupported either way: say so rather than quote the prior.
+					in.Points = append(in.Points, "I do not know whether "+b.Proposition+": it was recorded, but nothing live supports or opposes it.")
+					continue
+				}
 				in.Beliefs = append(in.Beliefs, BeliefRef{ID: b.ID, Proposition: b.Proposition, Confidence: b.Confidence, Status: string(b.Status)})
 				in.Points = append(in.Points, fmt.Sprintf("%s (%s, %.2f)", b.Proposition, b.Status, b.Confidence))
 				if b.Confidence > maxConf {

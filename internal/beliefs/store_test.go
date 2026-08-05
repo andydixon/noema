@@ -120,3 +120,44 @@ func TestBeliefLifecycleProvenanceAndContradiction(t *testing.T) {
 		t.Fatal("cross-mind belief list")
 	}
 }
+
+// TestUnknownIsNotFalse: withdrawing every piece of evidence leaves a belief
+// unknown, not tentatively held at its prior and not rejected.
+func TestUnknownIsNotFalse(t *testing.T) {
+	if Derive(Breakdown{Prior: 0.5, Confidence: 0.5}, concepts.Claim) != StatusUnknown {
+		t.Fatal("no evidence should derive unknown")
+	}
+	if Derive(Breakdown{Prior: 0.25, Confidence: 0.25}, concepts.Hypothesis) != StatusHypothesis {
+		t.Fatal("hypotheses keep their own status")
+	}
+	pool := storage.TestPool(t, migrations.FS)
+	ctx := context.Background()
+	m, _ := minds.NewStore(pool).Create(ctx, minds.CreateParams{Slug: "unk"})
+	es := evstore.NewStore(pool, evstore.NewBus(8), nil)
+	emit := func(ctx context.Context, q storage.Querier, n events.New) (events.Event, error) {
+		out, err := es.AppendIn(ctx, q, n)
+		if err != nil {
+			return events.Event{}, err
+		}
+		return out[0], nil
+	}
+	s := NewStore(pool)
+	res, err := s.Create(ctx, pool, emit, New{MindID: m.ID, Proposition: "the cache is warm", Epistemic: concepts.Claim, Source: "test",
+		Evidence: []EvidenceInput{{Direction: "for", Kind: "memory", RefID: "mem-1", Source: "user", Weight: 0.6, Credibility: 0.9}}})
+	if err != nil || res.Belief.Status == StatusUnknown {
+		t.Fatalf("create: %+v %v", res.Belief, err)
+	}
+	if _, err := s.RetractEvidence(ctx, pool, m.ID, "memory", "mem-1"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.Reevaluate(ctx, pool, emit, m.ID, res.Belief.ID, "memory retracted"); err != nil {
+		t.Fatal(err)
+	}
+	b, _ := s.Get(ctx, pool, m.ID, res.Belief.ID)
+	if b.Status != StatusUnknown {
+		t.Fatalf("after retraction status=%s (%.2f); want unknown", b.Status, b.Confidence)
+	}
+	if b.Status == StatusRejected {
+		t.Fatal("absence of evidence must not read as falsity")
+	}
+}
