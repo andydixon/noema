@@ -20,6 +20,7 @@ import (
 	"github.com/andydixon/noema/internal/consolidation"
 	"github.com/andydixon/noema/internal/conversation"
 	"github.com/andydixon/noema/internal/dreaming"
+	"github.com/andydixon/noema/internal/epistemics"
 	evstore "github.com/andydixon/noema/internal/events"
 	"github.com/andydixon/noema/internal/goals"
 	"github.com/andydixon/noema/internal/graph"
@@ -63,6 +64,7 @@ func testServer(t *testing.T) (*httptest.Server, string) {
 	deps.Integrations = &integrations.Manager{Store: integrations.NewStore(pool), Events: deps.Events, Graph: deps.Graph, Log: log, Pollers: map[integrations.Kind]integrations.Poller{}}
 	deps.Dreaming = &dreaming.Service{DB: pool, Memory: deps.Memory, Beliefs: deps.Beliefs, Events: deps.Events, Log: log}
 	deps.Snapshots = &snapshots.Store{DB: pool, Events: deps.Events, Minds: deps.Minds}
+	deps.Assertions = epistemics.NewStore(pool)
 	deps.Narrative = narrative.NewStore(pool)
 	deps.Notifications = notifications.NewStore(pool)
 	deps.Consolidation = &consolidation.Service{DB: pool, Memory: deps.Memory, Beliefs: deps.Beliefs, Events: deps.Events, Minds: deps.Minds, Log: log}

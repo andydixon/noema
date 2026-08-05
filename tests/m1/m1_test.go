@@ -27,6 +27,7 @@ import (
 	"github.com/andydixon/noema/internal/consolidation"
 	"github.com/andydixon/noema/internal/conversation"
 	"github.com/andydixon/noema/internal/dreaming"
+	"github.com/andydixon/noema/internal/epistemics"
 	evstore "github.com/andydixon/noema/internal/events"
 	"github.com/andydixon/noema/internal/goals"
 	"github.com/andydixon/noema/internal/graph"
@@ -48,6 +49,7 @@ import (
 	"github.com/andydixon/noema/internal/storage"
 	"github.com/andydixon/noema/migrations"
 	"github.com/andydixon/noema/pkg/events"
+	"github.com/andydixon/noema/pkg/ids"
 )
 
 type harness struct {
@@ -66,7 +68,7 @@ func start(t *testing.T, deps app.Deps, perceive, respond llm.LanguageModel) *ha
 	registry := brain.NewRegistry().AddProcess(cognition.Attend{}).AddProcess(cognition.Retrieve{}).AddProcess(cognition.Associate{}).AddProcess(cognition.Perceive{}).
 		AddProcess(cognition.GoalMonitor{}).AddProcess(cognition.Curiosity{}).AddProcess(cognition.Metacognition{}).AddProcess(cognition.Act{}).
 		AddHook(cognition.MotivationHook{Store: deps.Motivation}).AddHook(cognition.NarrativeHook{Store: deps.Narrative}).AddHook(cognition.NotifyHook{Store: deps.Notifications})
-	cognition.Handlers{Memory: deps.Memory, Beliefs: deps.Beliefs, Conversations: deps.Conversations, Graph: deps.Graph}.Register(registry)
+	cognition.Handlers{Memory: deps.Memory, Beliefs: deps.Beliefs, Conversations: deps.Conversations, Graph: deps.Graph, Assertions: deps.Assertions}.Register(registry)
 	deps.LLM.Override = map[llm.Role]llm.LanguageModel{llm.RolePerceive: perceive, llm.RoleRespond: respond}
 	deps.Brain = brain.NewManager(brain.Config{DB: deps.DB, Events: deps.Events, Minds: deps.Minds, Registry: registry, Pool: scheduler.NewPool(4), Log: deps.Log, Metrics: deps.Metrics,
 		Services: brain.Services{Events: deps.Events, Memory: deps.Memory, Beliefs: deps.Beliefs, LLM: deps.LLM, Prompts: deps.Prompts, Goals: deps.Goals, Motivation: deps.Motivation, Predictions: deps.Predictions, Capabilities: deps.Capabilities}}, group)
@@ -127,6 +129,7 @@ func TestFirstMilestone(t *testing.T) {
 	deps.Integrations = &integrations.Manager{Store: integrations.NewStore(pool), Events: deps.Events, Graph: deps.Graph, Log: log, Pollers: map[integrations.Kind]integrations.Poller{}}
 	deps.Dreaming = &dreaming.Service{DB: pool, Memory: deps.Memory, Beliefs: deps.Beliefs, Events: deps.Events, Log: log}
 	deps.Snapshots = &snapshots.Store{DB: pool, Events: deps.Events, Minds: deps.Minds}
+	deps.Assertions = epistemics.NewStore(pool)
 	deps.Narrative = narrative.NewStore(pool)
 	deps.Notifications = notifications.NewStore(pool)
 	deps.Consolidation = &consolidation.Service{DB: pool, Memory: deps.Memory, Beliefs: deps.Beliefs, Events: deps.Events, Minds: deps.Minds, Log: log}
@@ -218,11 +221,16 @@ func TestFirstMilestone(t *testing.T) {
 	}
 	var detail api.BeliefDetail
 	h.do("GET", "/api/v1/minds/m1/beliefs/"+string(bs.Items[0].ID), nil, &detail)
-	if len(detail.Evidence) != 1 || detail.Evidence[0].Kind != "event" || detail.Breakdown.SourcesFor != 1 {
-		t.Fatalf("provenance: %+v", detail)
+	// The claim rests on one assertion by the speaker whose root is the message event;
+	// the assertion itself is recorded alongside, attributed to the speaker.
+	if len(detail.Evidence) != 1 || detail.Evidence[0].Kind != "assertion" || detail.Evidence[0].Derivation != beliefs.DerivationAssertion || len(detail.Evidence[0].RootIDs) != 1 || detail.Breakdown.SourcesFor != 1 {
+		t.Fatalf("provenance: %+v", detail.Evidence)
+	}
+	if len(detail.Assertions) != 1 || detail.Assertions[0].AttributedTo != "admin" || detail.Assertions[0].SourceEvent != ids.ID(detail.Evidence[0].RootIDs[0]) {
+		t.Fatalf("assertion: %+v", detail.Assertions)
 	}
 	var evCtx api.EventContext
-	h.do("GET", "/api/v1/events/"+string(detail.Evidence[0].RefID)+"/context", nil, &evCtx)
+	h.do("GET", "/api/v1/events/"+detail.Evidence[0].RootIDs[0]+"/context", nil, &evCtx)
 	if evCtx.Event.Type != events.Observation || len(evCtx.Children) == 0 {
 		t.Fatalf("event context: %+v", evCtx.Event)
 	}

@@ -37,6 +37,10 @@ confidence    = sigmoid( logit(prior) + 1.5 × (for × diversity − against) ) 
 
 Every evidence row records its `derivation`, `family`, `root_ids` (the originating events or memories) and a `provenance_status`. Rows written before provenance existed are marked `legacy_unknown` with `family = source`; no ancestry is invented for them. The breakdown (prior, per-family contributions, for, against, families, diversity, log-odds, formula, notes) is stored with every version and shown on the belief page under "Independent sources".
 
+## Assertions as evidence
+
+Statements people make reach beliefs only through assertions (`docs/conversation.md`). An `assertion` evidence row carries the attributed actor as its family, the source message as its root, and a weight that already reflects hedging, reporting and interpretation confidence. Nothing is silently upgraded: a claim stays a claim until evidence from another family arrives.
+
 ## Status
 
 Derived from the breakdown unless an operator pinned it:

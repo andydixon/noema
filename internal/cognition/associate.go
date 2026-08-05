@@ -1,6 +1,7 @@
 package cognition
 
 import (
+	"encoding/json"
 	"context"
 	"sort"
 	"strings"
@@ -8,6 +9,7 @@ import (
 
 	"github.com/andydixon/noema/internal/attention"
 	"github.com/andydixon/noema/internal/brain"
+	"github.com/andydixon/noema/internal/epistemics"
 	"github.com/andydixon/noema/internal/workspace"
 	"github.com/andydixon/noema/pkg/events"
 	"github.com/andydixon/noema/pkg/ids"
@@ -43,8 +45,27 @@ func (a Associate) Observe(_ context.Context, s *brain.State) ([]brain.Candidate
 		if laterU < 0.4 {
 			continue
 		}
+		// Speech is not a world event. A hypothetical or a question cannot be a
+		// cause or an effect, and two turns by the same speaker in one
+		// conversation are one person talking, not a sequence of happenings.
+		speaker := ""
+		if ev.Metadata["conversation_id"] != nil {
+			var p events.ObservationPayload
+			if json.Unmarshal(ev.Payload, &p) == nil {
+				speaker = p.Actor
+			}
+			if !worldly(speaker, ev.Summary) {
+				continue
+			}
+		}
 		for _, it := range s.Workspace.WorkingMemory {
 			if it.Kind != "observation" || it.SourceEvent.IsZero() || it.SourceEvent == ev.ID {
+				continue
+			}
+			if speaker != "" && strings.HasPrefix(it.Content, speaker+": ") {
+				continue
+			}
+			if !worldly("", it.Content) {
 				continue
 			}
 			if ev.OccurredAt.Sub(it.TouchedAt) > window || it.TouchedAt.After(ev.OccurredAt) {
@@ -73,4 +94,22 @@ func toSet(ws []string) map[string]struct{} {
 		m[w] = struct{}{}
 	}
 	return m
+}
+
+// worldly reports whether an utterance describes something that happened,
+// as opposed to a hypothetical, a question or a request, which cannot stand
+// as a cause or an effect.
+func worldly(speaker, summary string) bool {
+	text := summary
+	if speaker != "" {
+		text = strings.TrimPrefix(text, speaker+": ")
+	} else if i := strings.Index(text, ": "); i > 0 && i < 40 {
+		text = text[i+2:]
+	}
+	in := epistemics.Interpret(speaker, text)
+	switch in.Modality {
+	case epistemics.ModalityHypothetical, epistemics.ModalityQuestion, epistemics.ModalityImperative:
+		return false
+	}
+	return true
 }

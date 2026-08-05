@@ -9,6 +9,9 @@ All notable changes to Noema are recorded here. Format follows Keep a Changelog;
 - NUL bytes in any request path, query or body are refused with a 400 at the edge instead of surfacing as a database error.
 - Security suite: SQL-injection effect test, static allow-list scan for assembled SQL, deceived-mind authority test, garbage model output test, self-preservation vocabulary test; threat model rewritten so every verification cites a test that asserts the claim.
 
+### Added
+- Assertions: every statement made to a mind is recorded first as an append-only assertion (attributed actor, stance, certainty, modality, negation, reported or quoted speech, hypothetical status, interpretation confidence and notes) before, and separately from, any belief about the proposition. Reported speech is attributed to the person reported and weighed as second-hand; hypotheticals, questions and imperatives create no belief; expressed doubt counts against. API `GET /api/v1/minds/{mind}/assertions`, belief pages show who said so. Migration 0018.
+
 ### Changed
 - Evidence provenance: every evidence row records its derivation, independent-source family and root ids; confidence groups evidence by family so derived material (consolidation, inference, reflection, dreams, retrieval) never counts as corroboration of its own roots and repetition within one source is capped. Existing rows are marked `legacy_unknown` rather than given invented ancestry. Migration 0017.
 

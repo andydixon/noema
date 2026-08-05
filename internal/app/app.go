@@ -19,6 +19,7 @@ import (
 	"github.com/andydixon/noema/internal/consolidation"
 	"github.com/andydixon/noema/internal/conversation"
 	"github.com/andydixon/noema/internal/dreaming"
+	"github.com/andydixon/noema/internal/epistemics"
 	"github.com/andydixon/noema/internal/events"
 	"github.com/andydixon/noema/internal/experiments"
 	"github.com/andydixon/noema/internal/goals"
@@ -52,6 +53,7 @@ type Deps struct {
 	Brain         *brain.Manager
 	Memory        *memory.Store
 	Beliefs       *beliefs.Store
+	Assertions    *epistemics.Store
 	Conversations *conversation.Store
 	Goals         *goals.Store
 	Motivation    *motivation.Store

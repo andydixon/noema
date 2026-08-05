@@ -10,6 +10,7 @@ import (
 	"github.com/andydixon/noema/internal/beliefs"
 	"github.com/andydixon/noema/internal/brain"
 	"github.com/andydixon/noema/internal/conversation"
+	"github.com/andydixon/noema/internal/epistemics"
 	evstore "github.com/andydixon/noema/internal/events"
 	"github.com/andydixon/noema/internal/llm"
 	"github.com/andydixon/noema/internal/memory"
@@ -90,27 +91,57 @@ func (h Handlers) perceive(ctx context.Context, c *brain.Cycle, t workspace.Thou
 				Evidence: []events.EvidenceRef{{Kind: "memory", ID: string(mem.ID)}, {Kind: "event", ID: srcID, Note: "source"}}, Metadata: map[string]any{"memory_id": mem.ID, "kind": mem.Kind}})
 		}
 	}
-	// Claims become beliefs; the message is their evidence.
+	// Every claim is first an assertion: the certain fact that someone took a
+	// stance. Only factual assertions (direct or reported) then feed a
+	// proposition belief, as one piece of evidence attributed to whoever
+	// actually stands behind it; hypotheticals, questions and imperatives
+	// never do, and expressed doubt counts against.
 	var claimed []BeliefRef
+	var asserted []AssertionRef
 	if h.Beliefs != nil {
 		for _, cl := range a.Claims {
-			w := 0.6
-			if cl.Certainty == "hedged" {
-				w = 0.3
+			in := epistemics.Interpret(actor, cl.Proposition)
+			if cl.Certainty == "hedged" && in.Certainty == epistemics.CertaintyAsserted {
+				in.Certainty = epistemics.CertaintyHedged
 			}
-			if a.Intent == "correction" {
-				w += 0.2
+			var beliefID ids.ID
+			var res beliefs.Result
+			if in.CreatesBelief() {
+				w := in.EvidenceWeight()
+				if a.Intent == "correction" && !in.Reported {
+					w = min(1, w+0.2)
+				}
+				attributed := in.AttributedTo
+				cred := trust.Credibility()
+				if in.Reported {
+					cred = events.TrustLow.Credibility() + 0.2 // second-hand through a trusted speaker
+				}
+				ev := []beliefs.EvidenceInput{{Direction: "for", Kind: "assertion", RefID: "", Source: "asserted-by:" + attributed, Weight: w, Credibility: cred,
+					Note: describeAssertion(actor, in), Derivation: beliefs.DerivationAssertion, Family: beliefs.FamilyForActor(attributed), RootIDs: []string{srcID}}}
+				if dw := in.DoubtWeight(); dw > 0 {
+					ev = append(ev, beliefs.EvidenceInput{Direction: "against", Kind: "assertion", Source: "doubted-by:" + actor, Weight: dw, Credibility: trust.Credibility(),
+						Note: actor + " doubts it", Derivation: beliefs.DerivationAssertion, Family: beliefs.FamilyForActor(actor), RootIDs: []string{srcID}})
+				}
+				var err error
+				res, err = h.Beliefs.Create(ctx, c.Tx, emitter(c), beliefs.New{MindID: mind.ID, Proposition: in.Proposition, Epistemic: concepts.Claim, Source: "conversation", OriginEvent: perc.ID, Causation: perc.ID, Correlation: c.State.CycleID, Evidence: ev,
+					Detail: map[string]any{"attributed_to": attributed, "reported": in.Reported, "interpretation_confidence": in.Confidence}})
+				if err != nil {
+					c.Emit(events.New{Type: events.Metacognition, Source: "brain.perceive", Summary: "claim not recorded: " + err.Error(), Salience: 0.3, Confidence: 1, Metadata: map[string]any{"check": "claim_rejected"}})
+				} else {
+					beliefID = res.Belief.ID
+					claimed = append(claimed, BeliefRef{ID: res.Belief.ID, Proposition: res.Belief.Proposition, Confidence: res.Belief.Confidence, Status: string(res.Belief.Status)})
+				}
 			}
-			res, err := h.Beliefs.Create(ctx, c.Tx, emitter(c), beliefs.New{MindID: mind.ID, Proposition: cl.Proposition, Epistemic: concepts.Claim, Source: "conversation", OriginEvent: perc.ID, Causation: perc.ID, Correlation: c.State.CycleID,
-				Evidence: []beliefs.EvidenceInput{{Direction: "for", Kind: "event", RefID: srcID, Source: "said-by:" + actor, Weight: w, Credibility: trust.Credibility(), Note: actor + " " + cl.Certainty + " it",
-					Derivation: beliefs.DerivationAssertion, Family: beliefs.FamilyForActor(actor), RootIDs: []string{srcID}}}})
-			if err != nil {
-				c.Emit(events.New{Type: events.Metacognition, Source: "brain.perceive", Summary: "claim not recorded: " + err.Error(), Salience: 0.3, Confidence: 1, Metadata: map[string]any{"check": "claim_rejected"}})
-				continue
+			if h.Assertions != nil {
+				rec, err := h.Assertions.Record(ctx, c.Tx, epistemics.New{MindID: mind.ID, Actor: actor, ActorKind: string(trust), Interpretation: in, Subject: subjectKey(in.Proposition), SourceEvent: ids.ID(srcID), ConversationID: ids.ID(convID), MessageID: ids.ID(msgID), Context: truncate(text, 300), Trust: string(trust), BeliefID: beliefID})
+				if err != nil {
+					return err
+				}
+				asserted = append(asserted, AssertionRef{ID: rec.ID, AttributedTo: rec.AttributedTo, Proposition: rec.Proposition, Stance: rec.Stance, Modality: rec.Modality, Reported: rec.Reported, Hypothetical: rec.Hypothetical, Interpretation: rec.Interpretation, BeliefID: beliefID})
 			}
-			claimed = append(claimed, BeliefRef{ID: res.Belief.ID, Proposition: res.Belief.Proposition, Confidence: res.Belief.Confidence, Status: string(res.Belief.Status)})
 		}
 	}
+	_ = asserted
 	refs := map[string]ids.ID{"memory": memRef}
 	for _, b := range claimed {
 		refs["belief"] = b.ID
@@ -448,4 +479,30 @@ func firstNonEmpty(a, b string) string {
 		return a
 	}
 	return b
+}
+
+// AssertionRef is the response intent's view of a recorded assertion.
+type AssertionRef struct {
+	ID             ids.ID  `json:"id"`
+	AttributedTo   string  `json:"attributed_to"`
+	Proposition    string  `json:"proposition"`
+	Stance         string  `json:"stance"`
+	Modality       string  `json:"modality"`
+	Reported       bool    `json:"reported"`
+	Hypothetical   bool    `json:"hypothetical"`
+	Interpretation float64 `json:"interpretation_confidence"`
+	BeliefID       ids.ID  `json:"belief_id,omitempty"`
+}
+
+// describeAssertion words the evidence note so the belief page says who
+// stood behind the proposition and how the mind read them.
+func describeAssertion(speaker string, in epistemics.Interpretation) string {
+	switch {
+	case in.Reported && in.Quoted:
+		return speaker + " quoted " + in.AttributedTo + " (" + in.Certainty + ")"
+	case in.Reported:
+		return speaker + " reported that " + in.AttributedTo + " holds this (" + in.Certainty + ", read with " + fmt.Sprintf("%.0f%%", in.Confidence*100) + " interpretation confidence)"
+	default:
+		return speaker + " " + in.Certainty + " it (read with " + fmt.Sprintf("%.0f%%", in.Confidence*100) + " interpretation confidence)"
+	}
 }

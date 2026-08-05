@@ -2626,6 +2626,118 @@
     }
    }
   },
+  "/api/v1/minds/{mind}/assertions": {
+   "get": {
+    "operationId": "assertionsList",
+    "summary": "list assertions: who took what stance on which proposition",
+    "x-required-role": "observer",
+    "tags": [
+     "minds"
+    ],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "type": "object"
+        }
+       }
+      }
+     },
+     "401": {
+      "$ref": "#/components/responses/Error"
+     },
+     "403": {
+      "$ref": "#/components/responses/Error"
+     },
+     "404": {
+      "$ref": "#/components/responses/Error"
+     }
+    },
+    "parameters": [
+     {
+      "name": "mind",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string"
+      },
+      "description": "mind slug or id"
+     },
+     {
+      "name": "actor",
+      "in": "query",
+      "schema": {
+       "type": "string"
+      }
+     },
+     {
+      "name": "belief",
+      "in": "query",
+      "schema": {
+       "type": "string"
+      }
+     },
+     {
+      "name": "stance",
+      "in": "query",
+      "schema": {
+       "type": "string"
+      }
+     },
+     {
+      "name": "limit",
+      "in": "query",
+      "schema": {
+       "type": "integer"
+      }
+     }
+    ]
+   }
+  },
+  "/api/v1/minds/{mind}/assertions/actors": {
+   "get": {
+    "operationId": "assertionActors",
+    "summary": "summarise asserting actors",
+    "x-required-role": "observer",
+    "tags": [
+     "minds"
+    ],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "type": "object"
+        }
+       }
+      }
+     },
+     "401": {
+      "$ref": "#/components/responses/Error"
+     },
+     "403": {
+      "$ref": "#/components/responses/Error"
+     },
+     "404": {
+      "$ref": "#/components/responses/Error"
+     }
+    },
+    "parameters": [
+     {
+      "name": "mind",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string"
+      },
+      "description": "mind slug or id"
+     }
+    ]
+   }
+  },
   "/api/v1/minds/{mind}/beliefs": {
    "get": {
     "operationId": "beliefsList",

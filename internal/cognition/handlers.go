@@ -11,6 +11,7 @@ import (
 	"github.com/andydixon/noema/internal/beliefs"
 	"github.com/andydixon/noema/internal/brain"
 	"github.com/andydixon/noema/internal/conversation"
+	"github.com/andydixon/noema/internal/epistemics"
 	"github.com/andydixon/noema/internal/graph"
 	"github.com/andydixon/noema/internal/memory"
 	"github.com/andydixon/noema/internal/predictions"
@@ -27,6 +28,7 @@ type Handlers struct {
 	Beliefs       *beliefs.Store
 	Conversations *conversation.Store
 	Graph         *graph.Store
+	Assertions    *epistemics.Store // nil disables assertion records (claims still become evidence)
 }
 
 // Register installs the handlers on a registry.

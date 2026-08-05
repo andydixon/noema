@@ -1,5 +1,16 @@
 # Conversation
 
+## Observation, assertion, belief
+
+Three things are kept apart when somebody speaks to a mind:
+
+1. **Observation.** The message arrived. This is certain and is recorded as an `observation` event with the speaker, channel and trust level.
+2. **Assertion.** The speaker took a stance on a proposition. This is recorded in the append-only `assertions` table with who is *attributed* (the speaker, or the person they quote or report), the stance (asserts, denies, doubts, questions, supposes, reports), the certainty they expressed (asserted, hedged, uncertain, emphatic), the modality (factual, hypothetical, reported, quoted, imperative, question), negation, and an **interpretation confidence** with notes that say how sure the reading itself is (possible sarcasm, diffuse attribution, a conditional). Interpretation is deterministic (`internal/epistemics.Interpret`); a model may enrich the claim list but never sets stance or confidence.
+3. **Belief.** Only factual assertions, direct or reported, create or feed a proposition belief, as **one piece of evidence** whose family is the attributed actor and whose weight follows the stance, certainty, second-handness and interpretation confidence. Hypotheticals ("imagine Bob…"), questions and imperatives create no belief. An expressed doubt ("…but I don't believe her") records the reported claim *and* adds the speaker's doubt as counter-evidence. Reported speech is attributed to the person reported and weighed as second-hand.
+
+So "Andy says Steve steals laptops" yields an assertion by Andy (high interpretation confidence) and a `claim` belief about Steve at claim confidence, resting on one family (`actor:andy`). Repeating it does not strengthen it; an independent source would. "Alice thinks the server is compromised" is attributed to Alice, marked reported, and weighs less. "I have high confidence that Andy asserted X" and "I have low confidence that X" are therefore two different rows and two different numbers.
+
+
 A message to a mind is never forwarded to a model. It goes through the cognitive cycle (spec §38):
 
 ```

@@ -9,6 +9,7 @@ import (
 
 	"github.com/andydixon/noema/internal/auth"
 	"github.com/andydixon/noema/internal/beliefs"
+	"github.com/andydixon/noema/internal/epistemics"
 	"github.com/andydixon/noema/internal/storage"
 	"github.com/andydixon/noema/pkg/concepts"
 	"github.com/andydixon/noema/pkg/events"
@@ -129,14 +130,15 @@ func firstNonEmpty(a, b string) string {
 
 // BeliefDetail is the full picture of one belief.
 type BeliefDetail struct {
-	Belief       beliefs.Belief        `json:"belief"`
-	Breakdown    beliefs.Breakdown     `json:"breakdown"`
-	Evidence     []beliefs.EvidenceRow `json:"evidence"`
-	Versions     []beliefs.Version     `json:"versions"`
-	Alternatives []beliefs.Alternative `json:"alternatives"`
-	Links        []beliefs.Link        `json:"links"`
-	Events       []events.Event        `json:"events"`
-	Origin       *events.Event         `json:"origin,omitempty"`
+	Belief       beliefs.Belief         `json:"belief"`
+	Breakdown    beliefs.Breakdown      `json:"breakdown"`
+	Evidence     []beliefs.EvidenceRow  `json:"evidence"`
+	Versions     []beliefs.Version      `json:"versions"`
+	Alternatives []beliefs.Alternative  `json:"alternatives"`
+	Links        []beliefs.Link         `json:"links"`
+	Events       []events.Event         `json:"events"`
+	Origin       *events.Event          `json:"origin,omitempty"`
+	Assertions   []epistemics.Assertion `json:"assertions"` // who stated this proposition, with what stance
 }
 
 // BeliefDetail assembles the detail; shared with the UI.
@@ -156,6 +158,12 @@ func (s *Server) BeliefDetail(r *http.Request, mind, id ids.ID) (BeliefDetail, e
 	d.Versions, _ = s.deps.Beliefs.Versions(ctx, mind, id)
 	d.Alternatives, _ = s.deps.Beliefs.Alternatives(ctx, mind, id)
 	d.Links, _ = s.deps.Beliefs.Links(ctx, mind, id)
+	if s.deps.Assertions != nil {
+		d.Assertions, _ = s.deps.Assertions.List(ctx, mind, epistemics.Filter{BeliefID: id, Limit: 50})
+	}
+	if d.Assertions == nil {
+		d.Assertions = []epistemics.Assertion{}
+	}
 	d.Events, _ = s.deps.Events.DerivedFrom(ctx, "belief", string(id), 100)
 	if !b.OriginEvent.IsZero() {
 		if e, err := s.deps.Events.Get(ctx, b.OriginEvent); err == nil {

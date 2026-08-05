@@ -10,6 +10,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/andydixon/noema/tests/harness"
+
 	"github.com/andydixon/noema/internal/llm"
 	"github.com/andydixon/noema/internal/memory"
 	"github.com/andydixon/noema/internal/snapshots"
@@ -45,20 +47,20 @@ var sqlPayloads = []string{
 // counts across sensitive tables are unchanged, seeded content is intact and
 // the payloads are stored verbatim as data.
 func TestSQLInjectionHasNoEffect(t *testing.T) {
-	h := start(t)
+	h := harness.Start(t)
 	ctx := context.Background()
-	m := h.mind("sqli")
+	m := h.Mind("sqli")
 	seed := "the launch window opens at 09:00"
-	code, body := h.do(h.admin, "POST", "/api/v1/minds/sqli/memories", map[string]any{"kind": "semantic", "content": seed, "epistemic": "fact", "confidence": 0.9, "importance": 0.9})
+	code, body := h.Do(h.Admin, "POST", "/api/v1/minds/sqli/memories", map[string]any{"kind": "semantic", "content": seed, "epistemic": "fact", "confidence": 0.9, "importance": 0.9})
 	if code != 201 {
 		t.Fatalf("seed: %d %s", code, body)
 	}
 	var seeded struct{ ID string }
 	json.Unmarshal(body, &seeded) //nolint:errcheck
-	h.do(h.admin, "POST", "/api/v1/minds/sqli/beliefs", map[string]any{"proposition": "the launch is on schedule", "epistemic": "claim", "weight": 0.5})
+	h.Do(h.Admin, "POST", "/api/v1/minds/sqli/beliefs", map[string]any{"proposition": "the launch is on schedule", "epistemic": "claim", "weight": 0.5})
 	count := func(table string) int {
 		var n int
-		h.deps.DB.QueryRow(ctx, `SELECT count(*) FROM `+table).Scan(&n) //nolint:errcheck
+		h.Deps.DB.QueryRow(ctx, `SELECT count(*) FROM `+table).Scan(&n) //nolint:errcheck
 		return n
 	}
 	before := map[string]int{}
@@ -66,7 +68,7 @@ func TestSQLInjectionHasNoEffect(t *testing.T) {
 		before[tb] = count(tb)
 	}
 	var adminRoles int
-	h.deps.DB.QueryRow(ctx, `SELECT count(*) FROM users WHERE role='administrator'`).Scan(&adminRoles) //nolint:errcheck
+	h.Deps.DB.QueryRow(ctx, `SELECT count(*) FROM users WHERE role='administrator'`).Scan(&adminRoles) //nolint:errcheck
 
 	reads := []string{
 		"/api/v1/minds/sqli/memories?q=%s", "/api/v1/minds/sqli/memories?q=%s&mode=list", "/api/v1/minds/sqli/beliefs?q=%s", "/api/v1/minds/sqli/beliefs?subject=%s",
@@ -78,28 +80,28 @@ func TestSQLInjectionHasNoEffect(t *testing.T) {
 		esc := url.QueryEscape(p)
 		for _, tpl := range reads {
 			path := strings.ReplaceAll(tpl, "%s", esc)
-			if code, _ := h.do(h.admin, "GET", path, nil); code >= 500 {
+			if code, _ := h.Do(h.Admin, "GET", path, nil); code >= 500 {
 				t.Errorf("GET %s → %d", tpl, code)
 			}
 		}
 		// Free-text writes: the payload must land as data.
-		if code, body := h.do(h.admin, "POST", "/api/v1/minds/sqli/observations", map[string]any{"text": p}); code >= 300 {
+		if code, body := h.Do(h.Admin, "POST", "/api/v1/minds/sqli/observations", map[string]any{"text": p}); code >= 300 {
 			t.Errorf("observe %q → %d %s", p, code, body)
 		}
-		if code, _ := h.do(h.admin, "POST", "/api/v1/minds/sqli/memories", map[string]any{"kind": "episodic", "content": p, "epistemic": "observation", "confidence": 0.5, "importance": 0.5}); code != 201 {
+		if code, _ := h.Do(h.Admin, "POST", "/api/v1/minds/sqli/memories", map[string]any{"kind": "episodic", "content": p, "epistemic": "observation", "confidence": 0.5, "importance": 0.5}); code != 201 {
 			t.Errorf("memory %q → %d", p, code)
 		}
-		if code, _ := h.do(h.admin, "POST", "/api/v1/minds/sqli/goals", map[string]any{"title": p, "kind": "task"}); code != 201 {
+		if code, _ := h.Do(h.Admin, "POST", "/api/v1/minds/sqli/goals", map[string]any{"title": p, "kind": "task"}); code != 201 {
 			t.Errorf("goal %q → %d", p, code)
 		}
 	}
 	// NUL bytes are refused at the edge with a deliberate 400, never a 500.
 	for _, path := range []string{"/api/v1/minds/sqli/memories?q=a%00b", "/api/v1/minds/sql%00i"} {
-		if code, _ := h.do(h.admin, "GET", path, nil); code != 400 && code != 404 {
+		if code, _ := h.Do(h.Admin, "GET", path, nil); code != 400 && code != 404 {
 			t.Errorf("NUL in %s → %d", path, code)
 		}
 	}
-	if code, _ := h.do(h.admin, "POST", "/api/v1/minds/sqli/observations", map[string]any{"text": "a\x00b"}); code != 400 {
+	if code, _ := h.Do(h.Admin, "POST", "/api/v1/minds/sqli/observations", map[string]any{"text": "a\x00b"}); code != 400 {
 		t.Errorf("NUL in body → %d", code)
 	}
 	// Effects: nothing beyond the rows this test deliberately created.
@@ -109,18 +111,18 @@ func TestSQLInjectionHasNoEffect(t *testing.T) {
 		}
 	}
 	var adminAfter int
-	h.deps.DB.QueryRow(ctx, `SELECT count(*) FROM users WHERE role='administrator'`).Scan(&adminAfter) //nolint:errcheck
+	h.Deps.DB.QueryRow(ctx, `SELECT count(*) FROM users WHERE role='administrator'`).Scan(&adminAfter) //nolint:errcheck
 	if adminAfter != adminRoles {
 		t.Fatal("role escalation through injected string")
 	}
 	if count("beliefs") < before["beliefs"] {
 		t.Error("beliefs lost")
 	}
-	mem, err := h.deps.Memory.Get(ctx, m.ID, ids.ID(seeded.ID))
+	mem, err := h.Deps.Memory.Get(ctx, m.ID, ids.ID(seeded.ID))
 	if err != nil || mem.Content != seed {
 		t.Fatalf("seeded memory altered: %+v %v", mem, err)
 	}
-	stored, _ := h.deps.Memory.List(ctx, m.ID, memory.Filter{Limit: 50})
+	stored, _ := h.Deps.Memory.List(ctx, m.ID, memory.Filter{Limit: 50})
 	found := 0
 	for _, s := range stored {
 		for _, p := range sqlPayloads {

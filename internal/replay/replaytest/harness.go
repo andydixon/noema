@@ -14,6 +14,7 @@ import (
 	"github.com/andydixon/noema/internal/capabilities"
 	"github.com/andydixon/noema/internal/cognition"
 	"github.com/andydixon/noema/internal/conversation"
+	"github.com/andydixon/noema/internal/epistemics"
 	evstore "github.com/andydixon/noema/internal/events"
 	"github.com/andydixon/noema/internal/goals"
 	"github.com/andydixon/noema/internal/graph"
@@ -53,7 +54,7 @@ func NewHarness(t *testing.T) *Harness {
 	}
 	reg := brain.NewRegistry().AddProcess(cognition.Attend{}).AddProcess(cognition.Retrieve{}).AddProcess(cognition.Associate{}).AddProcess(cognition.Perceive{}).
 		AddProcess(cognition.GoalMonitor{}).AddProcess(cognition.Curiosity{}).AddProcess(cognition.Metacognition{}).AddProcess(cognition.Act{})
-	cognition.Handlers{Memory: mem, Beliefs: bs, Conversations: conversation.NewStore(pool), Graph: graph.NewStore(pool)}.Register(reg)
+	cognition.Handlers{Memory: mem, Beliefs: bs, Conversations: conversation.NewStore(pool), Graph: graph.NewStore(pool), Assertions: epistemics.NewStore(pool)}.Register(reg)
 	cfg := brain.Config{DB: pool, Events: es, Minds: ms, Registry: reg, Pool: scheduler.NewPool(2), Log: log, Metrics: observability.NewMetrics(),
 		Services: brain.Services{Events: es, Memory: mem, Beliefs: bs, Goals: goals.NewStore(pool), Motivation: motivation.NewStore(pool), Predictions: predictions.NewStore(pool), Capabilities: caps}}
 	return &Harness{Pool: pool, Events: es, Minds: ms, Snaps: &snapshots.Store{DB: pool, Events: es, Minds: ms}, Brain: cfg}

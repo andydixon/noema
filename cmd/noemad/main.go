@@ -26,6 +26,7 @@ import (
 	"github.com/andydixon/noema/internal/consolidation"
 	"github.com/andydixon/noema/internal/conversation"
 	"github.com/andydixon/noema/internal/dreaming"
+	"github.com/andydixon/noema/internal/epistemics"
 	evstore "github.com/andydixon/noema/internal/events"
 	"github.com/andydixon/noema/internal/experiments"
 	"github.com/andydixon/noema/internal/goals"
@@ -134,6 +135,7 @@ func run() error {
 	}
 	deps.Memory = memory.NewStore(ctx, db, deps.LLM.Embedder(ctx))
 	deps.Beliefs = beliefs.NewStore(db)
+	deps.Assertions = epistemics.NewStore(db)
 	deps.Conversations = conversation.NewStore(db)
 	deps.Goals = goals.NewStore(db)
 	deps.Motivation = motivation.NewStore(db)
@@ -160,7 +162,7 @@ func run() error {
 	registry := brain.NewRegistry().AddProcess(cognition.Attend{}).AddProcess(cognition.Retrieve{}).AddProcess(cognition.Associate{}).AddProcess(cognition.Perceive{}).
 		AddProcess(cognition.GoalMonitor{}).AddProcess(cognition.Curiosity{}).AddProcess(cognition.Metacognition{}).AddProcess(cognition.Act{}).
 		AddHook(cognition.MotivationHook{Store: deps.Motivation}).AddHook(cognition.NarrativeHook{Store: deps.Narrative}).AddHook(cognition.NotifyHook{Store: deps.Notifications})
-	cognition.Handlers{Memory: deps.Memory, Beliefs: deps.Beliefs, Conversations: deps.Conversations, Graph: deps.Graph}.Register(registry)
+	cognition.Handlers{Memory: deps.Memory, Beliefs: deps.Beliefs, Conversations: deps.Conversations, Graph: deps.Graph, Assertions: deps.Assertions}.Register(registry)
 	brainCfg := brain.Config{DB: db, Events: deps.Events, Minds: deps.Minds, Registry: registry, Pool: scheduler.NewPool(cfg.MaxWorkers),
 		Log: log, Metrics: metrics, Services: brain.Services{Events: deps.Events, Memory: deps.Memory, Beliefs: deps.Beliefs, LLM: deps.LLM, Prompts: deps.Prompts,
 			Goals: deps.Goals, Motivation: deps.Motivation, Predictions: deps.Predictions, Capabilities: deps.Capabilities}}
