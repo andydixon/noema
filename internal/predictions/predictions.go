@@ -16,6 +16,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"github.com/andydixon/noema/internal/beliefs"
 	"github.com/andydixon/noema/internal/storage"
 	"github.com/andydixon/noema/pkg/events"
 	"github.com/andydixon/noema/pkg/ids"
@@ -453,4 +454,19 @@ func (s *Store) Stats(ctx context.Context, mind ids.ID) (map[string]int64, error
 		out[k] = n
 	}
 	return out, rows.Err()
+}
+
+// CalibratedScore reads a belief score against this mind's whole prediction
+// history. It is the only empirical calibration Noema offers, and it says
+// so when the sample is too small.
+func (s *Store) CalibratedScore(ctx context.Context, mind ids.ID, score float64) beliefs.Calibrated {
+	c, err := s.Calibrate(ctx, mind, time.Time{})
+	if err != nil {
+		return beliefs.CalibrateWith(score, nil)
+	}
+	var buckets []beliefs.CalibrationBucket
+	for _, b := range c.Buckets {
+		buckets = append(buckets, beliefs.CalibrationBucket{Low: b.Low, High: b.High, Decided: b.Count, HitRate: b.HitRate})
+	}
+	return beliefs.CalibrateWith(score, buckets)
 }

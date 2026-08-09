@@ -10,6 +10,8 @@ All notable changes to Noema are recorded here. Format follows Keep a Changelog;
 - Security suite: SQL-injection effect test, static allow-list scan for assembled SQL, deceived-mind authority test, garbage model output test, self-preservation vocabulary test; threat model rewritten so every verification cites a test that asserts the claim.
 
 ### Added
+- Confidence semantics: every breakdown states that the number is an uncalibrated epistemic score; belief detail adds a calibrated estimate from the mind's resolved predictions when at least twenty were decided in the same range (otherwise says why not) and names the primary uncertainty deterministically. `docs/beliefs.md` defines every epistemic number.
+- Explicit `unknown` belief status: no live evidence either way is neither tentative belief nor falsity. Migration 0019.
 - Assertions: every statement made to a mind is recorded first as an append-only assertion (attributed actor, stance, certainty, modality, negation, reported or quoted speech, hypothetical status, interpretation confidence and notes) before, and separately from, any belief about the proposition. Reported speech is attributed to the person reported and weighed as second-hand; hypotheticals, questions and imperatives create no belief; expressed doubt counts against. API `GET /api/v1/minds/{mind}/assertions`, belief pages show who said so. Migration 0018.
 
 ### Changed

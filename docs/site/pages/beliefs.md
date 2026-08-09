@@ -8,7 +8,7 @@ A belief starts from a prior set by its epistemic kind (a hypothesis at 0.25, a 
 confidence = sigmoid( logit(prior) + 1.5 × (for × diversity − against) )
 ```
 
-where `for` and `against` are the sums of family contributions and `diversity` rises from 0.6 for a single family to 1.0 for three or more. The result is bounded to [0.02, 0.98]: a mind is never certain and never certain of the negation. Every evidence row carries its derivation, family and root ids; the breakdown, family by family, is stored with every version and shown on the belief page. Rows written before provenance was recorded are marked as legacy and grouped by their source string; no ancestry is invented for them.
+where `for` and `against` are the sums of family contributions and `diversity` rises from 0.6 for a single family to 1.0 for three or more. The result is bounded to [0.02, 0.98]: a mind is never certain and never certain of the negation. The number is an **uncalibrated epistemic score**, not a probability of truth; the belief page also shows a calibrated estimate drawn from the mind's resolved predictions when at least twenty were decided in the same range, and names the primary uncertainty (a single source family, second-hand only, conflicting evidence, little evidence, an unclear reading). Every evidence row carries its derivation, family and root ids; the breakdown, family by family, is stored with every version and shown on the belief page. Rows written before provenance was recorded are marked as legacy and grouped by their source string; no ancestry is invented for them.
 
 ## Statuses
 

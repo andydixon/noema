@@ -3,6 +3,9 @@
 <div class="pagehead">
   <p class="muted small"><a href="/minds/{{$m.Slug}}">{{$m.DisplayName}}</a> › <a href="/minds/{{$m.Slug}}/beliefs">beliefs</a></p>
   <h1><span class="badge st-{{$b.Status}}">{{$b.Status}}</span> {{$b.Proposition}}</h1>
+  <p class="score-line"><strong>Epistemic score {{conf $b.Confidence}}</strong> <span class="muted small">(uncalibrated: derived from recorded evidence, not a probability of truth)</span>
+    · calibrated: {{if $d.Calibration.Available}}<strong>{{conf $d.Calibration.Estimate}}</strong> <span class="muted small">(hit rate of {{$d.Calibration.SampleSize}} decided predictions in this range)</span>{{else}}<span class="muted small">not available ({{$d.Calibration.Reason}})</span>{{end}}
+    · main uncertainty: <span class="muted">{{$d.PrimaryUncertainty}}</span></p>
   <p class="muted">{{$b.Epistemic}} · version {{$b.Version}} · first {{date $b.FirstCreated}} · evaluated {{$b.Evaluations}}× · source {{$b.Source}}{{if $b.Subject}} · subject <span class="mono">{{$b.Subject}}</span>{{end}}{{if $b.PinnedStatus}} · <span class="badge warn">status pinned by operator</span>{{end}}</p>
 </div>
 <section class="grid cols-3-1">

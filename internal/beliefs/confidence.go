@@ -5,6 +5,7 @@ package beliefs
 
 import (
 	"encoding/json"
+	"fmt"
 	"math"
 	"sort"
 	"strings"
@@ -84,6 +85,94 @@ type Evidence struct {
 	Family           string   `json:"family,omitempty"`
 	RootIDs          []string `json:"root_ids,omitempty"`
 	ProvenanceStatus string   `json:"provenance_status,omitempty"` // recorded | legacy_unknown
+}
+
+// ScoreMeaning states, on every breakdown, what the confidence number is.
+// It is an uncalibrated epistemic score: the deterministic output of the
+// evidence arithmetic, comparable between one mind's beliefs, and not a
+// probability that the proposition is true. Only resolved predictions can
+// say how a score has tracked reality; see Calibrated.
+const ScoreMeaning = "uncalibrated epistemic score derived from recorded evidence; not a probability of truth"
+
+// Calibrated is the empirical reading of a score, when there is one: the
+// hit rate of this mind's resolved predictions whose stated confidence fell
+// in the same range. It is offered only above a minimum sample so that no
+// false precision is shown.
+type Calibrated struct {
+	Raw        float64 `json:"raw"`
+	Estimate   float64 `json:"estimate,omitempty"`
+	SampleSize int     `json:"sample_size"`
+	Available  bool    `json:"available"`
+	Basis      string  `json:"basis"`
+	Reason     string  `json:"reason,omitempty"`
+}
+
+// CalibrationBucket is one range of stated confidence with its outcomes.
+type CalibrationBucket struct {
+	Low, High float64
+	Decided   int
+	HitRate   float64
+}
+
+// MinCalibrationSample is the fewest decided predictions in a bucket before
+// a calibrated estimate is shown.
+const MinCalibrationSample = 20
+
+// CalibrateWith maps a score onto the bucket containing it. Deterministic;
+// the buckets come from prediction outcomes.
+func CalibrateWith(score float64, buckets []CalibrationBucket) Calibrated {
+	c := Calibrated{Raw: round4(score), Basis: "resolved predictions of this mind with stated confidence in the same range"}
+	for _, b := range buckets {
+		if score >= b.Low && score < b.High {
+			c.SampleSize = b.Decided
+			if b.Decided >= MinCalibrationSample {
+				c.Available, c.Estimate = true, round4(b.HitRate)
+			} else {
+				c.Reason = fmt.Sprintf("insufficient data: %d decided prediction(s) in this range; %d needed", b.Decided, MinCalibrationSample)
+			}
+			return c
+		}
+	}
+	c.Reason = "no prediction outcomes recorded in this range"
+	return c
+}
+
+// PrimaryUncertainty names, deterministically, the strongest reason to doubt
+// a score: what an operator should look at first.
+func PrimaryUncertainty(b Breakdown, ev []EvidenceRow) string {
+	var live, reported int
+	lowReading := false
+	for _, e := range ev {
+		if e.Retracted || e.Weight <= 0 || e.Direction == "against" {
+			continue
+		}
+		live++
+		if e.Derivation == DerivationAssertion && strings.Contains(e.Note, "reported") {
+			reported++
+		}
+		if strings.Contains(e.Note, "interpretation confidence") {
+			for _, low := range []string{"40%", "50%", "60%"} {
+				if strings.Contains(e.Note, low) {
+					lowReading = true
+				}
+			}
+		}
+	}
+	switch {
+	case live == 0 && b.Against == 0:
+		return "no live evidence"
+	case b.For > 0 && b.Against > 0 && b.Against >= 0.5*b.For:
+		return "conflicting evidence"
+	case live > 0 && reported == live:
+		return "second-hand only: nobody who saw it has told the mind"
+	case lowReading:
+		return "unclear reading of what was said"
+	case b.SourcesFor == 1:
+		return "evidence independence: a single source family"
+	case b.For < 0.3:
+		return "little evidence"
+	}
+	return "none dominant"
 }
 
 // Derivations. Primary derivations bring information from outside the
@@ -174,6 +263,7 @@ type FamilyShare struct {
 // Breakdown explains a confidence value.
 type Breakdown struct {
 	Prior          float64       `json:"prior"`
+	Meaning        string        `json:"meaning"`            // what the number is and is not
 	Families       []FamilyShare `json:"families,omitempty"` // per independent-source group
 	For            float64       `json:"for"`                // Σ weight×credibility, supporting
 	Against        float64       `json:"against"`            // Σ weight×credibility, opposing
@@ -197,7 +287,7 @@ type Breakdown struct {
 // re-express the episodes rather than corroborate them. Diversity counts
 // families, not rows (T4: poisoned memory; review pass item 2).
 func Compute(prior float64, ev []Evidence) Breakdown {
-	b := Breakdown{Prior: clampP(prior), Formula: "confidence = sigmoid(logit(prior) + slope × (for × diversity − against)); for/against sum per-family contributions (strongest primary + ¼ of the rest, capped at 1.5×; derived items only when no primary exists)"}
+	b := Breakdown{Prior: clampP(prior), Meaning: ScoreMeaning, Formula: "confidence = sigmoid(logit(prior) + slope × (for × diversity − against)); for/against sum per-family contributions (strongest primary + ¼ of the rest, capped at 1.5×; derived items only when no primary exists)"}
 	type group struct {
 		primary, derived []float64
 		items            int

@@ -15,7 +15,7 @@
   <div class="card">
     {{if .Data.Beliefs}}
     <table class="table compact">
-      <thead><tr><th>Status</th><th>Proposition</th><th class="num">Confidence</th><th>Kind</th><th>Evaluated</th></tr></thead>
+      <thead><tr><th>Status</th><th>Proposition</th><th class="num" title="uncalibrated epistemic score derived from evidence; not a probability of truth">Score</th><th>Kind</th><th>Evaluated</th></tr></thead>
       <tbody>{{range .Data.Beliefs}}<tr>
         <td><span class="badge st-{{.Status}}">{{.Status}}</span></td>
         <td><a href="/minds/{{$m.Slug}}/beliefs/{{.ID}}">{{.Proposition}}</a>{{if .Subject}} <span class="muted small mono">{{.Subject}}</span>{{end}}</td>

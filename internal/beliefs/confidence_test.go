@@ -1,6 +1,7 @@
 package beliefs
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/andydixon/noema/pkg/concepts"
@@ -123,5 +124,47 @@ func TestProvenanceGroupingPreventsInflation(t *testing.T) {
 	}
 	if f := FamilyForSource("Prometheus", "prod"); f != "source:prometheus:prod" {
 		t.Fatal(f)
+	}
+}
+
+// TestCalibrationIsGatedAndDeterministic: a calibrated estimate appears only
+// with enough decided predictions in the score's range, and the primary
+// uncertainty names the right doubt.
+func TestCalibrationIsGatedAndDeterministic(t *testing.T) {
+	buckets := []CalibrationBucket{{0, 0.5, 3, 0.33}, {0.5, 0.8, 25, 0.64}, {0.8, 1.01, 40, 0.9}}
+	if c := CalibrateWith(0.3, buckets); c.Available || c.SampleSize != 3 || c.Reason == "" {
+		t.Fatalf("small sample must not calibrate: %+v", c)
+	}
+	if c := CalibrateWith(0.59, buckets); !c.Available || c.Estimate != 0.64 || c.SampleSize != 25 {
+		t.Fatalf("calibrated: %+v", c)
+	}
+	if c := CalibrateWith(0.59, nil); c.Available || c.Reason == "" {
+		t.Fatalf("no buckets: %+v", c)
+	}
+	if b := Compute(0.5, nil); b.Meaning != ScoreMeaning {
+		t.Fatal("breakdown must carry its meaning")
+	}
+	rows := func(rs ...EvidenceRow) ([]Evidence, []EvidenceRow) {
+		var ev []Evidence
+		for _, r := range rs {
+			ev = append(ev, r.Evidence)
+		}
+		return ev, rs
+	}
+	one := EvidenceRow{Evidence: Evidence{Direction: "for", Kind: "assertion", Source: "asserted-by:andy", Family: "actor:andy", Derivation: DerivationAssertion, Weight: 0.5, Credibility: 0.9}, Note: "andy asserted it (read with 85% interpretation confidence)"}
+	ev, rs := rows(one)
+	if u := PrimaryUncertainty(Compute(0.5, ev), rs); u != "evidence independence: a single source family" {
+		t.Fatal(u)
+	}
+	ev, rs = rows(EvidenceRow{Evidence: Evidence{Direction: "for", Kind: "assertion", Source: "asserted-by:alice", Family: "actor:alice", Derivation: DerivationAssertion, Weight: 0.2, Credibility: 0.6}, Note: "andy reported that alice holds this (asserted, read with 75% interpretation confidence)"})
+	if u := PrimaryUncertainty(Compute(0.5, ev), rs); !strings.HasPrefix(u, "second-hand") {
+		t.Fatal(u)
+	}
+	ev, rs = rows(one, EvidenceRow{Evidence: Evidence{Direction: "against", Kind: "operator", Source: "operator:x", Family: "operator:x", Weight: 0.5, Credibility: 0.9}})
+	if u := PrimaryUncertainty(Compute(0.5, ev), rs); u != "conflicting evidence" {
+		t.Fatal(u)
+	}
+	if u := PrimaryUncertainty(Compute(0.5, nil), nil); u != "no live evidence" {
+		t.Fatal(u)
 	}
 }
