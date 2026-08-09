@@ -123,7 +123,8 @@ func (h Handlers) perceive(ctx context.Context, c *brain.Cycle, t workspace.Thou
 						Note: actor + " doubts it", Derivation: beliefs.DerivationAssertion, Family: beliefs.FamilyForActor(actor), RootIDs: []string{srcID}})
 				}
 				var err error
-				res, err = h.Beliefs.Create(ctx, c.Tx, emitter(c), beliefs.New{MindID: mind.ID, Proposition: in.Proposition, Epistemic: concepts.Claim, Source: "conversation", OriginEvent: perc.ID, Causation: perc.ID, Correlation: c.State.CycleID, Evidence: ev,
+				observed := c.State.Now
+				res, err = h.Beliefs.Create(ctx, c.Tx, emitter(c), beliefs.New{MindID: mind.ID, Proposition: in.Proposition, Epistemic: concepts.Claim, Source: "conversation", OriginEvent: perc.ID, Causation: perc.ID, Correlation: c.State.CycleID, Evidence: ev, ObservedAt: &observed,
 					Detail: map[string]any{"attributed_to": attributed, "reported": in.Reported, "interpretation_confidence": in.Confidence}})
 				if err != nil {
 					c.Emit(events.New{Type: events.Metacognition, Source: "brain.perceive", Summary: "claim not recorded: " + err.Error(), Salience: 0.3, Confidence: 1, Metadata: map[string]any{"check": "claim_rejected"}})
@@ -302,6 +303,17 @@ func (h Handlers) addKnowledge(ctx context.Context, c *brain.Cycle, in *Intent, 
 			}
 			if maxConf > 0 && maxConf < 0.6 {
 				in.Uncertainty = fmt.Sprintf("The strongest relevant belief is only at %.2f.", maxConf)
+			}
+		}
+		// Historical truth is not overwritten by the present: say what was
+		// true and when, alongside what is believed now.
+		if past, _ := h.Beliefs.History(ctx, mind, topic, 3); len(past) > 0 {
+			for _, b := range past {
+				from := "earlier"
+				if b.ValidFrom != nil {
+					from = b.ValidFrom.Format("15:04 on 2 Jan")
+				}
+				in.Points = append(in.Points, fmt.Sprintf("Earlier: %s (true from %s until %s, then superseded).", b.Proposition, from, b.ValidUntil.Format("15:04 on 2 Jan")))
 			}
 		}
 	}

@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"testing"
+	"time"
 
 	evstore "github.com/andydixon/noema/internal/events"
 	"github.com/andydixon/noema/internal/minds"
@@ -159,5 +160,72 @@ func TestUnknownIsNotFalse(t *testing.T) {
 	}
 	if b.Status == StatusRejected {
 		t.Fatal("absence of evidence must not read as falsity")
+	}
+}
+
+// TestTransientStatesSupersedeInsteadOfContesting: a later observation of a
+// changed state closes the earlier belief's validity and leaves it true of
+// its time; persistent propositions still contradict.
+func TestTransientStatesSupersedeInsteadOfContesting(t *testing.T) {
+	if ClassifyScope("the door is open") != ScopeTransient || ClassifyScope("server-a is down") != ScopeTransient || ClassifyScope("atlas is the primary database host") != ScopePersistent || ClassifyScope("andy prefers go") != ScopePersistent {
+		t.Fatal("scope classifier")
+	}
+	pool := storage.TestPool(t, migrations.FS)
+	ctx := context.Background()
+	m, _ := minds.NewStore(pool).Create(ctx, minds.CreateParams{Slug: "tmp"})
+	es := evstore.NewStore(pool, evstore.NewBus(8), nil)
+	emit := func(ctx context.Context, q storage.Querier, n events.New) (events.Event, error) {
+		out, err := es.AppendIn(ctx, q, n)
+		if err != nil {
+			return events.Event{}, err
+		}
+		return out[0], nil
+	}
+	s := NewStore(pool)
+	ten := time.Date(2026, 9, 15, 10, 0, 0, 0, time.UTC)
+	tenFive := ten.Add(5 * time.Minute)
+	ev := []EvidenceInput{{Direction: "for", Kind: "note", Source: "sensor", Weight: 0.7, Credibility: 0.9}}
+	open, err := s.Create(ctx, pool, emit, New{MindID: m.ID, Proposition: "the door is open", Subject: "door", Epistemic: concepts.Observation, Source: "sensor", Evidence: ev, ObservedAt: &ten})
+	if err != nil || open.Belief.TemporalScope != ScopeTransient || open.Belief.ValidFrom == nil {
+		t.Fatalf("open: %+v %v", open.Belief, err)
+	}
+	closed, err := s.Create(ctx, pool, emit, New{MindID: m.ID, Proposition: "the door is not open", Subject: "door", Epistemic: concepts.Observation, Source: "sensor", Evidence: ev, ObservedAt: &tenFive})
+	if err != nil {
+		t.Fatal(err)
+	}
+	before, _ := s.Get(ctx, pool, m.ID, open.Belief.ID)
+	if before.Status != StatusSuperseded || before.ValidUntil == nil || !before.ValidUntil.Equal(tenFive) || before.SupersededBy != closed.Belief.ID {
+		t.Fatalf("earlier state should be closed, not contested: %+v", before)
+	}
+	if before.Confidence != open.Belief.Confidence {
+		t.Fatalf("closing a state must not change its score: %.3f -> %.3f", open.Belief.Confidence, before.Confidence)
+	}
+	now, _ := s.Get(ctx, pool, m.ID, closed.Belief.ID)
+	if now.Status == StatusContested || now.Confidence < closed.Belief.Confidence {
+		t.Fatalf("current state should not be contested: %+v", now)
+	}
+	if rows, _ := s.EvidenceFor(ctx, pool, m.ID, now.ID); len(rows) != 1 {
+		t.Fatalf("no counter-evidence should be written for a state change: %+v", rows)
+	}
+	hist, _ := s.History(ctx, m.ID, "door open", 5)
+	if len(hist) != 1 || hist[0].ID != open.Belief.ID {
+		t.Fatalf("history: %+v", hist)
+	}
+	// Same-moment conflicting reports remain a contradiction.
+	a, _ := s.Create(ctx, pool, emit, New{MindID: m.ID, Proposition: "the pump is running", Subject: "pump", Epistemic: concepts.Observation, Source: "a", Evidence: ev, ObservedAt: &ten})
+	b, _ := s.Create(ctx, pool, emit, New{MindID: m.ID, Proposition: "the pump is not running", Subject: "pump", Epistemic: concepts.Observation, Source: "b", Evidence: ev, ObservedAt: &ten})
+	ab, _ := s.Get(ctx, pool, m.ID, a.Belief.ID)
+	if ab.Status == StatusSuperseded || ab.ValidUntil != nil {
+		t.Fatalf("simultaneous conflict must contest, not supersede: %+v", ab)
+	}
+	if links, _ := s.Links(ctx, m.ID, b.Belief.ID); len(links) != 1 || links[0].Relation != "contradicts" {
+		t.Fatalf("contradiction link expected: %+v", links)
+	}
+	// Persistent propositions contradict regardless of time.
+	p1, _ := s.Create(ctx, pool, emit, New{MindID: m.ID, Proposition: "atlas is the primary database host", Subject: "atlas", Epistemic: concepts.Claim, Source: "x", Evidence: ev, ObservedAt: &ten})
+	s.Create(ctx, pool, emit, New{MindID: m.ID, Proposition: "atlas is not the primary database host", Subject: "atlas", Epistemic: concepts.Claim, Source: "y", Evidence: ev, ObservedAt: &tenFive}) //nolint:errcheck
+	p1b, _ := s.Get(ctx, pool, m.ID, p1.Belief.ID)
+	if p1b.Status == StatusSuperseded {
+		t.Fatalf("persistent fact wrongly treated as a state change: %+v", p1b)
 	}
 }

@@ -36,6 +36,13 @@ type Belief struct {
 	FirstCreated  time.Time          `json:"first_created"`
 	LastEvaluated time.Time          `json:"last_evaluated"`
 	Evaluations   int                `json:"evaluations"`
+	// Temporal scope and validity (see temporal.go). ValidUntil is set when a
+	// later observation superseded a transient state; the belief then says
+	// what was true, and when.
+	TemporalScope string     `json:"temporal_scope"`
+	ObservedAt    *time.Time `json:"observed_at,omitempty"`
+	ValidFrom     *time.Time `json:"valid_from,omitempty"`
+	ValidUntil    *time.Time `json:"valid_until,omitempty"`
 }
 
 // EvidenceRow is stored evidence.
@@ -125,6 +132,10 @@ type New struct {
 	OriginEvent  ids.ID
 	Correlation  ids.ID
 	Causation    ids.ID
+	// ObservedAt is when the state described was observed (defaults to now);
+	// TemporalScope overrides the deterministic classifier when the producer knows.
+	ObservedAt    *time.Time
+	TemporalScope string
 }
 
 // EvidenceInput is evidence supplied by callers.
@@ -170,14 +181,26 @@ func (s *Store) Create(ctx context.Context, q storage.Querier, emit Emitter, n N
 	prior := PriorFor(n.Epistemic)
 	bd := Compute(prior, ev)
 	st := Derive(bd, n.Epistemic)
+	observed := time.Now()
+	if n.ObservedAt != nil {
+		observed = *n.ObservedAt
+	}
+	scope := n.TemporalScope
+	if scope == "" {
+		scope = ClassifyScope(n.Proposition)
+	}
 	b := Belief{ID: ids.New(), MindID: n.MindID, Proposition: n.Proposition, Subject: strings.TrimSpace(n.Subject), Epistemic: n.Epistemic, Status: st, Confidence: bd.Confidence,
-		Prior: prior, Version: 1, Source: n.Source, Detail: n.Detail, OriginEvent: n.OriginEvent, FirstCreated: time.Now(), LastEvaluated: time.Now(), Evaluations: 1}
+		Prior: prior, Version: 1, Source: n.Source, Detail: n.Detail, OriginEvent: n.OriginEvent, FirstCreated: time.Now(), LastEvaluated: time.Now(), Evaluations: 1,
+		TemporalScope: scope, ObservedAt: &observed}
+	if scope == ScopeTransient {
+		b.ValidFrom = &observed
+	}
 	if b.Detail == nil {
 		b.Detail = map[string]any{}
 	}
 	detail, _ := json.Marshal(b.Detail)
-	if _, err := q.Exec(ctx, `INSERT INTO beliefs (id, mind_id, proposition, subject, epistemic, status, confidence, prior, version, source, detail, origin_event)
-		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,1,$9,$10,$11)`, b.ID, b.MindID, b.Proposition, b.Subject, string(b.Epistemic), string(b.Status), b.Confidence, b.Prior, b.Source, detail, nullID(b.OriginEvent)); err != nil {
+	if _, err := q.Exec(ctx, `INSERT INTO beliefs (id, mind_id, proposition, subject, epistemic, status, confidence, prior, version, source, detail, origin_event, temporal_scope, observed_at, valid_from)
+		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,1,$9,$10,$11,$12,$13,$14)`, b.ID, b.MindID, b.Proposition, b.Subject, string(b.Epistemic), string(b.Status), b.Confidence, b.Prior, b.Source, detail, nullID(b.OriginEvent), b.TemporalScope, b.ObservedAt, b.ValidFrom); err != nil {
 		return Result{}, err
 	}
 	typ := events.BeliefCreated
@@ -274,14 +297,14 @@ func nullID(id ids.ID) *string {
 	return &s
 }
 
-const cols = `b.id, b.mind_id, b.proposition, b.subject, b.epistemic, b.status, b.confidence, b.prior, b.version, b.source, b.detail, b.origin_event, b.superseded_by, b.pinned_status, b.first_created, b.last_evaluated, b.evaluations`
+const cols = `b.id, b.mind_id, b.proposition, b.subject, b.epistemic, b.status, b.confidence, b.prior, b.version, b.source, b.detail, b.origin_event, b.superseded_by, b.pinned_status, b.first_created, b.last_evaluated, b.evaluations, b.temporal_scope, b.observed_at, b.valid_from, b.valid_until`
 
 func scan(row pgx.Row) (Belief, error) {
 	var b Belief
 	var epi, status string
 	var detail []byte
 	var origin, superseded, pinned *string
-	if err := row.Scan(&b.ID, &b.MindID, &b.Proposition, &b.Subject, &epi, &status, &b.Confidence, &b.Prior, &b.Version, &b.Source, &detail, &origin, &superseded, &pinned, &b.FirstCreated, &b.LastEvaluated, &b.Evaluations); err != nil {
+	if err := row.Scan(&b.ID, &b.MindID, &b.Proposition, &b.Subject, &epi, &status, &b.Confidence, &b.Prior, &b.Version, &b.Source, &detail, &origin, &superseded, &pinned, &b.FirstCreated, &b.LastEvaluated, &b.Evaluations, &b.TemporalScope, &b.ObservedAt, &b.ValidFrom, &b.ValidUntil); err != nil {
 		return b, storage.Translate(err)
 	}
 	b.Epistemic, b.Status = concepts.Epistemic(epi), Status(status)
@@ -528,6 +551,16 @@ func (s *Store) detectContradictions(ctx context.Context, q storage.Querier, emi
 		if exists {
 			continue
 		}
+		if StateChange(o, b) {
+			// A later observation of a transient state: the older belief was
+			// true of its time and is closed, not contested and not weakened.
+			ev, err := s.closeState(ctx, q, emit, o, b, sim, causation)
+			if err != nil {
+				return nil, err
+			}
+			out = append(out, ev)
+			continue
+		}
 		ev, err := emit(ctx, q, events.New{MindID: b.MindID, Type: events.ContradictionDetected, Source: "beliefs.contradiction", Summary: fmt.Sprintf("contradiction: %q vs %q", trunc(b.Proposition, 60), trunc(o.Proposition, 60)),
 			Salience: 0.8, Confidence: sim, CausationID: causation,
 			Evidence: []events.EvidenceRef{{Kind: "belief", ID: string(b.ID)}, {Kind: "belief", ID: string(o.ID)}},
@@ -750,7 +783,7 @@ func (s *Store) Links(ctx context.Context, mind, id ids.ID) ([]Link, error) {
 		var detail []byte
 		var origin, superseded, pinned *string
 		if err := rows.Scan(&l.ID, &l.FromID, &l.ToID, &l.Relation, &l.Confidence, &l.CreatedAt,
-			&other.ID, &other.MindID, &other.Proposition, &other.Subject, &epi, &status, &other.Confidence, &other.Prior, &other.Version, &other.Source, &detail, &origin, &superseded, &pinned, &other.FirstCreated, &other.LastEvaluated, &other.Evaluations); err != nil {
+			&other.ID, &other.MindID, &other.Proposition, &other.Subject, &epi, &status, &other.Confidence, &other.Prior, &other.Version, &other.Source, &detail, &origin, &superseded, &pinned, &other.FirstCreated, &other.LastEvaluated, &other.Evaluations, &other.TemporalScope, &other.ObservedAt, &other.ValidFrom, &other.ValidUntil); err != nil {
 			return nil, err
 		}
 		other.Epistemic, other.Status = concepts.Epistemic(epi), Status(status)
@@ -876,7 +909,7 @@ func (s *Store) RecentChanges(ctx context.Context, mind ids.ID, since time.Time,
 		var detail []byte
 		var origin, superseded, pinned *string
 		b := &c.Belief
-		if err := rows.Scan(&b.ID, &b.MindID, &b.Proposition, &b.Subject, &epi, &status, &b.Confidence, &b.Prior, &b.Version, &b.Source, &detail, &origin, &superseded, &pinned, &b.FirstCreated, &b.LastEvaluated, &b.Evaluations, &fromStatus, &c.FromConf, &c.Reason, &c.At); err != nil {
+		if err := rows.Scan(&b.ID, &b.MindID, &b.Proposition, &b.Subject, &epi, &status, &b.Confidence, &b.Prior, &b.Version, &b.Source, &detail, &origin, &superseded, &pinned, &b.FirstCreated, &b.LastEvaluated, &b.Evaluations, &b.TemporalScope, &b.ObservedAt, &b.ValidFrom, &b.ValidUntil, &fromStatus, &c.FromConf, &c.Reason, &c.At); err != nil {
 			return nil, err
 		}
 		b.Epistemic, b.Status, c.FromStatus = concepts.Epistemic(epi), Status(status), Status(fromStatus)
@@ -892,6 +925,61 @@ func (s *Store) Uncertain(ctx context.Context, mind ids.ID, limit int) ([]Belief
 	}
 	rows, err := s.db.Query(ctx, `SELECT `+cols+` FROM beliefs b WHERE b.mind_id=$1 AND b.status NOT IN ('rejected','superseded') AND (b.status='contested' OR (b.confidence BETWEEN 0.3 AND 0.7))
 		ORDER BY abs(b.confidence-0.5) ASC, b.last_evaluated DESC LIMIT $2`, mind, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []Belief
+	for rows.Next() {
+		b, err := scan(rows)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, b)
+	}
+	return out, rows.Err()
+}
+
+// closeState ends the validity of an older transient belief when a newer
+// observation shows the state changed. Its score is untouched; its status
+// becomes superseded with valid_until set, and a version and an event
+// record why. "The door was open at 10:00" remains true.
+func (s *Store) closeState(ctx context.Context, q storage.Querier, emit Emitter, older, newer Belief, sim float64, causation ids.ID) (events.Event, error) {
+	until := *newer.ObservedAt
+	ev, err := emit(ctx, q, events.New{MindID: older.MindID, Type: events.BeliefUpdated, Source: "beliefs.temporal", Summary: fmt.Sprintf("state changed: %q held until %s; now %q", trunc(older.Proposition, 60), until.Format("15:04:05"), trunc(newer.Proposition, 60)),
+		Salience: 0.5, Confidence: sim, CausationID: causation,
+		Evidence: []events.EvidenceRef{{Kind: "belief", ID: string(older.ID), Note: "closed"}, {Kind: "belief", ID: string(newer.ID), Note: "current"}},
+		Metadata: map[string]any{"belief_id": string(older.ID), "superseded_by": string(newer.ID), "valid_until": until, "reason": "state changed"},
+		Payload:  map[string]any{"older": map[string]any{"id": older.ID, "proposition": older.Proposition, "valid_from": older.ValidFrom, "valid_until": until}, "newer": map[string]any{"id": newer.ID, "proposition": newer.Proposition, "observed_at": newer.ObservedAt}, "method": "temporal supersession"}})
+	if err != nil {
+		return events.Event{}, err
+	}
+	if _, err := q.Exec(ctx, `UPDATE beliefs SET status='superseded', superseded_by=$3, valid_until=$4, version=version+1, last_evaluated=now(), evaluations=evaluations+1 WHERE id=$1 AND mind_id=$2`, older.ID, older.MindID, newer.ID, until); err != nil {
+		return events.Event{}, err
+	}
+	older.Version++
+	older.Status = StatusSuperseded
+	if err := s.insertVersion(ctx, q, older, Breakdown{Prior: older.Prior, Confidence: older.Confidence, Meaning: ScoreMeaning, Notes: []string{"state changed; score unchanged, validity closed"}}, "state changed: superseded by a later observation", ev.ID); err != nil {
+		return events.Event{}, err
+	}
+	if _, err := q.Exec(ctx, `INSERT INTO belief_links (id, mind_id, from_id, to_id, relation, confidence, event_id) VALUES ($1,$2,$3,$4,'supersedes',$5,$6) ON CONFLICT DO NOTHING`, ids.New(), older.MindID, newer.ID, older.ID, sim, ev.ID); err != nil {
+		return events.Event{}, err
+	}
+	return ev, nil
+}
+
+// History lists superseded beliefs about a topic with their validity, so a
+// mind can say what was true and when.
+func (s *Store) History(ctx context.Context, mind ids.ID, text string, limit int) ([]Belief, error) {
+	if limit <= 0 || limit > 50 {
+		limit = 10
+	}
+	toks, _ := Polarity(text)
+	if len(toks) == 0 {
+		return nil, nil
+	}
+	q := strings.Join(toks, " | ")
+	rows, err := s.db.Query(ctx, `SELECT `+cols+` FROM beliefs b WHERE b.mind_id=$1 AND b.status='superseded' AND b.valid_until IS NOT NULL AND b.search @@ to_tsquery('english', $2) ORDER BY b.valid_until DESC LIMIT $3`, mind, q, limit)
 	if err != nil {
 		return nil, err
 	}

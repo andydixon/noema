@@ -6,6 +6,7 @@
   <p class="score-line"><strong>Epistemic score {{conf $b.Confidence}}</strong> <span class="muted small">(uncalibrated: derived from recorded evidence, not a probability of truth)</span>
     · calibrated: {{if $d.Calibration.Available}}<strong>{{conf $d.Calibration.Estimate}}</strong> <span class="muted small">(hit rate of {{$d.Calibration.SampleSize}} decided predictions in this range)</span>{{else}}<span class="muted small">not available ({{$d.Calibration.Reason}})</span>{{end}}
     · main uncertainty: <span class="muted">{{$d.PrimaryUncertainty}}</span></p>
+  <p class="muted small">temporal scope <span class="badge small">{{$b.TemporalScope}}</span>{{with $b.ObservedAt}} · observed {{date .}}{{end}}{{with $b.ValidFrom}} · valid from {{date .}}{{end}}{{with $b.ValidUntil}} · <strong>until {{date .}}</strong> (superseded by a later observation; this remained true of its time){{end}}</p>
   <p class="muted">{{$b.Epistemic}} · version {{$b.Version}} · first {{date $b.FirstCreated}} · evaluated {{$b.Evaluations}}× · source {{$b.Source}}{{if $b.Subject}} · subject <span class="mono">{{$b.Subject}}</span>{{end}}{{if $b.PinnedStatus}} · <span class="badge warn">status pinned by operator</span>{{end}}</p>
 </div>
 <section class="grid cols-3-1">

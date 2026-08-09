@@ -72,6 +72,12 @@ Derived from the breakdown unless an operator pinned it:
 - `rejected` below 0.15; `hypothesis` for hypotheses without support or below 0.5; `tentative` below 0.7; `likely` below 0.85; `accepted` above;
 - `superseded` when replaced by a newer proposition.
 
+## Temporal scope
+
+Every belief has a `temporal_scope`: `persistent` (a fact without an interval: "atlas is the primary host", "Andy prefers Go"), `transient` (a state that can change: "the door is open", "server A is down") or `unknown` when the deterministic classifier (`ClassifyScope`) cannot tell. Transient beliefs record `observed_at` and `valid_from`.
+
+When a newer belief conflicts with an older **transient** one and was observed at least a minute later, the older belief is not contested and not weakened: its `valid_until` is set to the newer observation, its status becomes `superseded` with a version and a `belief_updated` event saying "state changed", and a `supersedes` link joins them. "The door was open at 10:00" stays true of 10:00 when the door is closed at 10:05. Conflicting reports of the same moment, and conflicts between persistent propositions, are contradictions as described below. Introspection lists superseded states as "Earlier: … (true from … until …)".
+
 ## Contradictions
 
 On creation and on gaining support, a belief is compared with the mind's live beliefs. The deterministic pass detects the same content with flipped polarity (negation words plus token Jaccard ≥ 0.6). A hit emits `contradiction_detected`, links both beliefs, and makes each counter-evidence for the other weighted by the other's confidence, so both move towards `contested` until more evidence arrives. Paraphrase-level judgement is added by an LLM-assisted process once providers exist; it can only propose, and the same arithmetic applies.
