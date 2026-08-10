@@ -128,6 +128,9 @@ func (r *Resolver) ResolveIn(ctx context.Context, q storage.Querier, p Predictio
 			evs = append(evs, out[0])
 			return out[0], nil
 		}
+		if err := r.Beliefs.RecordBeliefOutcome(ctx, q, p.MindID, p.BeliefID, o.Status == StatusConfirmed); err != nil {
+			r.Log.Warn("reliability update failed", "belief", p.BeliefID, "err", err)
+		}
 		if _, err := r.Beliefs.AddEvidence(ctx, q, emit, p.MindID, p.BeliefID, beliefs.EvidenceInput{Direction: dir, Kind: "prediction", RefID: string(p.ID), Source: "prediction:" + string(p.ID), Weight: weight, Credibility: 0.9, Note: "prediction " + string(o.Status) + ": " + p.Statement,
 			Derivation: beliefs.DerivationPrediction, Family: "prediction:" + string(p.ID), RootIDs: refIDs(o.Evidence)}, "prediction "+string(o.Status), evs[0].ID, ids.Nil); err != nil {
 			r.Log.Warn("belief feedback failed", "belief", p.BeliefID, "err", err)

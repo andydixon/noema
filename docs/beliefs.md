@@ -72,6 +72,10 @@ Derived from the breakdown unless an operator pinned it:
 - `rejected` below 0.15; `hypothesis` for hypotheses without support or below 0.5; `tentative` below 0.7; `likely` below 0.85; `accepted` above;
 - `superseded` when replaced by a newer proposition.
 
+## Source reliability by domain
+
+A source's track record is kept per (family, domain), where the domain is the belief's subject. It is updated only by outcomes: a prediction derived from a belief resolving (confirmed counts as right, refuted or expired as wrong, for every primary supporting family of that belief) and an operator marking a belief wrong. With at least three outcomes in a domain the record adjusts the credibility of that source's new evidence *in that domain*: neutral leaves it alone, a perfect record raises it by half, a hopeless one halves it; the adjustment is written into the evidence note. A person wrong three times about database internals keeps their full credibility about their own diary. The trust-level credibility (operator, user, system, tool, source, low) is never rewritten.
+
 ## Temporal scope
 
 Every belief has a `temporal_scope`: `persistent` (a fact without an interval: "atlas is the primary host", "Andy prefers Go"), `transient` (a state that can change: "the door is open", "server A is down") or `unknown` when the deterministic classifier (`ClassifyScope`) cannot tell. Transient beliefs record `observed_at` and `valid_from`.

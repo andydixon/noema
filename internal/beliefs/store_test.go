@@ -3,6 +3,7 @@ package beliefs
 import (
 	"context"
 	"errors"
+	"strings"
 	"testing"
 	"time"
 
@@ -227,5 +228,69 @@ func TestTransientStatesSupersedeInsteadOfContesting(t *testing.T) {
 	p1b, _ := s.Get(ctx, pool, m.ID, p1.Belief.ID)
 	if p1b.Status == StatusSuperseded {
 		t.Fatalf("persistent fact wrongly treated as a state change: %+v", p1b)
+	}
+}
+
+// TestReliabilityIsPerDomain: being wrong about databases three times lowers a
+// source's credibility for database claims and nothing else; the trust-level
+// credibility itself never changes.
+func TestReliabilityIsPerDomain(t *testing.T) {
+	pool := storage.TestPool(t, migrations.FS)
+	ctx := context.Background()
+	m, _ := minds.NewStore(pool).Create(ctx, minds.CreateParams{Slug: "rel"})
+	es := evstore.NewStore(pool, evstore.NewBus(8), nil)
+	emit := func(ctx context.Context, q storage.Querier, n events.New) (events.Event, error) {
+		out, err := es.AppendIn(ctx, q, n)
+		if err != nil {
+			return events.Event{}, err
+		}
+		return out[0], nil
+	}
+	s := NewStore(pool)
+	andy := func(subject, prop string) Result {
+		r, err := s.Create(ctx, pool, emit, New{MindID: m.ID, Proposition: prop, Subject: subject, Epistemic: concepts.Claim, Source: "conversation",
+			Evidence: []EvidenceInput{{Direction: "for", Kind: "assertion", Source: "asserted-by:andy", Family: "actor:andy", Derivation: DerivationAssertion, Weight: 0.5, Credibility: 0.85}}})
+		if err != nil {
+			t.Fatal(err)
+		}
+		return r
+	}
+	baseline := andy("postgres", "postgres corrupts data under load")
+	// Three operator corrections in the database domain.
+	for i, prop := range []string{"postgres loses commits", "postgres ignores fsync", "postgres drops indexes"} {
+		r := andy("postgres", prop)
+		if _, err := s.Retract(ctx, emit, m.ID, r.Belief.ID, "wrong", "operator", false); err != nil {
+			t.Fatal(err)
+		}
+		rec, _ := s.Reliability(ctx, nil, m.ID, "actor:andy", "postgres")
+		if rec.Wrong != i+1 {
+			t.Fatalf("wrong count after %d corrections: %+v", i+1, rec)
+		}
+	}
+	rec, _ := s.Reliability(ctx, nil, m.ID, "actor:andy", "postgres")
+	if !rec.Applied || rec.Score >= 0.5 {
+		t.Fatalf("reliability should now apply and be low: %+v", rec)
+	}
+	// New database claims from Andy are weighed down, with the reason on the row.
+	after := andy("postgres", "postgres cannot handle json")
+	if after.Belief.Confidence >= baseline.Belief.Confidence {
+		t.Fatalf("credibility not lowered in domain: %.3f vs %.3f", after.Belief.Confidence, baseline.Belief.Confidence)
+	}
+	rows, _ := s.EvidenceFor(ctx, pool, m.ID, after.Belief.ID)
+	if len(rows) != 1 || rows[0].Credibility >= 0.85 || !strings.Contains(rows[0].Note, "credibility 0.85→") {
+		t.Fatalf("adjustment not recorded: %+v", rows)
+	}
+	// A different domain is untouched: same credibility, same score as the baseline.
+	diary := andy("andy", "andy was born in march")
+	if diary.Belief.Confidence != baseline.Belief.Confidence {
+		t.Fatalf("unrelated domain affected: %.3f vs %.3f", diary.Belief.Confidence, baseline.Belief.Confidence)
+	}
+	other, _ := s.Reliability(ctx, nil, m.ID, "actor:andy", "andy")
+	if other.Applied || other.Wrong != 0 {
+		t.Fatalf("global standing leaked: %+v", other)
+	}
+	// Trust-level credibility is a constant; it was never rewritten.
+	if events.TrustUser.Credibility() != 0.85 {
+		t.Fatal("trust credibility changed")
 	}
 }

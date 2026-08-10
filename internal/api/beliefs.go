@@ -141,8 +141,9 @@ type BeliefDetail struct {
 	Assertions   []epistemics.Assertion `json:"assertions"` // who stated this proposition, with what stance
 	// Score semantics: the raw number, its empirical reading where prediction
 	// outcomes allow one, and the strongest deterministic reason to doubt it.
-	Calibration        beliefs.Calibrated `json:"calibration"`
-	PrimaryUncertainty string             `json:"primary_uncertainty"`
+	Calibration        beliefs.Calibrated          `json:"calibration"`
+	PrimaryUncertainty string                      `json:"primary_uncertainty"`
+	Reliability        []beliefs.SourceReliability `json:"reliability"` // each cited family\'s record in this belief\'s domain
 }
 
 // BeliefDetail assembles the detail; shared with the UI.
@@ -174,6 +175,10 @@ func (s *Server) BeliefDetail(r *http.Request, mind, id ids.ID) (BeliefDetail, e
 		d.Calibration = beliefs.CalibrateWith(b.Confidence, nil)
 	}
 	d.PrimaryUncertainty = beliefs.PrimaryUncertainty(d.Breakdown, d.Evidence)
+	d.Reliability = s.deps.Beliefs.ReliabilityFor(ctx, mind, b, d.Evidence)
+	if d.Reliability == nil {
+		d.Reliability = []beliefs.SourceReliability{}
+	}
 	d.Events, _ = s.deps.Events.DerivedFrom(ctx, "belief", string(id), 100)
 	if !b.OriginEvent.IsZero() {
 		if e, err := s.deps.Events.Get(ctx, b.OriginEvent); err == nil {

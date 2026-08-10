@@ -175,8 +175,12 @@ func (s *Store) Create(ctx context.Context, q storage.Querier, emit Emitter, n N
 		return Result{}, fmt.Errorf("%w: %s", ErrBlocked, c.Statement)
 	}
 	var ev []Evidence
+	var notes []string
 	for _, e := range n.Evidence {
-		ev = append(ev, normalise(e))
+		ne := normalise(e)
+		ne, note := s.applyReliability(ctx, q, n.MindID, strings.TrimSpace(n.Subject), ne, e.Note)
+		ev = append(ev, ne)
+		notes = append(notes, note)
 	}
 	prior := PriorFor(n.Epistemic)
 	bd := Compute(prior, ev)
@@ -220,8 +224,8 @@ func (s *Store) Create(ctx context.Context, q storage.Querier, emit Emitter, n N
 		return Result{}, err
 	}
 	res := Result{Belief: b, Breakdown: bd, Events: []events.Event{created}}
-	for _, e := range n.Evidence {
-		if err := s.insertEvidence(ctx, q, b, normalise(e), e.Note, created.ID); err != nil {
+	for i, e := range ev {
+		if err := s.insertEvidence(ctx, q, b, e, notes[i], created.ID); err != nil {
 			return Result{}, err
 		}
 	}
@@ -425,7 +429,8 @@ func (s *Store) AddEvidence(ctx context.Context, q storage.Querier, emit Emitter
 		return Result{}, fmt.Errorf("%w: belief is superseded", ErrInvalid)
 	}
 	e := normalise(in)
-	if err := s.insertEvidence(ctx, q, b, e, in.Note, ids.Nil); err != nil {
+	e, note := s.applyReliability(ctx, q, mind, b.Subject, e, in.Note)
+	if err := s.insertEvidence(ctx, q, b, e, note, ids.Nil); err != nil {
 		return Result{}, err
 	}
 	return s.reevaluate(ctx, q, emit, b, reason, causation, correlation, &e, in)
@@ -615,6 +620,11 @@ func (s *Store) Retract(ctx context.Context, emit Emitter, mind, id ids.ID, reas
 	err := storage.Tx(ctx, s.db, func(tx pgx.Tx) error {
 		b, err := s.Get(ctx, tx, mind, id)
 		if err != nil {
+			return err
+		}
+		// An operator saying "wrong" is an outcome for the sources that backed
+		// it, in this belief's domain only: nobody's standing elsewhere moves.
+		if err := s.RecordBeliefOutcome(ctx, tx, mind, id, false); err != nil {
 			return err
 		}
 		ev, err := emit(ctx, tx, events.New{MindID: mind, Type: events.BeliefRetracted, Source: "operator", Summary: fmt.Sprintf("operator %s rejected belief: %s (%s)", by, b.Proposition, reason),

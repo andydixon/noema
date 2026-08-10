@@ -10,6 +10,7 @@ All notable changes to Noema are recorded here. Format follows Keep a Changelog;
 - Security suite: SQL-injection effect test, static allow-list scan for assembled SQL, deceived-mind authority test, garbage model output test, self-preservation vocabulary test; threat model rewritten so every verification cites a test that asserts the claim.
 
 ### Added
+- Contextual source reliability: a per-(source, domain) record updated only by prediction outcomes and operator corrections, adjusting evidence credibility in that domain once three outcomes exist; never global. Shown on belief pages. Migration 0021.
 - Temporal beliefs: every belief has a temporal scope (persistent, transient, unknown, classified deterministically), an observation time and, for transient states, a validity interval. A later observation that a transient state changed closes the earlier belief (valid_until, superseded, score unchanged) instead of contesting it; simultaneous conflicts and persistent propositions still contradict. Introspection reports what was true and when. Migration 0020.
 - Confidence semantics: every breakdown states that the number is an uncalibrated epistemic score; belief detail adds a calibrated estimate from the mind's resolved predictions when at least twenty were decided in the same range (otherwise says why not) and names the primary uncertainty deterministically. `docs/beliefs.md` defines every epistemic number.
 - Explicit `unknown` belief status: no live evidence either way is neither tentative belief nor falsity. Migration 0019.
