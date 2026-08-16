@@ -50,12 +50,15 @@ func (s *Store) RecordOutcome(ctx context.Context, q storage.Querier, mind ids.I
 	if domain == "" {
 		domain = "*"
 	}
-	col := "wrong"
+	// Two literal statements rather than an assembled one: no identifier is
+	// ever built from a value, however constrained.
+	stmt := `INSERT INTO source_reliability (mind_id, source, domain, wrong) VALUES ($1,$2,$3,1)
+		ON CONFLICT (mind_id, source, domain) DO UPDATE SET wrong = source_reliability.wrong + 1, updated_at = now()`
 	if correct {
-		col = "correct"
+		stmt = `INSERT INTO source_reliability (mind_id, source, domain, correct) VALUES ($1,$2,$3,1)
+		ON CONFLICT (mind_id, source, domain) DO UPDATE SET correct = source_reliability.correct + 1, updated_at = now()`
 	}
-	_, err := q.Exec(ctx, fmt.Sprintf(`INSERT INTO source_reliability (mind_id, source, domain, %s) VALUES ($1,$2,$3,1)
-		ON CONFLICT (mind_id, source, domain) DO UPDATE SET %s = source_reliability.%s + 1, updated_at = now()`, col, col, col), mind, source, domain) // #nosec G202 -- col is one of two literals
+	_, err := q.Exec(ctx, stmt, mind, source, domain)
 	return err
 }
 
