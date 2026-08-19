@@ -45,10 +45,12 @@ func (h Handlers) linkEntities(ctx context.Context, c *brain.Cycle, names []stri
 			add("", n)
 		}
 	}
-	// The speaker discussed each entity; mentioned entities relate to each other.
+	// The speaker discussed each entity; entities mentioned together merely
+	// co-occur. Co-occurrence is association, never a causal or structural
+	// claim; stronger relations need an explicit statement or an operator.
 	for i := range ents {
 		for j := i + 1; j < len(ents); j++ {
-			rel := concepts.RelatedTo
+			rel := concepts.CoOccursWith
 			if ents[i].Kind == graph.Person && i == 0 && actor != "" {
 				rel = concepts.DiscussedWith
 			}

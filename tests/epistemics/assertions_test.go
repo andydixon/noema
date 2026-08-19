@@ -136,6 +136,14 @@ func TestAssertionsAreNotBeliefs(t *testing.T) {
 	if gb, ok := beliefFor(genius.BeliefID); ok && gb.Confidence > sb.Confidence {
 		t.Fatalf("sarcastic remark believed more than a plain one: %.2f vs %.2f", gb.Confidence, sb.Confidence)
 	}
+	// Co-mention produces association edges, never causal ones.
+	var causal int
+	h.Deps.DB.QueryRow(ctx, `SELECT count(*) FROM entity_relationships WHERE mind_id=$1 AND relation IN ('caused_by')`, m.ID).Scan(&causal) //nolint:errcheck
+	var cooccur int
+	h.Deps.DB.QueryRow(ctx, `SELECT count(*) FROM entity_relationships WHERE mind_id=$1 AND relation='co_occurs_with'`, m.ID).Scan(&cooccur) //nolint:errcheck
+	if causal != 0 || cooccur == 0 {
+		t.Fatalf("relations: caused_by=%d co_occurs_with=%d", causal, cooccur)
+	}
 	// Assertions are append-only.
 	if _, err := h.Deps.DB.Exec(ctx, `UPDATE assertions SET proposition='x' WHERE id=$1`, steve.ID); err == nil {
 		t.Fatal("assertion row was mutable")

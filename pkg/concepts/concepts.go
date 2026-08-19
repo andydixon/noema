@@ -76,7 +76,25 @@ const (
 )
 
 // AllRelations lists relations in a stable order.
-var AllRelations = []Relation{RelatedTo, CausedBy, Contradicts, Supports, DependsOn, BelongsTo, DiscussedWith, ObservedDuring, DerivedFrom, SimilarTo, Follows}
+// Association is not causation. CoOccursWith and TemporallyPrecedes record
+// what was observed together or in sequence; PossiblyCausedBy is a causal
+// hypothesis awaiting evidence; CausedBy is reserved for established causes
+// (an explicit operator statement or a confirmed causal prediction);
+// AssertedBy links a proposition to whoever stated it.
+const (
+	CoOccursWith       Relation = "co_occurs_with"
+	PossiblyCausedBy   Relation = "possibly_caused_by"
+	TemporallyPrecedes Relation = "temporally_precedes"
+	AssertedBy         Relation = "asserted_by"
+)
+
+var AllRelations = []Relation{RelatedTo, CausedBy, Contradicts, Supports, DependsOn, BelongsTo, DiscussedWith, ObservedDuring, DerivedFrom, SimilarTo, Follows, CoOccursWith, PossiblyCausedBy, TemporallyPrecedes, AssertedBy}
+
+// Causal reports whether a relation asserts an established cause.
+func (r Relation) Causal() bool { return r == CausedBy }
+
+// Hypothetical reports whether a relation is a proposal rather than a finding.
+func (r Relation) Hypothetical() bool { return r == PossiblyCausedBy }
 
 // Valid reports whether r is known.
 func (r Relation) Valid() bool {

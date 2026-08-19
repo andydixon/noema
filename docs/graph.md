@@ -10,7 +10,17 @@ Extraction is deterministic and conservative: hostnames (`atlas.local`), hyphena
 
 ## Relationships
 
-Edges carry a relation from the shared vocabulary (`related_to`, `discussed_with`, `caused_by`, `supports`, `contradicts`, `depends_on`, `belongs_to`, `observed_during`, `derived_from`, `similar_to`, `follows`), a confidence, a source, a count of reinforcements and the event that produced them. Co-mention in one message yields `discussed_with` (speaker → entity) and `related_to` (entity ↔ entity) at low confidence; repeats raise the count. Operators can add typed edges with higher confidence.
+Edges carry a relation from the shared vocabulary (`co_occurs_with`, `related_to`, `discussed_with`, `temporally_precedes`, `possibly_caused_by`, `caused_by`, `supports`, `contradicts`, `depends_on`, `belongs_to`, `observed_during`, `derived_from`, `similar_to`, `follows`, `asserted_by`), a confidence, a source, a count of reinforcements and the event that produced them. Co-mention in one message yields `discussed_with` (speaker → entity) and `co_occurs_with` (entity ↔ entity) at low confidence; repeats raise the count but never change the kind. Operators can add typed edges with higher confidence.
+
+## Association is not causation
+
+Repeated association is evidence of association, nothing more. The vocabulary keeps the distinction explicit:
+
+- `co_occurs_with` and `temporally_precedes` record what was observed together or in order;
+- `possibly_caused_by` is a **hypothesis**: the association process proposes it for notable events close in time, always as a `hypothesis` belief with the alternatives "coincidence" and "a third factor caused both", and a prediction that the effect should recur after the cause;
+- `caused_by` is reserved for established causes: an explicit operator statement or a correction. Nothing automatic writes it.
+
+Speech acts are not world events: questions, hypotheticals, requests and consecutive turns by one speaker never seed a causal hypothesis.
 
 `entity_links` record which memories, beliefs, events, goals and predictions involve an entity, so the entity page answers "where has this come up".
 

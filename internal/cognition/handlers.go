@@ -84,7 +84,7 @@ func (h Handlers) hypothesis(ctx context.Context, c *brain.Cycle, t workspace.Th
 	}
 	res, err := h.Beliefs.Create(ctx, c.Tx, emitter(c), beliefs.New{MindID: c.State.Mind.ID, Proposition: prop, Epistemic: concepts.Hypothesis, Source: "brain.associate",
 		Evidence: ev, Alternatives: []string{"coincidence: the two events are unrelated", "a third factor caused both"}, OriginEvent: t.EventID, Causation: t.EventID, Correlation: c.State.CycleID,
-		Detail: map[string]any{"cause_event": t.Content["cause_event"], "effect_event": t.Content["effect_event"], "gap_seconds": t.Content["gap_seconds"]}})
+		Detail: map[string]any{"cause_event": t.Content["cause_event"], "effect_event": t.Content["effect_event"], "gap_seconds": t.Content["gap_seconds"], "relation": string(concepts.PossiblyCausedBy), "basis": "temporal association only"}})
 	if err != nil {
 		if errors.Is(err, beliefs.ErrBlocked) {
 			c.Emit(events.New{Type: events.Metacognition, Source: "brain.executive", Summary: "hypothesis blocked by operator correction: " + prop, Salience: 0.3, Confidence: 1, Metadata: map[string]any{"check": "do_not_infer"}})
