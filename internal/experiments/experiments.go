@@ -17,6 +17,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/andydixon/noema/internal/brain"
+	"github.com/andydixon/noema/internal/identity"
 	"github.com/andydixon/noema/internal/minds"
 	"github.com/andydixon/noema/internal/replay"
 	"github.com/andydixon/noema/internal/snapshots"
@@ -68,19 +69,20 @@ type Experiment struct {
 
 // Results is what a run records.
 type Results struct {
-	Subject        ids.ID           `json:"subject_mind_id"`
-	SubjectSlug    string           `json:"subject_slug"`
-	Steps          []StepResult     `json:"steps"`
-	EventsByType   map[string]int   `json:"events_by_type"`
-	Beliefs        []BeliefRow      `json:"beliefs"`
-	Memories       int              `json:"memories"`
-	Goals          int              `json:"goals"`
-	Expectations   []ExpectResult   `json:"expectations"`
-	LLMCalls       map[string]int   `json:"llm_calls"` // live / replayed
-	Routing        []map[string]any `json:"routing,omitempty"`
-	DurationMS     int64            `json:"duration_ms"`
-	Cycles         int              `json:"cycles"`
-	TruncatedAfter int              `json:"truncated_after_stimulus,omitempty"`
+	Subject        ids.ID            `json:"subject_mind_id"`
+	SubjectSlug    string            `json:"subject_slug"`
+	Steps          []StepResult      `json:"steps"`
+	EventsByType   map[string]int    `json:"events_by_type"`
+	Beliefs        []BeliefRow       `json:"beliefs"`
+	Memories       int               `json:"memories"`
+	Goals          int               `json:"goals"`
+	Expectations   []ExpectResult    `json:"expectations"`
+	LLMCalls       map[string]int    `json:"llm_calls"` // live / replayed
+	Routing        []map[string]any  `json:"routing,omitempty"`
+	DurationMS     int64             `json:"duration_ms"`
+	Identity       identity.Identity `json:"identity"` // the runtime that produced these results
+	Cycles         int               `json:"cycles"`
+	TruncatedAfter int               `json:"truncated_after_stimulus,omitempty"`
 }
 
 // StepResult records one stimulus.
@@ -114,6 +116,7 @@ type Service struct {
 	Snapshots *snapshots.Store
 	Brain     brain.Config
 	Routing   func(ctx context.Context) []map[string]any // current LLM role routing, recorded with results
+	Identity  *identity.Capturer
 	Log       *slog.Logger
 }
 
@@ -219,6 +222,7 @@ func (s *Service) execute(ctx context.Context, e *Experiment, by string) (Result
 	if s.Routing != nil {
 		res.Routing = s.Routing(ctx)
 	}
+	res.Identity = s.Identity.Capture(ctx, subject.ID)
 	drv, err := replay.NewDriver(ctx, s.Brain, subject, "experiment")
 	if err != nil {
 		return res, err

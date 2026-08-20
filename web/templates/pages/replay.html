@@ -5,6 +5,22 @@
   {{with .Data.Sandbox}}<p class="small">Sandbox mind: <a href="/minds/{{.Slug}}">{{.Slug}}</a> (disabled; kept for inspection) · <a href="/minds/{{$m.Slug}}/compare?with={{.Slug}}">compare with source</a></p>{{end}}</div>
   <div class="row"><span class="badge ok">{{$r.Summary.Exact}} exact</span> <span class="badge warn">{{$r.Summary.Approximate}} approximate</span> <span class="badge danger">{{$r.Summary.Diverged}} diverged</span></div></div>
 {{if eq $r.Status "running"}}<p class="muted small" data-live-refresh="5000">Running… this page refreshes.</p>{{end}}
+<section class="grid cols-2">
+  <div class="card"><h2>Runtime identity</h2>
+    <p class="small">Compatibility with the snapshot's runtime: <span class="badge {{if eq $r.Compatibility "exact-candidate"}}ok{{else if eq $r.Compatibility "incompatible"}}danger{{else}}warn{{end}}">{{or $r.Compatibility "unrecorded"}}</span></p>
+    {{if $r.IdentityDiff}}<ul class="small">{{range $r.IdentityDiff}}<li>{{.}}</li>{{end}}</ul>{{else}}<p class="small muted">No differences recorded between the two runtimes.</p>{{end}}
+    <table class="kv-table small"><tr><th>Build</th><td>{{$r.Identity.Build.Version}} {{with $r.Identity.Build.Commit}}<code>{{trunc . 12}}</code>{{end}}{{if $r.Identity.Build.Modified}} <span class="badge warn small">modified tree</span>{{end}} · {{$r.Identity.Build.GoVersion}} {{$r.Identity.Build.OS}}/{{$r.Identity.Build.Arch}}</td></tr>
+      <tr><th>Schema</th><td>{{$r.Identity.SchemaVersion}}</td></tr><tr><th>Config digest</th><td><code>{{$r.Identity.ConfigDigest}}</code></td></tr><tr><th>Personality</th><td>v{{$r.Identity.PersonalityVersion}}</td></tr><tr><th>Policy digest</th><td><code>{{$r.Identity.PolicyDigest}}</code></td></tr>
+      <tr><th>Routing</th><td class="small">{{range $k, $v := $r.Identity.Routing}}{{$k}} → {{$v}}<br>{{else}}none{{end}}</td></tr><tr><th>Deterministic subsystems</th><td class="small">{{range $k, $v := $r.Identity.Deterministic}}{{$k}} v{{$v}} · {{end}}</td></tr><tr><th>Timezone</th><td>{{$r.Identity.Timezone}}</td></tr></table>
+    <p class="small muted">Exact steps prove the deterministic code and recorded model responses reproduced the events. A different build can still be exact; an incompatible schema is never run.</p></div>
+  <div class="card"><h2>First divergence</h2>
+    {{with $r.Divergence}}<p>Identical until step <strong>{{.Step}}</strong> (<a href="/events/{{.StimulusID}}">stimulus</a>), then <span class="badge warn">{{.Label}}</span>.</p>
+      <p class="small">Components involved (inferred from event types): {{range .Components}}<span class="badge small">{{.}}</span> {{end}}</p>
+      <p class="small muted">recorded in {{.RecordedIn}} · replayed in {{.ReplayedIn}}</p>
+      {{if .OnlyRecorded}}<h3 class="small muted">Only in the recording</h3><ul class="small mono">{{range .OnlyRecorded}}<li>{{.}}</li>{{end}}</ul>{{end}}
+      {{if .OnlyReplayed}}<h3 class="small muted">Only in the replay</h3><ul class="small mono">{{range .OnlyReplayed}}<li>{{.}}</li>{{end}}</ul>{{end}}
+    {{else}}<p class="muted">{{if eq $r.Status "done"}}None: every step was exact.{{else}}Not available.{{end}}</p>{{end}}</div>
+</section>
 <div class="card">
   {{if .Data.Steps}}{{range .Data.Steps}}<div class="replay-step">
     <div class="row"><span class="badge {{if eq .Label "exact"}}ok{{else if eq .Label "approximate"}}warn{{else}}danger{{end}}">{{.Label}}</span> <strong>{{.Index}}.</strong> <a href="/events/{{.StimulusID}}">{{trunc .Summary 120}}</a> <span class="small muted">· {{.Cycles}} cycle(s){{if .LLMReplayed}} · {{.LLMReplayed}} recorded model response(s){{end}}{{if .LLMLive}} · {{.LLMLive}} live call(s){{end}}</span></div>

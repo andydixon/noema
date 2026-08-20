@@ -6,9 +6,9 @@
 {{template "mind_tabs" (dict "M" $m "Active" "snapshots")}}
 <section class="grid cols-3-1">
   <div class="card">
-    {{if .Data.Snapshots}}<table class="table compact"><thead><tr><th>Name</th><th>Taken</th><th class="num">Event</th><th>Contents</th><th class="num">Size</th><th></th></tr></thead><tbody>
+    {{if .Data.Snapshots}}<table class="table compact"><thead><tr><th>Name</th><th>Taken</th><th class="num">Event</th><th>Contents</th><th class="num">Size</th><th>Runtime</th><th></th></tr></thead><tbody>
       {{range .Data.Snapshots}}<tr><td><strong>{{.Name}}</strong>{{with .Note}}<div class="small muted">{{.}}</div>{{end}}</td><td class="small muted nowrap">{{ago .CreatedAt}} · {{.CreatedBy}}</td><td class="num">{{.EventSeq}}</td>
-        <td class="small muted">{{range $t, $n := .Counts}}{{$t}} {{$n}} · {{end}}</td><td class="num small">{{.SizeBytes}}</td>
+        <td class="small muted">{{range $t, $n := .Counts}}{{$t}} {{$n}} · {{end}}</td><td class="num small">{{.SizeBytes}}</td><td class="small muted" title="runtime identity at capture">{{with .Identity.Build.Commit}}<code>{{trunc . 8}}</code>{{else}}{{.Identity.Build.Version}}{{end}} · schema {{.Identity.SchemaVersion}}</td>
         <td class="nowrap">{{if $.Principal.User.Role.AtLeast "operator"}}<a class="btn small" href="/api/v1/snapshots/{{.ID}}/archive">download</a>{{end}}
           {{if $.Principal.User.Role.AtLeast "administrator"}}<form method="post" action="/snapshots/{{.ID}}/fork" class="inline"><input type="hidden" name="_csrf" value="{{$.CSRF}}"><input name="slug" placeholder="new-slug" size="12" pattern="[a-z0-9-]+" required> <button class="btn small">fork</button></form>
           <form method="post" action="/snapshots/{{.ID}}/delete" class="inline"><input type="hidden" name="_csrf" value="{{$.CSRF}}"><button class="btn small btn-danger" data-confirm="Delete this snapshot?">delete</button></form>{{end}}</td></tr>{{end}}</tbody></table>

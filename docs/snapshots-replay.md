@@ -50,6 +50,24 @@ Divergence is reported, not hidden. Its usual causes are honest ones: the
 working memory changed between snapshot and stimulus, retrieval scores depend
 on wall-clock recency, or the code changed since the recording.
 
+### Runtime identity and compatibility
+
+Every snapshot, replay and experiment records the **runtime identity** it ran under: build (module version, VCS commit, whether the tree was modified, commit time, Go version, OS and architecture), schema version (highest applied migration), a digest of the non-secret configuration (secrets and credentials never enter it; it changes only when behaviour-affecting settings change), the mind's personality version, a digest of the policies in force, the LLM role routing (including per-mind overrides), the current version of every prompt, the versions of the deterministic subsystems whose output is compared, and the timezone.
+
+A replay compares its identity with the snapshot's and labels itself:
+
+| Compatibility | Meaning |
+|---|---|
+| **exact-candidate** | same build, schema, configuration, routing, prompts, policy and subsystem versions: differences can only come from state, timing or a model |
+| **different-build** | the schema matches but something else differs; the differences are listed. Exact steps are still exact; a diverged step may be a code change |
+| **incompatible** | the schema differs. The sandbox could not be a faithful reconstruction, so the replay stops before running rather than produce a misleading comparison |
+
+Snapshots taken before identities were recorded are labelled as such.
+
+### Divergence analysis
+
+The first non-exact step is analysed: which event digests appear only in the recording, which only in the replay, and which components those events belong to (retrieval, attention, encoding, beliefs, association, predictions, goals, response, narrative, motivation, metacognition, capabilities). Components are inferred from event types and labelled as inferred: they point at where to look, not at a proven cause. Live model calls are named as a component of their own, because provider nondeterminism is a real and measurable source of difference, not one to be hidden.
+
 The replaying router serves recorded responses by request hash
 (`llm_calls.request_hash`) and records the replayed call with `replayed=true`.
 Replays run under a forbidden capability context; no action can execute.

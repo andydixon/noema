@@ -31,6 +31,7 @@ import (
 	"github.com/andydixon/noema/internal/experiments"
 	"github.com/andydixon/noema/internal/goals"
 	"github.com/andydixon/noema/internal/graph"
+	"github.com/andydixon/noema/internal/identity"
 	"github.com/andydixon/noema/internal/integrations"
 	"github.com/andydixon/noema/internal/llm/prompts"
 	"github.com/andydixon/noema/internal/llm/router"
@@ -175,9 +176,10 @@ func run() error {
 	sandboxCfg := brainCfg
 	sandboxCfg.Pool = scheduler.NewPool(2)
 	sandboxCfg.Services.LLM = replayLLM
-	deps.Snapshots = &snapshots.Store{DB: db, Events: deps.Events, Minds: deps.Minds}
-	deps.Replay = &replay.Service{DB: db, Events: deps.Events, Minds: deps.Minds, Snapshots: deps.Snapshots, Brain: sandboxCfg, Log: log}
-	deps.Experiments = &experiments.Service{DB: db, Minds: deps.Minds, Snapshots: deps.Snapshots, Brain: sandboxCfg, Log: log, Routing: func(ctx context.Context) []map[string]any {
+	ident := &identity.Capturer{DB: db, Config: &cfg, Minds: deps.Minds, LLM: deps.LLMStore, Prompts: deps.Prompts, Capabilities: deps.Capabilities}
+	deps.Snapshots = &snapshots.Store{DB: db, Events: deps.Events, Minds: deps.Minds, Identity: ident}
+	deps.Replay = &replay.Service{DB: db, Events: deps.Events, Minds: deps.Minds, Snapshots: deps.Snapshots, Brain: sandboxCfg, Identity: ident, Log: log}
+	deps.Experiments = &experiments.Service{DB: db, Minds: deps.Minds, Snapshots: deps.Snapshots, Brain: sandboxCfg, Identity: ident, Log: log, Routing: func(ctx context.Context) []map[string]any {
 		roles, _ := deps.LLMStore.ListRoles(ctx)
 		b, _ := json.Marshal(roles)
 		var out []map[string]any

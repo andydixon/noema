@@ -5,6 +5,8 @@
 package config
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -243,4 +245,20 @@ func (c Config) Redacted() Config {
 		}
 	}
 	return r
+}
+
+// Digest is a stable hash of the non-secret configuration: it changes when
+// the daemon would behave differently and stays the same when only secrets
+// or credentials rotate. Used to explain replay differences.
+func (c Config) Digest() string {
+	public := struct {
+		HTTPAddr, Env, LogLevel, LogFormat, ResearchDir string
+		MaxWorkers, MaxConcurrentLLM                    int
+		DailyTokenBudget, MaxRequestBody                int64
+		SessionIdleTTL, SessionAbsoluteTTL              time.Duration
+		HasMasterKey                                    bool
+	}{c.HTTPAddr, c.Env, c.LogLevel, c.LogFormat, c.ResearchDir, c.MaxWorkers, c.MaxConcurrentLLM, c.DailyTokenBudget, c.MaxRequestBody, c.SessionIdleTTL, c.SessionAbsoluteTTL, c.MasterKey != ""}
+	b, _ := json.Marshal(public)
+	sum := sha256.Sum256(b)
+	return "sha256:" + hex.EncodeToString(sum[:8])
 }

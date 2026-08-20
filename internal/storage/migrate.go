@@ -220,3 +220,10 @@ func withLock(ctx context.Context, pool *pgxpool.Pool, fn func(tx pgx.Tx) error)
 		return fn(tx)
 	})
 }
+
+// SchemaVersion returns the highest applied migration version (0 when none).
+func SchemaVersion(ctx context.Context, pool *pgxpool.Pool) (int, error) {
+	var v int
+	err := pool.QueryRow(ctx, `SELECT coalesce(max(version), 0) FROM schema_migrations`).Scan(&v)
+	return v, err
+}

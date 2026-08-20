@@ -25,6 +25,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	evstore "github.com/andydixon/noema/internal/events"
+	"github.com/andydixon/noema/internal/identity"
 	"github.com/andydixon/noema/internal/minds"
 	"github.com/andydixon/noema/internal/storage"
 	"github.com/andydixon/noema/pkg/ids"
@@ -335,23 +336,25 @@ func remapValue(v any, remap map[string]string) any {
 
 // Snapshot is a stored archive.
 type Snapshot struct {
-	ID        ids.ID         `json:"id"`
-	MindID    ids.ID         `json:"mind_id"`
-	Name      string         `json:"name"`
-	Note      string         `json:"note"`
-	EventSeq  int64          `json:"event_seq"`
-	Checksum  string         `json:"checksum"`
-	SizeBytes int            `json:"size_bytes"`
-	Counts    map[string]int `json:"counts"`
-	CreatedBy string         `json:"created_by"`
-	CreatedAt time.Time      `json:"created_at"`
+	ID        ids.ID            `json:"id"`
+	MindID    ids.ID            `json:"mind_id"`
+	Name      string            `json:"name"`
+	Note      string            `json:"note"`
+	EventSeq  int64             `json:"event_seq"`
+	Checksum  string            `json:"checksum"`
+	SizeBytes int               `json:"size_bytes"`
+	Counts    map[string]int    `json:"counts"`
+	CreatedBy string            `json:"created_by"`
+	CreatedAt time.Time         `json:"created_at"`
+	Identity  identity.Identity `json:"identity"` // the runtime that captured it
 }
 
 // Store persists snapshots and performs forks and imports.
 type Store struct {
-	DB     *pgxpool.Pool
-	Events *evstore.Store
-	Minds  *minds.Store
+	DB       *pgxpool.Pool
+	Events   *evstore.Store
+	Minds    *minds.Store
+	Identity *identity.Capturer // nil records build information only
 }
 
 // Create captures and stores a snapshot.
@@ -365,21 +368,23 @@ func (s *Store) Create(ctx context.Context, m minds.Mind, name, note, by string)
 	}
 	raw, _ := json.Marshal(a)
 	counts, _ := json.Marshal(a.Counts())
-	sn := Snapshot{ID: ids.New(), MindID: m.ID, Name: name, Note: note, EventSeq: a.Source.EventSeq, Checksum: a.Checksum, SizeBytes: len(raw), Counts: a.Counts(), CreatedBy: by, CreatedAt: time.Now()}
-	_, err = s.DB.Exec(ctx, `INSERT INTO snapshots (id, mind_id, name, note, event_seq, checksum, size_bytes, counts, archive, created_by, created_at) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`,
-		sn.ID, sn.MindID, sn.Name, sn.Note, sn.EventSeq, sn.Checksum, sn.SizeBytes, counts, raw, sn.CreatedBy, sn.CreatedAt)
+	sn := Snapshot{ID: ids.New(), MindID: m.ID, Name: name, Note: note, EventSeq: a.Source.EventSeq, Checksum: a.Checksum, SizeBytes: len(raw), Counts: a.Counts(), CreatedBy: by, CreatedAt: time.Now(), Identity: s.Identity.Capture(ctx, m.ID)}
+	idj, _ := json.Marshal(sn.Identity)
+	_, err = s.DB.Exec(ctx, `INSERT INTO snapshots (id, mind_id, name, note, event_seq, checksum, size_bytes, counts, archive, created_by, created_at, identity) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)`,
+		sn.ID, sn.MindID, sn.Name, sn.Note, sn.EventSeq, sn.Checksum, sn.SizeBytes, counts, raw, sn.CreatedBy, sn.CreatedAt, idj)
 	return sn, err
 }
 
-const snapCols = `id, mind_id, name, note, event_seq, checksum, size_bytes, counts, created_by, created_at`
+const snapCols = `id, mind_id, name, note, event_seq, checksum, size_bytes, counts, created_by, created_at, identity`
 
 func scanSnap(row pgx.Row) (Snapshot, error) {
 	var sn Snapshot
-	var counts []byte
-	if err := row.Scan(&sn.ID, &sn.MindID, &sn.Name, &sn.Note, &sn.EventSeq, &sn.Checksum, &sn.SizeBytes, &counts, &sn.CreatedBy, &sn.CreatedAt); err != nil {
+	var counts, idj []byte
+	if err := row.Scan(&sn.ID, &sn.MindID, &sn.Name, &sn.Note, &sn.EventSeq, &sn.Checksum, &sn.SizeBytes, &counts, &sn.CreatedBy, &sn.CreatedAt, &idj); err != nil {
 		return sn, storage.Translate(err)
 	}
 	json.Unmarshal(counts, &sn.Counts) //nolint:errcheck
+	json.Unmarshal(idj, &sn.Identity)  //nolint:errcheck
 	return sn, nil
 }
 

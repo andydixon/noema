@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log/slog"
+	"sort"
 	"strings"
 	"time"
 
@@ -13,6 +14,7 @@ import (
 
 	"github.com/andydixon/noema/internal/brain"
 	evstore "github.com/andydixon/noema/internal/events"
+	"github.com/andydixon/noema/internal/identity"
 	"github.com/andydixon/noema/internal/minds"
 	"github.com/andydixon/noema/internal/snapshots"
 	"github.com/andydixon/noema/internal/storage"
@@ -35,6 +37,27 @@ type Replay struct {
 	CreatedBy    string          `json:"created_by"`
 	CreatedAt    time.Time       `json:"created_at"`
 	FinishedAt   *time.Time      `json:"finished_at,omitempty"`
+	// Reproducibility: the runtime this replay ran under, how it compares
+	// with the runtime that took the snapshot, and where the first
+	// divergence appeared.
+	Identity      identity.Identity `json:"identity"`
+	Compatibility string            `json:"compatibility"` // exact-candidate | different-build | incompatible
+	IdentityDiff  []string          `json:"identity_diff"`
+	Divergence    *Divergence       `json:"divergence,omitempty"`
+}
+
+// Divergence describes the first step whose outcome differed and which
+// components the differing events belong to. Components are inferred from
+// event types and labelled as such; they are a pointer, not a proof.
+type Divergence struct {
+	Step         int      `json:"step"`
+	StimulusID   ids.ID   `json:"stimulus_id"`
+	Label        string   `json:"label"`
+	Components   []string `json:"components"`
+	OnlyRecorded []string `json:"only_recorded"`
+	OnlyReplayed []string `json:"only_replayed"`
+	RecordedIn   string   `json:"recorded_build"`
+	ReplayedIn   string   `json:"replayed_build"`
 }
 
 // Summary counts step labels.
@@ -70,6 +93,7 @@ type Service struct {
 	Minds     *minds.Store
 	Snapshots *snapshots.Store
 	Brain     brain.Config // template; Services.LLM must be a replaying router
+	Identity  *identity.Capturer
 	Log       *slog.Logger
 }
 
@@ -105,7 +129,13 @@ func (s *Service) Begin(ctx context.Context, src minds.Mind, snapshotID ids.ID, 
 	if r.ToSeq <= r.FromSeq {
 		return r, fmt.Errorf("nothing to replay after event %d", r.FromSeq)
 	}
-	_, err = s.DB.Exec(ctx, `INSERT INTO replays (id, mind_id, snapshot_id, from_seq, to_seq, status, created_by) VALUES ($1,$2,$3,$4,$5,'running',$6)`, r.ID, src.ID, snapshotID, r.FromSeq, r.ToSeq, by)
+	r.Identity = s.Identity.Capture(ctx, src.ID)
+	r.Compatibility, r.IdentityDiff = identity.Compare(sn.Identity, r.Identity)
+	if r.IdentityDiff == nil {
+		r.IdentityDiff = []string{}
+	}
+	idj, _ := json.Marshal(r.Identity)
+	_, err = s.DB.Exec(ctx, `INSERT INTO replays (id, mind_id, snapshot_id, from_seq, to_seq, status, created_by, identity, compatibility, identity_diff) VALUES ($1,$2,$3,$4,$5,'running',$6,$7,$8,$9)`, r.ID, src.ID, snapshotID, r.FromSeq, r.ToSeq, by, idj, r.Compatibility, r.IdentityDiff)
 	return r, err
 }
 
@@ -128,7 +158,11 @@ func (s *Service) Execute(ctx context.Context, r Replay) (Replay, error) {
 		}
 		sj, _ := json.Marshal(steps)
 		sum, _ := json.Marshal(r.Summary)
-		_, err := s.DB.Exec(ctx, `UPDATE replays SET status=$2, error=$3, steps=$4, summary=$5, replay_mind_id=$6, finished_at=now() WHERE id=$1`, r.ID, status, errText, sj, sum, r.ReplayMindID)
+		div := []byte("{}")
+		if r.Divergence != nil {
+			div, _ = json.Marshal(r.Divergence)
+		}
+		_, err := s.DB.Exec(ctx, `UPDATE replays SET status=$2, error=$3, steps=$4, summary=$5, replay_mind_id=$6, divergence=$7, finished_at=now() WHERE id=$1`, r.ID, status, errText, sj, sum, r.ReplayMindID, div)
 		r.Status, r.Error, r.Steps = status, errText, sj
 		if err != nil {
 			return r, err
@@ -141,6 +175,11 @@ func (s *Service) Execute(ctx context.Context, r Replay) (Replay, error) {
 	sn, err := s.Snapshots.Get(ctx, snapshotID)
 	if err != nil || sn.MindID != src.ID {
 		return finish("failed", "snapshot not found for this mind", nil)
+	}
+	if r.Compatibility == identity.CompatIncompatible {
+		// A different schema means the sandbox could not be a faithful
+		// reconstruction; say so instead of producing a misleading comparison.
+		return finish("incompatible", "schema differs from the one the snapshot was taken under: "+strings.Join(r.IdentityDiff, "; "), nil)
 	}
 	stimuli, err := s.Events.Query(ctx, evstore.Filter{MindID: src.ID, Categories: StimulusCategories, AfterSeq: from, BeforeSeq: to + 1, Ascending: true, Limit: MaxStimuli + 1})
 	if err != nil {
@@ -211,6 +250,9 @@ func (s *Service) Execute(ctx context.Context, r Replay) (Replay, error) {
 			r.Summary.Diverged++
 		}
 		steps = append(steps, st)
+		if st.Label != "exact" && r.Divergence == nil {
+			r.Divergence = analyseDivergence(st, sn.Identity, r.Identity)
+		}
 	}
 	r.Summary.Steps = len(steps)
 	return finish("done", "", steps)
@@ -247,15 +289,25 @@ func (s *Service) llmCounts(ctx context.Context, mind ids.ID, since time.Time) (
 	return
 }
 
-const replayCols = `id, mind_id, snapshot_id, replay_mind_id, from_seq, to_seq, status, summary, steps, error, created_by, created_at, finished_at`
+const replayCols = `id, mind_id, snapshot_id, replay_mind_id, from_seq, to_seq, status, summary, steps, error, created_by, created_at, finished_at, identity, compatibility, identity_diff, divergence`
 
 func scan(row pgx.Row) (Replay, error) {
 	var r Replay
-	var sum []byte
-	if err := row.Scan(&r.ID, &r.MindID, &r.SnapshotID, &r.ReplayMindID, &r.FromSeq, &r.ToSeq, &r.Status, &sum, &r.Steps, &r.Error, &r.CreatedBy, &r.CreatedAt, &r.FinishedAt); err != nil {
+	var sum, idj, div []byte
+	if err := row.Scan(&r.ID, &r.MindID, &r.SnapshotID, &r.ReplayMindID, &r.FromSeq, &r.ToSeq, &r.Status, &sum, &r.Steps, &r.Error, &r.CreatedBy, &r.CreatedAt, &r.FinishedAt, &idj, &r.Compatibility, &r.IdentityDiff, &div); err != nil {
 		return r, storage.Translate(err)
 	}
-	json.Unmarshal(sum, &r.Summary) //nolint:errcheck
+	json.Unmarshal(sum, &r.Summary)  //nolint:errcheck
+	json.Unmarshal(idj, &r.Identity) //nolint:errcheck
+	if len(div) > 2 {
+		var d Divergence
+		if json.Unmarshal(div, &d) == nil {
+			r.Divergence = &d
+		}
+	}
+	if r.IdentityDiff == nil {
+		r.IdentityDiff = []string{}
+	}
 	return r, nil
 }
 
@@ -290,4 +342,91 @@ func StepsOf(r Replay) []Step {
 	var out []Step
 	json.Unmarshal(r.Steps, &out) //nolint:errcheck
 	return out
+}
+
+// componentOf maps an event type onto the deterministic subsystem that
+// produces it, so a divergence can point at a component.
+func componentOf(digest string) string {
+	t, _, _ := strings.Cut(digest, ":")
+	switch t {
+	case "memory_retrieved":
+		return "retrieval"
+	case "thought_selected", "thought_candidate", "attention_shift":
+		return "attention"
+	case "memory_created", "memory_reinforced":
+		return "encoding"
+	case "belief_created", "belief_updated", "belief_challenged", "belief_retracted", "contradiction_detected":
+		return "beliefs"
+	case "hypothesis_created", "hypothesis_supported", "hypothesis_weakened":
+		return "association"
+	case "prediction_created", "prediction_resolved", "prediction_error":
+		return "predictions"
+	case "goal_created", "goal_updated", "goal_completed", "goal_abandoned":
+		return "goals"
+	case "response_generated":
+		return "response"
+	case "narrative_updated":
+		return "narrative"
+	case "drive_changed", "emotion_changed":
+		return "motivation"
+	case "metacognition":
+		return "metacognition"
+	case "tool_requested", "tool_denied", "policy_decision":
+		return "capabilities"
+	}
+	return t
+}
+
+// analyseDivergence records the first non-exact step: what only the
+// recording had, what only the replay had, and the components involved.
+func analyseDivergence(st Step, recorded, current identity.Identity) *Divergence {
+	d := &Divergence{Step: st.Index, StimulusID: st.StimulusID, Label: st.Label, RecordedIn: shortBuild(recorded), ReplayedIn: shortBuild(current)}
+	have := map[string]bool{}
+	for _, x := range st.Replayed {
+		have[x] = true
+	}
+	comps := map[string]bool{}
+	for _, x := range st.Original {
+		if !have[x] {
+			d.OnlyRecorded = append(d.OnlyRecorded, x)
+			comps[componentOf(x)] = true
+		}
+	}
+	seen := map[string]bool{}
+	for _, x := range st.Original {
+		seen[x] = true
+	}
+	for _, x := range st.Replayed {
+		if !seen[x] {
+			d.OnlyReplayed = append(d.OnlyReplayed, x)
+			comps[componentOf(x)] = true
+		}
+	}
+	for c := range comps {
+		d.Components = append(d.Components, c)
+	}
+	sort.Strings(d.Components)
+	if st.LLMLive > 0 {
+		d.Components = append(d.Components, "model (live call; provider nondeterminism)")
+	}
+	if d.OnlyRecorded == nil {
+		d.OnlyRecorded = []string{}
+	}
+	if d.OnlyReplayed == nil {
+		d.OnlyReplayed = []string{}
+	}
+	return d
+}
+
+func shortBuild(id identity.Identity) string {
+	if len(id.Build.Commit) >= 8 {
+		if id.Build.Modified {
+			return id.Build.Commit[:8] + "+dirty"
+		}
+		return id.Build.Commit[:8]
+	}
+	if id.Build.Version != "" {
+		return id.Build.Version
+	}
+	return "unrecorded"
 }

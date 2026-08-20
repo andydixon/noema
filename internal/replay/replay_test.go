@@ -2,12 +2,14 @@ package replay
 
 import (
 	"context"
+	"encoding/json"
 	"log/slog"
 	"sort"
 	"strings"
 	"testing"
 
 	"github.com/andydixon/noema/internal/beliefs"
+	"github.com/andydixon/noema/internal/identity"
 
 	evstore "github.com/andydixon/noema/internal/events"
 	"github.com/andydixon/noema/internal/minds"
@@ -40,7 +42,7 @@ func TestReplayIsExactWithoutModel(t *testing.T) {
 		t.Fatalf("live run produced nothing: %v cycles=%d", err, cycles)
 	}
 	last, _ := h.Events.Query(ctx, evstore.Filter{MindID: src.ID, Limit: 1})
-	svc := &Service{DB: h.Pool, Events: h.Events, Minds: h.Minds, Snapshots: h.Snaps, Brain: h.Brain, Log: slog.New(slog.DiscardHandler)}
+	svc := &Service{DB: h.Pool, Events: h.Events, Minds: h.Minds, Snapshots: h.Snaps, Brain: h.Brain, Identity: h.Identity, Log: slog.New(slog.DiscardHandler)}
 	r, err := svc.Run(ctx, src, sn.ID, sn.EventSeq, last[0].Seq, "test")
 	if err != nil {
 		t.Fatalf("replay: %v %+v", err, r)
@@ -48,6 +50,25 @@ func TestReplayIsExactWithoutModel(t *testing.T) {
 	if r.Status != "done" || r.Summary.Steps != 1 || r.Summary.Exact != 1 || r.Summary.LLMLive != 0 {
 		t.Fatalf("expected one exact step: %+v steps=%s", r.Summary, string(r.Steps))
 	}
+	// Reproducibility record: the runtime is recorded and compared with the
+	// snapshot's; same process, same schema means an exact candidate with no
+	// first divergence.
+	if r.Identity.SchemaVersion == 0 || r.Identity.Build.GoVersion == "" || len(r.Identity.Deterministic) == 0 {
+		t.Fatalf("identity not recorded: %+v", r.Identity)
+	}
+	if r.Compatibility != identity.CompatExactCandidate || r.Divergence != nil {
+		t.Fatalf("compatibility %q diff %v divergence %+v", r.Compatibility, r.IdentityDiff, r.Divergence)
+	}
+	// A snapshot taken under another schema cannot be replayed faithfully.
+	old, _ := h.Snaps.Get(ctx, sn.ID)
+	old.Identity.SchemaVersion = 1
+	oj, _ := json.Marshal(old.Identity)
+	h.Pool.Exec(ctx, `UPDATE snapshots SET identity=$2 WHERE id=$1`, sn.ID, oj) //nolint:errcheck
+	inc, err := svc.Run(ctx, src, sn.ID, sn.EventSeq, last[0].Seq, "test")
+	if inc.Status != "incompatible" || inc.Compatibility != identity.CompatIncompatible || inc.Summary.Steps != 0 {
+		t.Fatalf("incompatible replay should stop before running: %+v %v", inc, err)
+	}
+	h.Pool.Exec(ctx, `UPDATE snapshots SET identity=$2 WHERE id=$1`, sn.ID, mustJSON(r.Identity)) //nolint:errcheck
 	steps := StepsOf(r)
 	if len(steps) != 1 || !Same(steps[0].Original, steps[0].Replayed) || len(steps[0].Replayed) == 0 {
 		t.Fatalf("step mismatch: %+v", steps)
@@ -95,4 +116,9 @@ func provenanceDigest(t *testing.T, h *replaytest.Harness, mind ids.ID) string {
 	}
 	sort.Strings(lines)
 	return strings.Join(lines, "\n")
+}
+
+func mustJSON(v any) []byte {
+	b, _ := json.Marshal(v)
+	return b
 }

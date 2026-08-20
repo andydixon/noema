@@ -42,6 +42,11 @@ type CognitiveConfig struct {
 	DreamLLMCalls      int      `json:"dream_llm_calls"`
 	DreamMaxMemories   int      `json:"dream_max_memories"`
 	DreamMaxHypotheses int      `json:"dream_max_hypotheses"`
+
+	// LLMRoles overrides the daemon-wide model routing for this mind:
+	// role → model id. It is what lets two forks of one snapshot run on
+	// different providers while sharing everything else.
+	LLMRoles map[string]string `json:"llm_roles,omitempty"`
 }
 
 // AttentionFeatures is the fixed set of scoring features (spec §6). Weights are
