@@ -33,6 +33,7 @@ import (
 	"github.com/andydixon/noema/internal/graph"
 	"github.com/andydixon/noema/internal/identity"
 	"github.com/andydixon/noema/internal/integrations"
+	"github.com/andydixon/noema/internal/llm"
 	"github.com/andydixon/noema/internal/llm/prompts"
 	"github.com/andydixon/noema/internal/llm/router"
 	"github.com/andydixon/noema/internal/memory"
@@ -120,6 +121,18 @@ func run() error {
 	}
 	deps.LLMStore = router.NewStore(db)
 	deps.LLM = router.NewRouter(deps.LLMStore, sec, log, metrics, cfg.MaxConcurrentLLM)
+	mindRoles := func(ctx context.Context, id ids.ID) map[llm.Role]ids.ID {
+		m, err := deps.Minds.Get(ctx, id)
+		if err != nil || len(m.Config.LLMRoles) == 0 {
+			return nil
+		}
+		out := map[llm.Role]ids.ID{}
+		for role, model := range m.Config.LLMRoles {
+			out[llm.Role(role)] = ids.ID(model)
+		}
+		return out
+	}
+	deps.LLM.MindRoles = mindRoles
 	deps.LLM.DailyTokenBudget = cfg.DailyTokenBudget
 	deps.LLM.MindBudget = func(id ids.ID) int64 {
 		m, err := deps.Minds.Get(ctx, id)
@@ -172,6 +185,7 @@ func run() error {
 	// router that serves recorded model responses when it can.
 	replayLLM := router.NewRouter(deps.LLMStore, sec, log, metrics, cfg.MaxConcurrentLLM)
 	replayLLM.Replay = true
+	replayLLM.MindRoles = mindRoles
 	replayLLM.DailyTokenBudget, replayLLM.MindBudget = deps.LLM.DailyTokenBudget, deps.LLM.MindBudget
 	sandboxCfg := brainCfg
 	sandboxCfg.Pool = scheduler.NewPool(2)

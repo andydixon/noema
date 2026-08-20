@@ -134,6 +134,15 @@ func (c *CognitiveConfig) Normalise() {
 	if c.DreamMaxHypotheses < 1 || c.DreamMaxHypotheses > 20 {
 		c.DreamMaxHypotheses = d.DreamMaxHypotheses
 	}
+	if len(c.LLMRoles) > 0 {
+		clean := map[string]string{}
+		for role, model := range c.LLMRoles {
+			if validRole(role) && looksLikeID(model) {
+				clean[role] = model
+			}
+		}
+		c.LLMRoles = clean
+	}
 	if c.ReflectionInterval < Duration(10*time.Minute) {
 		c.ReflectionInterval = d.ReflectionInterval
 	}
@@ -188,3 +197,31 @@ func (d *Duration) UnmarshalJSON(b []byte) error {
 
 // D returns the time.Duration.
 func (d Duration) D() time.Duration { return time.Duration(d) }
+
+// validRole accepts the model roles a mind may override.
+func validRole(r string) bool {
+	switch r {
+	case "perceive", "respond", "hypothesise", "summarise", "judge", "narrate", "embed":
+		return true
+	}
+	return false
+}
+
+// looksLikeID accepts a UUID-shaped model id; anything else is dropped.
+func looksLikeID(s string) bool {
+	if len(s) != 36 {
+		return false
+	}
+	for i, ch := range s {
+		switch {
+		case i == 8 || i == 13 || i == 18 || i == 23:
+			if ch != '-' {
+				return false
+			}
+		case (ch >= '0' && ch <= '9') || (ch >= 'a' && ch <= 'f'):
+		default:
+			return false
+		}
+	}
+	return true
+}

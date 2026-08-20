@@ -72,6 +72,12 @@ The replaying router serves recorded responses by request hash
 (`llm_calls.request_hash`) and records the replayed call with `replayed=true`.
 Replays run under a forbidden capability context; no action can execute.
 
+## Cognitive forks per model
+
+An experiment may declare **variants**: named sets of overrides, each of which becomes its own fork of the same snapshot and receives the same stimuli. A variant can override configuration, personality and, through `llm_roles` (role → model id), the model used for each role **for that fork only**; the router honours a mind's own routing and fails closed if the named model is missing or disabled, so a comparison between providers can never silently fall back to the default. Every fork starts from identical cognitive state, which is exactly what makes the model a replaceable service rather than the identity.
+
+The results carry one entry per variant (subject, routing in force, produced-event digests per stimulus, beliefs, memory and goal counts, expectations, model calls, tokens, cost, capability requests, cycles) and a deterministic **comparison**: the first stimulus at which any two variants produced different event digests, belief-set overlap and mean score difference on shared propositions, attention overlap (selected-thought digests), and the ranges of memory counts, goal counts, cost and capability requests. Every subject mind stays for the two-mind comparison page. With live models the differences include provider nondeterminism, which is measured rather than hidden.
+
 ## Experiments (spec §57)
 
 An experiment is a snapshot, optional configuration and personality

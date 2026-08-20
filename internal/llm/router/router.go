@@ -37,11 +37,16 @@ type Router struct {
 	cache    routing
 	cachedAt time.Time
 
-	DailyTokenBudget int64                          // global hard stop (0 = unlimited)
-	MindBudget       func(mind ids.ID) int64        // per-mind daily budget lookup (nil = unlimited)
-	Replay           bool                           // serve recorded responses when a matching call exists
-	Override         map[llm.Role]llm.LanguageModel // tests inject models per role
-	now              func() time.Time
+	DailyTokenBudget int64                   // global hard stop (0 = unlimited)
+	MindBudget       func(mind ids.ID) int64 // per-mind daily budget lookup (nil = unlimited)
+	Replay           bool                    // serve recorded responses when a matching call exists
+	// MindRoles returns a mind's own role → model overrides (from its cognitive
+	// configuration). An override names exactly one model and no fallback:
+	// an experiment comparing providers must fail closed rather than
+	// silently fall back to the daemon default.
+	MindRoles func(ctx context.Context, mind ids.ID) map[llm.Role]ids.ID
+	Override  map[llm.Role]llm.LanguageModel // tests inject models per role
+	now       func() time.Time
 }
 
 type routing struct {
@@ -216,7 +221,7 @@ func (r *Router) Complete(ctx context.Context, req llm.Request) (llm.Response, e
 	if err != nil {
 		return llm.Response{}, err
 	}
-	cands, err := r.Candidates(ctx, req.Role)
+	cands, err := r.candidatesFor(ctx, c, req.Role, req.MindID)
 	if err != nil {
 		return llm.Response{}, err
 	}
@@ -386,4 +391,24 @@ func (r *Router) TestProvider(ctx context.Context, providerID ids.ID, modelName 
 	r.store.RecordProviderTest(ctx, providerID, true, fmt.Sprintf("%s answered in %dms", resp.Model, resp.Latency.Milliseconds())) //nolint:errcheck
 	r.Invalidate()
 	return resp, nil
+}
+
+// candidatesFor resolves the models to try for a role, honouring a mind's
+// own override when it has one.
+func (r *Router) candidatesFor(ctx context.Context, c routing, role llm.Role, mind ids.ID) ([]Model, error) {
+	if r.MindRoles != nil && !mind.IsZero() {
+		if overrides := r.MindRoles(ctx, mind); overrides != nil {
+			if id, ok := overrides[role]; ok {
+				m, found := c.models[id]
+				if !found || !m.Enabled {
+					return nil, fmt.Errorf("%w: mind override for %s names model %s, which is missing or disabled", llm.ErrNoModel, role, id)
+				}
+				if p, ok := c.providers[m.ProviderID]; !ok || !p.Enabled {
+					return nil, fmt.Errorf("%w: mind override for %s names a disabled provider", llm.ErrNoModel, role)
+				}
+				return []Model{m}, nil
+			}
+		}
+	}
+	return r.Candidates(ctx, role)
 }

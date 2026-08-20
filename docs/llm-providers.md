@@ -2,6 +2,10 @@
 
 Language models are **cognitive service providers**. Cognitive code never names a vendor; it asks the router for a *role* and receives a response with a call id it can cite as evidence (ADR-0004).
 
+## Per-mind routing
+
+A mind's cognitive configuration may carry `llm_roles`, a map from role to model id, which overrides the daemon-wide routing for that mind alone. It exists so that forks of one snapshot can run on different providers in a controlled experiment. An override names exactly one model; if that model is missing or disabled the call fails with "no model" rather than falling back, and the runtime identity records the override next to the daemon routing.
+
 ## Roles
 
 | Role | Used for | Suggested tier |
