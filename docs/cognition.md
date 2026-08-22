@@ -1,5 +1,9 @@
 # Background cognition: metacognition, reflection, consolidation, narrative, notifications
 
+## Causal timeline
+
+Every event records the links it was written with: `causation_id` (the event that directly led to it), `parent_ids` (the events it was assembled from) and evidence references (the events, memories, beliefs and model calls it rests on). The causal timeline (`/events/{id}/timeline`, `GET /api/v1/events/{id}/chain`) walks those links backwards towards causes and forwards towards consequences, up to six hops and two hundred events, and draws each edge with its kind: `caused`, `parent` or `cited`. Events are grouped by the cognitive cycle they belong to, and that grouping is labelled as correlation, not causation. Nothing on the page is inferred; where the system does not know why something happened, no arrow is drawn. Questions the walk answers directly: why a belief exists (walk back to the observations and assertions it cites), what changed it (the `belief_updated` events downstream of an outcome), which memories were retrieved and which thoughts won attention in the cycle, which model call contributed (an artefact on the node), and which later decisions depended on it (walk forward).
+
 These subsystems run beside the cognitive cycle. Each is deterministic in what it concludes; a language model may only word things, and only within a configured budget.
 
 ## Metacognition (per cycle)

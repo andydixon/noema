@@ -167,3 +167,71 @@ func TestCursorsToleratePlaceholderGaps(t *testing.T) {
 		t.Fatalf("stats: %+v", st)
 	}
 }
+
+// TestChainFollowsOnlyRecordedLinks: the causal chain walks causation,
+// parent and cited-event links in both directions, reports cycle membership
+// without turning it into an edge, and stays within its bounds.
+func TestChainFollowsOnlyRecordedLinks(t *testing.T) {
+	pool := storage.TestPool(t, migrations.FS)
+	ctx := context.Background()
+	m, _ := minds.NewStore(pool).Create(ctx, minds.CreateParams{Slug: "chain"})
+	s := NewStore(pool, NewBus(8), nil)
+	cycle := ids.New()
+	obs, _ := s.Append(ctx, events.New{MindID: m.ID, Type: events.Observation, Source: "test", Summary: "disk alert", CorrelationID: cycle})
+	perc, _ := s.Append(ctx, events.New{MindID: m.ID, Type: events.Perception, Source: "brain.perceive", Summary: "perceived alert", CausationID: obs[0].ID, ParentIDs: []ids.ID{obs[0].ID}, CorrelationID: cycle})
+	recall, _ := s.Append(ctx, events.New{MindID: m.ID, Type: events.MemoryRetrieved, Source: "brain.retrieve", Summary: "recalled last outage", CorrelationID: cycle}) // same cycle, no recorded link
+	belief, _ := s.Append(ctx, events.New{MindID: m.ID, Type: events.BeliefCreated, Source: "beliefs", Summary: "belief: disk is failing", CausationID: perc[0].ID, CorrelationID: cycle,
+		Evidence: []events.EvidenceRef{{Kind: "event", ID: string(obs[0].ID)}, {Kind: "memory", ID: "mem-1"}}})
+	goal, _ := s.Append(ctx, events.New{MindID: m.ID, Type: events.GoalCreated, Source: "brain.curiosity", Summary: "investigate the disk", CausationID: belief[0].ID})
+
+	back, err := s.Chain(ctx, belief[0].ID, "back", 6)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ids3 := map[ids.ID]bool{}
+	for _, n := range back.Nodes {
+		ids3[n.Event.ID] = true
+	}
+	if !ids3[obs[0].ID] || !ids3[perc[0].ID] || ids3[recall[0].ID] || ids3[goal[0].ID] {
+		t.Fatalf("back chain nodes wrong: %+v", back.Nodes)
+	}
+	kinds := map[string]int{}
+	for _, e := range back.Edges {
+		kinds[e.Kind]++
+	}
+	if kinds[EdgeCaused] != 2 || kinds[EdgeCited] != 1 || kinds[EdgeParent] != 0 {
+		// obs→perc is both causation and parent; causation wins for the same pair.
+		t.Fatalf("edge kinds: %+v", back.Edges)
+	}
+	for _, n := range back.Nodes {
+		if n.CycleID != cycle && n.Event.ID != goal[0].ID {
+			t.Fatalf("cycle membership not reported: %+v", n)
+		}
+		if n.Event.ID == belief[0].ID && (len(n.Artefacts) != 1 || n.Artefacts[0].Kind != "memory") {
+			t.Fatalf("artefacts: %+v", n.Artefacts)
+		}
+	}
+	forward, _ := s.Chain(ctx, obs[0].ID, "forward", 6)
+	fw := map[ids.ID]bool{}
+	for _, n := range forward.Nodes {
+		fw[n.Event.ID] = true
+	}
+	if !fw[perc[0].ID] || !fw[belief[0].ID] || !fw[goal[0].ID] || fw[recall[0].ID] {
+		t.Fatalf("forward chain wrong: %+v", forward.Nodes)
+	}
+	// Depth bounds the walk: one hop back from the goal reaches the belief only.
+	one, _ := s.Chain(ctx, goal[0].ID, "back", 1)
+	if len(one.Nodes) != 2 {
+		t.Fatalf("depth 1 should give origin plus one: %d", len(one.Nodes))
+	}
+	// A self-referencing evidence link cannot loop the walk.
+	loop, _ := s.Append(ctx, events.New{MindID: m.ID, Type: events.Metacognition, Source: "brain", Summary: "loop", CausationID: goal[0].ID})
+	// Append-only rows cannot be edited to point forward, so emulate a cycle through evidence back to an ancestor and re-walk.
+	if _, err := s.Append(ctx, events.New{MindID: m.ID, Type: events.Metacognition, Source: "brain", Summary: "loop2", CausationID: loop[0].ID, Evidence: []events.EvidenceRef{{Kind: "event", ID: string(obs[0].ID)}}}); err != nil {
+		t.Fatal(err)
+	}
+	both, err := s.Chain(ctx, obs[0].ID, "both", 6)
+	if err != nil || len(both.Nodes) > MaxChainNodes || both.Truncated {
+		t.Fatalf("cyclic references must terminate: %v %d", err, len(both.Nodes))
+	}
+}

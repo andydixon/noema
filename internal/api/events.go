@@ -25,6 +25,7 @@ func (s *Server) eventRoutes() {
 	m.Handle("GET /api/v1/events/stream", require(auth.RoleObserver, s.eventsStream))
 	m.Handle("GET /api/v1/events/{id}", require(auth.RoleObserver, s.eventGet))
 	m.Handle("GET /api/v1/events/{id}/context", require(auth.RoleObserver, s.eventContext))
+	m.Handle("GET /api/v1/events/{id}/chain", require(auth.RoleObserver, s.eventChain))
 	m.Handle("GET /api/v1/events/types", require(auth.RoleObserver, func(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusOK, map[string]any{"types": events.AllTypes()})
 	}))
@@ -332,4 +333,21 @@ func (s *Server) eventsStream(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 	}
+}
+
+// eventChain returns the bounded causal chain around an event: only the
+// links events actually record, in the requested direction and depth.
+func (s *Server) eventChain(w http.ResponseWriter, r *http.Request) {
+	id, err := ids.Parse(r.PathValue("id"))
+	if err != nil {
+		fail(w, r, ValidationError("bad id"))
+		return
+	}
+	depth, _ := strconv.Atoi(r.URL.Query().Get("depth"))
+	c, err := s.deps.Events.Chain(r.Context(), id, r.URL.Query().Get("direction"), depth)
+	if err != nil {
+		fail(w, r, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, c)
 }

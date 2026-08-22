@@ -8,6 +8,7 @@ import (
 
 	"github.com/andydixon/noema/internal/api"
 	"github.com/andydixon/noema/internal/auth"
+	evstore "github.com/andydixon/noema/internal/events"
 	"github.com/andydixon/noema/pkg/events"
 	"github.com/andydixon/noema/pkg/ids"
 )
@@ -16,6 +17,7 @@ func (u *UI) eventRoutes(m *http.ServeMux) {
 	m.Handle("GET /minds/{mind}/thoughts", u.require(auth.RoleObserver, u.thoughts))
 	m.Handle("POST /minds/{mind}/observe", u.require(auth.RoleOperator, u.observe))
 	m.Handle("GET /events/{id}", u.require(auth.RoleObserver, u.event))
+	m.Handle("GET /events/{id}/timeline", u.require(auth.RoleObserver, u.timeline))
 }
 
 var sinceWindows = map[string]string{"15m": "15 minutes", "1h": "1 hour", "24h": "24 hours", "168h": "7 days"}
@@ -117,4 +119,51 @@ func pretty(raw json.RawMessage) string {
 func prettyAny(v any) string {
 	b, _ := json.MarshalIndent(v, "", "  ")
 	return string(b)
+}
+
+// timeline renders the causal chain around an event grouped by cognitive
+// cycle. Edges are the recorded links; cycle grouping is shown as such.
+func (u *UI) timeline(w http.ResponseWriter, r *http.Request) {
+	id, err := ids.Parse(r.PathValue("id"))
+	if err != nil {
+		u.errorPage(w, r, 404, "No such event.")
+		return
+	}
+	depth, _ := strconv.Atoi(r.URL.Query().Get("depth"))
+	if depth <= 0 {
+		depth = 4
+	}
+	direction := r.URL.Query().Get("direction")
+	c, err := u.deps.Events.Chain(r.Context(), id, direction, depth)
+	if err != nil {
+		u.errorPage(w, r, 404, "No such event.")
+		return
+	}
+	origin, _ := u.deps.Events.Get(r.Context(), id)
+	m, _ := u.deps.Minds.Get(r.Context(), origin.MindID)
+	// Group nodes by cycle in sequence order; edges into a lookup for rendering.
+	type group struct {
+		Cycle ids.ID
+		Nodes []evstore.ChainNode
+	}
+	var groups []*group
+	byCycle := map[ids.ID]*group{}
+	for _, n := range c.Nodes {
+		g := byCycle[n.CycleID]
+		if g == nil {
+			g = &group{Cycle: n.CycleID}
+			byCycle[n.CycleID] = g
+			groups = append(groups, g)
+		}
+		g.Nodes = append(g.Nodes, n)
+	}
+	inbound := map[ids.ID][]evstore.ChainEdge{}
+	names := map[ids.ID]string{}
+	for _, n := range c.Nodes {
+		names[n.Event.ID] = n.Event.Summary
+	}
+	for _, e := range c.Edges {
+		inbound[e.To] = append(inbound[e.To], e)
+	}
+	u.render(w, r, "timeline", "Timeline · "+truncateStr(origin.Summary, 60), map[string]any{"Mind": m, "Origin": origin, "Chain": c, "Groups": groups, "Inbound": inbound, "Names": names, "Depth": depth, "Direction": c.Direction})
 }

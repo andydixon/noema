@@ -229,6 +229,14 @@ func TestFirstMilestone(t *testing.T) {
 	if len(detail.Assertions) != 1 || detail.Assertions[0].AttributedTo != "admin" || detail.Assertions[0].SourceEvent != ids.ID(detail.Evidence[0].RootIDs[0]) {
 		t.Fatalf("assertion: %+v", detail.Assertions)
 	}
+	// The causal chain walks recorded links only: the message leads to the belief.
+	var chain struct {
+		Nodes []struct{ Depth int }
+		Edges []struct{ Kind string }
+	}
+	if code := h.do("GET", "/api/v1/events/"+detail.Evidence[0].RootIDs[0]+"/chain?direction=forward&depth=4", nil, &chain); code != 200 || len(chain.Nodes) < 2 || len(chain.Edges) == 0 {
+		t.Fatalf("chain: %d %+v", code, chain)
+	}
 	var evCtx api.EventContext
 	h.do("GET", "/api/v1/events/"+detail.Evidence[0].RootIDs[0]+"/context", nil, &evCtx)
 	if evCtx.Event.Type != events.Observation || len(evCtx.Children) == 0 {

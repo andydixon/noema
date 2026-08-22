@@ -1,0 +1,19 @@
+{{define "content"}}
+{{$o := .Data.Origin}}{{$c := .Data.Chain}}
+<div class="pagehead">
+  <p class="muted small"><a href="/minds/{{.Data.Mind.Slug}}">{{.Data.Mind.DisplayName}}</a> › <a href="/events/{{$o.ID}}">event #{{$o.Seq}}</a> › timeline</p>
+  <h1>Causal timeline</h1>
+  <p class="muted">Around <span class="etype cat-{{$o.Category}}">{{$o.Type}}</span> {{$o.Summary}}. Arrows are the links events recorded when they were written: <span class="badge small">caused</span> (causation), <span class="badge small">parent</span> (parent ids) and <span class="badge small">cited</span> (evidence references). Grouping by cycle is correlation, shown for orientation and <strong>not</strong> a causal claim. Nothing here is inferred.</p>
+  <form method="get" class="row"><label>Direction <select name="direction"><option value="both" {{if eq .Data.Direction "both"}}selected{{end}}>both</option><option value="back" {{if eq .Data.Direction "back"}}selected{{end}}>back (causes)</option><option value="forward" {{if eq .Data.Direction "forward"}}selected{{end}}>forward (consequences)</option></select></label> <label>Depth <input type="number" name="depth" value="{{.Data.Depth}}" min="1" max="6" size="2"></label> <button class="btn small">Redraw</button>{{if $c.Truncated}} <span class="badge warn">truncated at {{len $c.Nodes}} events</span>{{end}}</form>
+</div>
+<div class="card">
+  {{range .Data.Groups}}<div class="tl-cycle"><div class="muted small mono">cycle {{if .Cycle}}{{trunc (printf "%s" .Cycle) 8}}{{else}}—{{end}} <span class="muted">(same-cycle grouping; correlation, not causation)</span></div>
+    {{range .Nodes}}<div class="tl-node {{if eq .Event.ID $o.ID}}current{{end}}">
+      <div class="tl-when muted small">#{{.Event.Seq}} · {{.Event.OccurredAt.Local.Format "15:04:05.000"}} · {{if lt .Depth 0}}{{.Depth}} (upstream){{else if gt .Depth 0}}+{{.Depth}} (downstream){{else}}origin{{end}}</div>
+      <div><span class="etype cat-{{.Event.Category}}">{{.Event.Type}}</span> <a href="/events/{{.Event.ID}}">{{.Event.Summary}}</a> <span class="muted small">· {{.Event.Source}}</span></div>
+      {{with index $.Data.Inbound .Event.ID}}<div class="small muted">{{range .}}← <span class="badge small">{{.Kind}}</span> <a href="/events/{{.From}}">{{trunc (index $.Data.Names .From) 70}}</a> {{end}}</div>{{end}}
+      {{if .Artefacts}}<div class="small muted">rests on: {{range .Artefacts}}{{if eq .Kind "belief"}}<a href="/minds/{{$.Data.Mind.Slug}}/beliefs/{{.ID}}">belief</a>{{else if eq .Kind "memory"}}<a href="/minds/{{$.Data.Mind.Slug}}/memory/{{.ID}}">memory</a>{{else if eq .Kind "llm_call"}}<a href="/llm/calls/{{.ID}}">model call</a>{{else}}{{.Kind}}{{end}}{{with .Note}} ({{.}}){{end}} · {{end}}</div>{{end}}
+    </div>{{end}}
+  </div>{{end}}
+</div>
+{{end}}

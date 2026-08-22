@@ -537,6 +537,64 @@
     ]
    }
   },
+  "/api/v1/events/{id}/chain": {
+   "get": {
+    "operationId": "eventChain",
+    "summary": "bounded causal chain around an event (recorded links only)",
+    "x-required-role": "observer",
+    "tags": [
+     "events"
+    ],
+    "parameters": [
+     {
+      "name": "id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string"
+      }
+     },
+     {
+      "name": "direction",
+      "in": "query",
+      "schema": {
+       "type": "string",
+       "enum": [
+        "back",
+        "forward",
+        "both"
+       ]
+      }
+     },
+     {
+      "name": "depth",
+      "in": "query",
+      "schema": {
+       "type": "integer",
+       "maximum": 6
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "type": "object"
+        }
+       }
+      }
+     },
+     "401": {
+      "$ref": "#/components/responses/Error"
+     },
+     "404": {
+      "$ref": "#/components/responses/Error"
+     }
+    }
+   }
+  },
   "/api/v1/events/{id}/context": {
    "get": {
     "operationId": "eventContext",

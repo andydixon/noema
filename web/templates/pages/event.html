@@ -8,7 +8,7 @@
 <section class="grid cols-3-1">
   <div class="stack">
     <div class="card">
-      <h2>Causal chain</h2>
+      <h2>Causal chain <a class="small" href="/events/{{$e.ID}}/timeline">full timeline →</a></h2>
       <div class="chain">
         {{if $c.Cause}}<div class="chain-node"><span class="muted small">caused by</span><br><span class="etype cat-{{$c.Cause.Category}}">{{$c.Cause.Type}}</span> <a href="/events/{{$c.Cause.ID}}">{{$c.Cause.Summary}}</a></div><div class="chain-arrow">↓</div>{{end}}
         <div class="chain-node current"><span class="etype cat-{{$e.Category}}">{{$e.Type}}</span> {{$e.Summary}}</div>
