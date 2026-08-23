@@ -1,0 +1,25 @@
+{{define "content"}}
+{{$m := .Data.Mind}}
+<div class="pagehead mindhead"><div><h1>{{$m.DisplayName}} <span class="muted small">redactions</span></h1><p class="muted">The audited path for making sensitive content irrecoverable. A redaction keeps the row, its identifiers, its links, its type and its time, replaces the content with <code>[redacted]</code>, scrubs stored snapshot archives, and records a hash of what was removed. It cannot be undone. Backups and exports taken before it are outside this system's reach.</p></div></div>
+{{template "mind_tabs" (dict "M" $m "Active" "redactions")}}
+<section class="grid cols-3-1">
+  <div class="card">
+    {{if .Data.Redactions}}<table class="table compact"><thead><tr><th>When</th><th>Kind</th><th>Target</th><th>Reason</th><th>Policy</th><th>By</th><th>Cascade</th><th>Hash</th></tr></thead><tbody>
+      {{range .Data.Redactions}}<tr><td class="small muted nowrap">{{ago .CreatedAt}}</td><td><span class="badge">{{.Kind}}</span></td><td class="mono small">{{if eq .Kind "event"}}<a href="/events/{{.TargetID}}">{{trunc (printf "%s" .TargetID) 13}}</a>{{else if eq .Kind "memory"}}<a href="/minds/{{$m.Slug}}/memory/{{.TargetID}}">{{trunc (printf "%s" .TargetID) 13}}</a>{{else if eq .Kind "belief"}}<a href="/minds/{{$m.Slug}}/beliefs/{{.TargetID}}">{{trunc (printf "%s" .TargetID) 13}}</a>{{else}}{{trunc (printf "%s" .TargetID) 13}}{{end}}</td><td>{{.Reason}}</td><td class="small">{{.Policy}}</td><td class="small">{{.RequestedBy}}</td><td class="small muted">{{if .CascadeOf}}from {{trunc (printf "%s" .CascadeOf) 8}}{{else}}primary{{end}}</td><td class="mono small" title="{{.ContentHash}}">{{trunc .ContentHash 19}}…</td></tr>{{end}}</tbody></table>
+    {{else}}<p class="muted">Nothing has been redacted for this mind.</p>{{end}}
+  </div>
+  {{if .Principal.User.Role.AtLeast "administrator"}}
+  <div class="card"><h2>Redact</h2>
+    <form method="post" action="/minds/{{$m.Slug}}/redactions" class="stack"><input type="hidden" name="_csrf" value="{{.CSRF}}">
+      <label>Kind <select name="kind">{{range $k := list "event" "memory" "message" "llm_call" "belief" "assertion"}}<option value="{{$k}}" {{if eq $k $.Data.Kind}}selected{{end}}>{{$k}}</option>{{end}}</select></label>
+      <label>Id <input name="id" required value="{{.Data.ID}}" class="mono"></label>
+      <label>Reason <input name="reason" required maxlength="300" placeholder="data subject request, retention policy…"></label>
+      <label>Policy <input name="policy" maxlength="120" placeholder="e.g. GDPR art. 17"></label>
+      <label class="check"><input type="checkbox" name="cascade" value="true" checked> Also redact rows derived from it (episodes, messages, model calls, assertions, beliefs)</label>
+      <div><button class="btn btn-danger" data-confirm="This cannot be undone. The content will be irrecoverable everywhere this system controls. Continue?">Redact</button></div>
+    </form>
+    <p class="small muted">Redaction is recorded in the audit log and as a <code>redaction</code> event in the mind's history; neither contains the removed content.</p>
+  </div>
+  {{end}}
+</section>
+{{end}}

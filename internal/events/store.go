@@ -193,7 +193,7 @@ type Filter struct {
 	Ascending     bool
 }
 
-const cols = `id, seq, mind_id, type, category, source, occurred_at, recorded_at, parent_ids, causation_id, correlation_id, salience, confidence, valence, arousal, evidence, summary, metadata, payload`
+const cols = `id, seq, mind_id, type, category, source, occurred_at, recorded_at, parent_ids, causation_id, correlation_id, salience, confidence, valence, arousal, evidence, summary, metadata, payload, redacted_at`
 
 // Query returns events matching f ordered by seq (descending unless Ascending).
 func (s *Store) Query(ctx context.Context, f Filter) ([]events.Event, error) {
@@ -358,7 +358,7 @@ func scan(row pgx.Row) (events.Event, error) {
 	var causation, correlation *string
 	var evidence, metadata []byte
 	err := row.Scan(&ev.ID, &ev.Seq, &ev.MindID, &typ, &cat, &ev.Source, &ev.OccurredAt, &ev.RecordedAt, &parents, &causation, &correlation,
-		&ev.Salience, &ev.Confidence, &ev.Valence, &ev.Arousal, &evidence, &ev.Summary, &metadata, &ev.Payload)
+		&ev.Salience, &ev.Confidence, &ev.Valence, &ev.Arousal, &evidence, &ev.Summary, &metadata, &ev.Payload, &ev.RedactedAt)
 	if err != nil {
 		return ev, err
 	}

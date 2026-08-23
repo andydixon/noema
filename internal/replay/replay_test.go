@@ -87,6 +87,18 @@ func TestReplayIsExactWithoutModel(t *testing.T) {
 	if after[0].Seq != last[0].Seq {
 		t.Fatal("replay wrote into the source mind")
 	}
+	// A redacted stimulus is not replayed and is labelled as such.
+	if _, err := h.Pool.Exec(ctx, `INSERT INTO redactions (id, mind_id, target_kind, target_id, reason, content_hash, requested_by) VALUES ($1,$2,'event',$3,'test','sha256:0','test')`, ids.New(), src.ID, steps[0].StimulusID); err != nil {
+		t.Fatal(err)
+	}
+	var n int
+	if err := h.Pool.QueryRow(ctx, `SELECT noema_redact('event', $1, $2)`, steps[0].StimulusID, ids.New()).Scan(&n); err != nil || n != 1 {
+		t.Fatalf("redact: %v %d", err, n)
+	}
+	red, err := svc.Run(ctx, src, sn.ID, sn.EventSeq, last[0].Seq, "test")
+	if err != nil || red.Summary.Redacted != 1 || red.Summary.Exact != 0 || StepsOf(red)[0].Label != "redacted" {
+		t.Fatalf("redacted stimulus should be skipped and labelled: %v %+v", err, red.Summary)
+	}
 	// Digest normalisation ignores ids and numbers.
 	if Normalise("selected 3 thoughts for 01a0a148-9034-7685-9794-cf5ec0c25fb7") != "selected <n> thoughts for <id>" {
 		t.Fatal(Normalise("selected 3 thoughts for 01a0a148-9034-7685-9794-cf5ec0c25fb7"))

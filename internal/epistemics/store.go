@@ -2,6 +2,7 @@ package epistemics
 
 import (
 	"context"
+	"strings"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -13,30 +14,31 @@ import (
 
 // Assertion is the append-only record that an actor took a stance.
 type Assertion struct {
-	ID             ids.ID    `json:"id"`
-	MindID         ids.ID    `json:"mind_id"`
-	Actor          string    `json:"actor"`
-	ActorKind      string    `json:"actor_kind"`
-	AttributedTo   string    `json:"attributed_to"`
-	Proposition    string    `json:"proposition"`
-	Subject        string    `json:"subject"`
-	Stance         string    `json:"stance"`
-	Certainty      string    `json:"certainty"`
-	Modality       string    `json:"modality"`
-	Negated        bool      `json:"negated"`
-	Reported       bool      `json:"reported"`
-	ReportedActor  string    `json:"reported_actor,omitempty"`
-	Quoted         bool      `json:"quoted"`
-	Hypothetical   bool      `json:"hypothetical"`
-	Interpretation float64   `json:"interpretation_confidence"`
-	Notes          []string  `json:"notes"`
-	SourceEvent    ids.ID    `json:"source_event,omitempty"`
-	ConversationID ids.ID    `json:"conversation_id,omitempty"`
-	MessageID      ids.ID    `json:"message_id,omitempty"`
-	Context        string    `json:"context,omitempty"`
-	Trust          string    `json:"trust"`
-	BeliefID       ids.ID    `json:"belief_id,omitempty"`
-	CreatedAt      time.Time `json:"created_at"`
+	ID             ids.ID     `json:"id"`
+	MindID         ids.ID     `json:"mind_id"`
+	Actor          string     `json:"actor"`
+	ActorKind      string     `json:"actor_kind"`
+	AttributedTo   string     `json:"attributed_to"`
+	Proposition    string     `json:"proposition"`
+	Subject        string     `json:"subject"`
+	Stance         string     `json:"stance"`
+	Certainty      string     `json:"certainty"`
+	Modality       string     `json:"modality"`
+	Negated        bool       `json:"negated"`
+	Reported       bool       `json:"reported"`
+	ReportedActor  string     `json:"reported_actor,omitempty"`
+	Quoted         bool       `json:"quoted"`
+	Hypothetical   bool       `json:"hypothetical"`
+	Interpretation float64    `json:"interpretation_confidence"`
+	Notes          []string   `json:"notes"`
+	SourceEvent    ids.ID     `json:"source_event,omitempty"`
+	ConversationID ids.ID     `json:"conversation_id,omitempty"`
+	MessageID      ids.ID     `json:"message_id,omitempty"`
+	Context        string     `json:"context,omitempty"`
+	Trust          string     `json:"trust"`
+	BeliefID       ids.ID     `json:"belief_id,omitempty"`
+	CreatedAt      time.Time  `json:"created_at"`
+	RedactedAt     *time.Time `json:"redacted_at,omitempty"`
 }
 
 // New is the input to Record.
@@ -60,7 +62,7 @@ type Store struct{ db *pgxpool.Pool }
 // NewStore creates a store.
 func NewStore(db *pgxpool.Pool) *Store { return &Store{db: db} }
 
-const cols = `id, mind_id, actor, actor_kind, attributed_to, proposition, subject, stance, certainty, modality, negated, reported, reported_actor, quoted, hypothetical, interpretation_confidence, interpretation_notes, source_event, conversation_id, message_id, context, trust, belief_id, created_at`
+const cols = `id, mind_id, actor, actor_kind, attributed_to, proposition, subject, stance, certainty, modality, negated, reported, reported_actor, quoted, hypothetical, interpretation_confidence, interpretation_notes, source_event, conversation_id, message_id, context, trust, belief_id, created_at, redacted_at`
 
 // Record writes an assertion inside q.
 func (s *Store) Record(ctx context.Context, q storage.Querier, n New) (Assertion, error) {
@@ -76,7 +78,7 @@ func (s *Store) Record(ctx context.Context, q storage.Querier, n New) (Assertion
 		// Sarah asserts X" and "Andy doubts X" are both retrievable.
 		a.Notes = append(a.Notes, "speaker stance: "+in.SpeakerStance)
 	}
-	_, err := q.Exec(ctx, `INSERT INTO assertions (`+cols+`) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24)`,
+	_, err := q.Exec(ctx, `INSERT INTO assertions (`+strings.TrimSuffix(cols, ", redacted_at")+`) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24)`,
 		a.ID, a.MindID, a.Actor, a.ActorKind, a.AttributedTo, a.Proposition, a.Subject, a.Stance, a.Certainty, a.Modality, a.Negated, a.Reported, a.ReportedActor, a.Quoted, a.Hypothetical,
 		a.Interpretation, a.Notes, nullID(a.SourceEvent), nullID(a.ConversationID), nullID(a.MessageID), a.Context, a.Trust, nullID(a.BeliefID), a.CreatedAt)
 	return a, err
@@ -142,7 +144,7 @@ func scan(row pgx.Row) (Assertion, error) {
 	var a Assertion
 	var src, conv, msg, bel *string
 	if err := row.Scan(&a.ID, &a.MindID, &a.Actor, &a.ActorKind, &a.AttributedTo, &a.Proposition, &a.Subject, &a.Stance, &a.Certainty, &a.Modality, &a.Negated, &a.Reported, &a.ReportedActor, &a.Quoted, &a.Hypothetical,
-		&a.Interpretation, &a.Notes, &src, &conv, &msg, &a.Context, &a.Trust, &bel, &a.CreatedAt); err != nil {
+		&a.Interpretation, &a.Notes, &src, &conv, &msg, &a.Context, &a.Trust, &bel, &a.CreatedAt, &a.RedactedAt); err != nil {
 		return a, storage.Translate(err)
 	}
 	a.SourceEvent, a.ConversationID, a.MessageID, a.BeliefID = idOf(src), idOf(conv), idOf(msg), idOf(bel)

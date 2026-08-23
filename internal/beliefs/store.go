@@ -43,6 +43,7 @@ type Belief struct {
 	ObservedAt    *time.Time `json:"observed_at,omitempty"`
 	ValidFrom     *time.Time `json:"valid_from,omitempty"`
 	ValidUntil    *time.Time `json:"valid_until,omitempty"`
+	RedactedAt    *time.Time `json:"redacted_at,omitempty"`
 }
 
 // EvidenceRow is stored evidence.
@@ -301,14 +302,14 @@ func nullID(id ids.ID) *string {
 	return &s
 }
 
-const cols = `b.id, b.mind_id, b.proposition, b.subject, b.epistemic, b.status, b.confidence, b.prior, b.version, b.source, b.detail, b.origin_event, b.superseded_by, b.pinned_status, b.first_created, b.last_evaluated, b.evaluations, b.temporal_scope, b.observed_at, b.valid_from, b.valid_until`
+const cols = `b.id, b.mind_id, b.proposition, b.subject, b.epistemic, b.status, b.confidence, b.prior, b.version, b.source, b.detail, b.origin_event, b.superseded_by, b.pinned_status, b.first_created, b.last_evaluated, b.evaluations, b.temporal_scope, b.observed_at, b.valid_from, b.valid_until, b.redacted_at`
 
 func scan(row pgx.Row) (Belief, error) {
 	var b Belief
 	var epi, status string
 	var detail []byte
 	var origin, superseded, pinned *string
-	if err := row.Scan(&b.ID, &b.MindID, &b.Proposition, &b.Subject, &epi, &status, &b.Confidence, &b.Prior, &b.Version, &b.Source, &detail, &origin, &superseded, &pinned, &b.FirstCreated, &b.LastEvaluated, &b.Evaluations, &b.TemporalScope, &b.ObservedAt, &b.ValidFrom, &b.ValidUntil); err != nil {
+	if err := row.Scan(&b.ID, &b.MindID, &b.Proposition, &b.Subject, &epi, &status, &b.Confidence, &b.Prior, &b.Version, &b.Source, &detail, &origin, &superseded, &pinned, &b.FirstCreated, &b.LastEvaluated, &b.Evaluations, &b.TemporalScope, &b.ObservedAt, &b.ValidFrom, &b.ValidUntil, &b.RedactedAt); err != nil {
 		return b, storage.Translate(err)
 	}
 	b.Epistemic, b.Status = concepts.Epistemic(epi), Status(status)
@@ -793,7 +794,7 @@ func (s *Store) Links(ctx context.Context, mind, id ids.ID) ([]Link, error) {
 		var detail []byte
 		var origin, superseded, pinned *string
 		if err := rows.Scan(&l.ID, &l.FromID, &l.ToID, &l.Relation, &l.Confidence, &l.CreatedAt,
-			&other.ID, &other.MindID, &other.Proposition, &other.Subject, &epi, &status, &other.Confidence, &other.Prior, &other.Version, &other.Source, &detail, &origin, &superseded, &pinned, &other.FirstCreated, &other.LastEvaluated, &other.Evaluations, &other.TemporalScope, &other.ObservedAt, &other.ValidFrom, &other.ValidUntil); err != nil {
+			&other.ID, &other.MindID, &other.Proposition, &other.Subject, &epi, &status, &other.Confidence, &other.Prior, &other.Version, &other.Source, &detail, &origin, &superseded, &pinned, &other.FirstCreated, &other.LastEvaluated, &other.Evaluations, &other.TemporalScope, &other.ObservedAt, &other.ValidFrom, &other.ValidUntil, &other.RedactedAt); err != nil {
 			return nil, err
 		}
 		other.Epistemic, other.Status = concepts.Epistemic(epi), Status(status)
@@ -919,7 +920,7 @@ func (s *Store) RecentChanges(ctx context.Context, mind ids.ID, since time.Time,
 		var detail []byte
 		var origin, superseded, pinned *string
 		b := &c.Belief
-		if err := rows.Scan(&b.ID, &b.MindID, &b.Proposition, &b.Subject, &epi, &status, &b.Confidence, &b.Prior, &b.Version, &b.Source, &detail, &origin, &superseded, &pinned, &b.FirstCreated, &b.LastEvaluated, &b.Evaluations, &b.TemporalScope, &b.ObservedAt, &b.ValidFrom, &b.ValidUntil, &fromStatus, &c.FromConf, &c.Reason, &c.At); err != nil {
+		if err := rows.Scan(&b.ID, &b.MindID, &b.Proposition, &b.Subject, &epi, &status, &b.Confidence, &b.Prior, &b.Version, &b.Source, &detail, &origin, &superseded, &pinned, &b.FirstCreated, &b.LastEvaluated, &b.Evaluations, &b.TemporalScope, &b.ObservedAt, &b.ValidFrom, &b.ValidUntil, &b.RedactedAt, &fromStatus, &c.FromConf, &c.Reason, &c.At); err != nil {
 			return nil, err
 		}
 		b.Epistemic, b.Status, c.FromStatus = concepts.Epistemic(epi), Status(status), Status(fromStatus)

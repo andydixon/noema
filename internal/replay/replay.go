@@ -69,6 +69,7 @@ type Summary struct {
 	LLMLive     int `json:"llm_live"`
 	LLMReplayed int `json:"llm_replayed"`
 	Cycles      int `json:"cycles"`
+	Redacted    int `json:"redacted"` // stimuli whose content was redacted and could not be replayed
 }
 
 // Step is the outcome of replaying one stimulus.
@@ -218,6 +219,13 @@ func (s *Service) Execute(ctx context.Context, r Replay) (Replay, error) {
 		}
 		orig, _ := s.Events.Query(ctx, evstore.Filter{MindID: src.ID, AfterSeq: stim.Seq, BeforeSeq: upper, Ascending: true, Limit: 2000})
 		st.Original = Digest(withoutPerception(orig))
+		if stim.RedactedAt != nil {
+			// The content is gone; replaying a marker would fabricate cognition.
+			st.Label, st.Note = "redacted", "stimulus content was redacted under a privacy policy and was not replayed"
+			r.Summary.Redacted++
+			steps = append(steps, st)
+			continue
+		}
 		startedAt := time.Now()
 		inj, err := drv.Inject(ctx, stim, map[string]any{"replay_of": stim.ID, "replay_id": r.ID})
 		if err != nil {

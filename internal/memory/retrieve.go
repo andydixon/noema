@@ -88,7 +88,7 @@ func (s *Store) Retrieve(ctx context.Context, mind ids.ID, q Query) ([]Retrieval
 			var detail []byte
 			var origin, supersedes *string
 			if err := rows.Scan(&m.ID, &m.MindID, &kind, &epi, &status, &m.Content, &detail, &m.Source, &trust, &m.Credibility, &m.Confidence, &m.Importance, &m.Salience, &m.Activation,
-				&m.Valence, &m.Arousal, &m.OccurredAt, &m.CreatedAt, &m.UpdatedAt, &m.RetrievalCount, &m.LastRetrievedAt, &origin, &supersedes, &rank); err != nil {
+				&m.Valence, &m.Arousal, &m.OccurredAt, &m.CreatedAt, &m.UpdatedAt, &m.RetrievalCount, &m.LastRetrievedAt, &origin, &supersedes, &m.RedactedAt, &rank); err != nil {
 				rows.Close()
 				return nil, err
 			}
@@ -127,7 +127,7 @@ func (s *Store) Retrieve(ctx context.Context, mind ids.ID, q Query) ([]Retrieval
 					var detail []byte
 					var origin, supersedes *string
 					if err := rows.Scan(&m.ID, &m.MindID, &kind, &epi, &status, &m.Content, &detail, &m.Source, &trust, &m.Credibility, &m.Confidence, &m.Importance, &m.Salience, &m.Activation,
-						&m.Valence, &m.Arousal, &m.OccurredAt, &m.CreatedAt, &m.UpdatedAt, &m.RetrievalCount, &m.LastRetrievedAt, &origin, &supersedes, &sim); err != nil {
+						&m.Valence, &m.Arousal, &m.OccurredAt, &m.CreatedAt, &m.UpdatedAt, &m.RetrievalCount, &m.LastRetrievedAt, &origin, &supersedes, &m.RedactedAt, &sim); err != nil {
 						break
 					}
 					m.Kind, m.Epistemic, m.Status, m.Trust = concepts.MemoryKind(kind), concepts.Epistemic(epi), Status(status), events.Trust(trust)

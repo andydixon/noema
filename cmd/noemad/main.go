@@ -43,6 +43,7 @@ import (
 	"github.com/andydixon/noema/internal/notifications"
 	"github.com/andydixon/noema/internal/observability"
 	"github.com/andydixon/noema/internal/predictions"
+	"github.com/andydixon/noema/internal/privacy"
 	"github.com/andydixon/noema/internal/reflection"
 	"github.com/andydixon/noema/internal/replay"
 	"github.com/andydixon/noema/internal/scheduler"
@@ -192,6 +193,7 @@ func run() error {
 	sandboxCfg.Services.LLM = replayLLM
 	ident := &identity.Capturer{DB: db, Config: &cfg, Minds: deps.Minds, LLM: deps.LLMStore, Prompts: deps.Prompts, Capabilities: deps.Capabilities}
 	deps.Snapshots = &snapshots.Store{DB: db, Events: deps.Events, Minds: deps.Minds, Identity: ident}
+	deps.Privacy = &privacy.Service{DB: db, Events: deps.Events, Audit: auditLog, Snapshots: deps.Snapshots, Log: log}
 	deps.Replay = &replay.Service{DB: db, Events: deps.Events, Minds: deps.Minds, Snapshots: deps.Snapshots, Brain: sandboxCfg, Identity: ident, Log: log}
 	deps.Experiments = &experiments.Service{DB: db, Minds: deps.Minds, Snapshots: deps.Snapshots, Brain: sandboxCfg, Identity: ident, Log: log, Routing: func(ctx context.Context) []map[string]any {
 		roles, _ := deps.LLMStore.ListRoles(ctx)

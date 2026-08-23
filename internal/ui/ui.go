@@ -133,6 +133,7 @@ func (u *UI) parse(fsys fs.FS) error {
 		"duration":  func(s int64) string { return (time.Duration(s) * time.Second).Truncate(time.Second).String() },
 		"bytes":     humanBytes,
 		"pct":       func(f float64) string { return fmt.Sprintf("%.0f%%", f*100) },
+		"list":      func(xs ...string) []string { return xs },
 		"conf": func(v any) string {
 			switch x := v.(type) {
 			case float64:
@@ -388,6 +389,7 @@ func (u *UI) Register(m *http.ServeMux) {
 	u.integrationRoutes(m)
 	u.dreamRoutes(m)
 	u.studyRoutes(m)
+	u.privacyRoutes(m)
 
 	for _, p := range []struct{ path, title, note string }{} {
 		m.Handle("GET "+p.path, u.require(auth.RoleObserver, func(w http.ResponseWriter, r *http.Request) { u.render(w, r, "placeholder", p.title, p.note) }))

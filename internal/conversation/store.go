@@ -45,6 +45,7 @@ type Message struct {
 	Intent         json.RawMessage `json:"intent,omitempty"`
 	LLMCallID      ids.ID          `json:"llm_call_id,omitempty"`
 	CreatedAt      time.Time       `json:"created_at"`
+	RedactedAt     *time.Time      `json:"redacted_at,omitempty"`
 }
 
 // ErrInvalid marks bad input.
@@ -156,7 +157,7 @@ func (s *Store) Messages(ctx context.Context, mind, conv ids.ID, limit int) ([]M
 	if limit <= 0 || limit > 1000 {
 		limit = 200
 	}
-	rows, err := s.db.Query(ctx, `SELECT id, conversation_id, mind_id, role, actor, content, event_id, reply_to, intent, llm_call_id, created_at FROM messages
+	rows, err := s.db.Query(ctx, `SELECT id, conversation_id, mind_id, role, actor, content, event_id, reply_to, intent, llm_call_id, created_at, redacted_at FROM messages
 		WHERE conversation_id=$1 AND mind_id=$2 ORDER BY created_at DESC LIMIT $3`, conv, mind, limit)
 	if err != nil {
 		return nil, err
@@ -180,7 +181,7 @@ func scanMessage(row pgx.Row) (Message, error) {
 	var m Message
 	var ev, reply, call *string
 	var intent *json.RawMessage
-	if err := row.Scan(&m.ID, &m.ConversationID, &m.MindID, &m.Role, &m.Actor, &m.Content, &ev, &reply, &intent, &call, &m.CreatedAt); err != nil {
+	if err := row.Scan(&m.ID, &m.ConversationID, &m.MindID, &m.Role, &m.Actor, &m.Content, &ev, &reply, &intent, &call, &m.CreatedAt, &m.RedactedAt); err != nil {
 		return m, storage.Translate(err)
 	}
 	if ev != nil {
@@ -200,7 +201,7 @@ func scanMessage(row pgx.Row) (Message, error) {
 
 // Reply returns the mind's reply to a user message, if any.
 func (s *Store) Reply(ctx context.Context, mind, userMessage ids.ID) (Message, error) {
-	return scanMessage(s.db.QueryRow(ctx, `SELECT id, conversation_id, mind_id, role, actor, content, event_id, reply_to, intent, llm_call_id, created_at FROM messages WHERE reply_to=$1 AND mind_id=$2 ORDER BY created_at LIMIT 1`, userMessage, mind))
+	return scanMessage(s.db.QueryRow(ctx, `SELECT id, conversation_id, mind_id, role, actor, content, event_id, reply_to, intent, llm_call_id, created_at, redacted_at FROM messages WHERE reply_to=$1 AND mind_id=$2 ORDER BY created_at LIMIT 1`, userMessage, mind))
 }
 
 // Recent returns the last n messages of a conversation for context.
@@ -211,5 +212,5 @@ func (s *Store) Recent(ctx context.Context, mind, conv ids.ID, n int) ([]Message
 
 // GetMessage fetches one message.
 func (s *Store) GetMessage(ctx context.Context, mind, id ids.ID) (Message, error) {
-	return scanMessage(s.db.QueryRow(ctx, `SELECT id, conversation_id, mind_id, role, actor, content, event_id, reply_to, intent, llm_call_id, created_at FROM messages WHERE id=$1 AND mind_id=$2`, id, mind))
+	return scanMessage(s.db.QueryRow(ctx, `SELECT id, conversation_id, mind_id, role, actor, content, event_id, reply_to, intent, llm_call_id, created_at, redacted_at FROM messages WHERE id=$1 AND mind_id=$2`, id, mind))
 }

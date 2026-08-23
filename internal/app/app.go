@@ -34,6 +34,7 @@ import (
 	"github.com/andydixon/noema/internal/notifications"
 	"github.com/andydixon/noema/internal/observability"
 	"github.com/andydixon/noema/internal/predictions"
+	"github.com/andydixon/noema/internal/privacy"
 	"github.com/andydixon/noema/internal/reflection"
 	"github.com/andydixon/noema/internal/replay"
 	"github.com/andydixon/noema/internal/security/secrets"
@@ -54,6 +55,7 @@ type Deps struct {
 	Memory        *memory.Store
 	Beliefs       *beliefs.Store
 	Assertions    *epistemics.Store
+	Privacy       *privacy.Service
 	Conversations *conversation.Store
 	Goals         *goals.Store
 	Motivation    *motivation.Store

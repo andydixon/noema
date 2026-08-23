@@ -42,6 +42,7 @@ import (
 	"github.com/andydixon/noema/internal/notifications"
 	"github.com/andydixon/noema/internal/observability"
 	"github.com/andydixon/noema/internal/predictions"
+	"github.com/andydixon/noema/internal/privacy"
 	"github.com/andydixon/noema/internal/reflection"
 	"github.com/andydixon/noema/internal/scheduler"
 	"github.com/andydixon/noema/internal/security/secrets"
@@ -130,6 +131,7 @@ func TestFirstMilestone(t *testing.T) {
 	deps.Dreaming = &dreaming.Service{DB: pool, Memory: deps.Memory, Beliefs: deps.Beliefs, Events: deps.Events, Log: log}
 	deps.Snapshots = &snapshots.Store{DB: pool, Events: deps.Events, Minds: deps.Minds}
 	deps.Assertions = epistemics.NewStore(pool)
+	deps.Privacy = &privacy.Service{DB: pool, Events: deps.Events, Audit: deps.Audit, Snapshots: deps.Snapshots, Log: log}
 	deps.Narrative = narrative.NewStore(pool)
 	deps.Notifications = notifications.NewStore(pool)
 	deps.Consolidation = &consolidation.Service{DB: pool, Memory: deps.Memory, Beliefs: deps.Beliefs, Events: deps.Events, Minds: deps.Minds, Log: log}

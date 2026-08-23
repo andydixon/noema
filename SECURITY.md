@@ -35,6 +35,10 @@ Integrations are disabled until configured, run at a declared trust level, are r
 
 Prompt injection, poisoned documents, hostile model output and manipulated memories can all change what a mind *thinks*. None of them can change what it may *do*. The boundary is `capabilities.Service.Invoke`: it looks the capability up in a registry built in code, validates parameters, evaluates the operator's policy rules, records the decision, and only then executes, asks or denies. Cognition can produce a request; it cannot produce a permission. There is no capability that edits policy, grants approvals or touches a mind's lifecycle, so there is nothing a deceived mind could ask for that would widen its own authority. Prompt delimiters and "this is data" markers are defence in depth for the quality of cognition; they are not the security boundary. `tests/security.TestDeceivedMindHasNoAuthority` forges action requests and hostile model output and checks that nothing executes and policy is unchanged.
 
+## Privacy and redaction
+
+Cognitive history is append-only, and rows are never deleted. Sensitive content is removed through one audited path: an administrator redacts an event, memory, message, model call, belief or assertion; the content columns become `[redacted]`, a ledger row keeps a hash of what was removed, a `redaction` event is appended, derived rows can be cascaded, and stored snapshot archives are scrubbed. Identifiers, links, timestamps and scores survive so provenance and replay keep their shape. Backups and exports made before a redaction are outside the system's reach. Definitions, the threat model and the reasons cryptographic erasure was not adopted yet are in `docs/privacy.md` (ADR-0009).
+
 ## Capability policy defaults
 
 Read-only capabilities default to `ASK`; anything that writes, sends, restarts, deletes or spends money defaults to `ASK` or `DENY`. `sudo_shell` and `delete_database` are `DENY` and cannot be set to `ALLOW` through the UI. Dreaming may never invoke a capability. There are no self-preservation, replication, concealment or permission-seeking drives, and shutdown is an operator control the mind cannot influence.

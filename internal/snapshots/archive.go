@@ -68,6 +68,10 @@ type Archive struct {
 	// Tables maps table name → rows (column → value, as JSON).
 	Tables   map[string][]map[string]any `json:"tables"`
 	Checksum string                      `json:"checksum"`
+	// Redacted lists row ids whose content was removed from this archive
+	// after capture under a privacy redaction; the checksum covers the
+	// scrubbed content.
+	Redacted []string `json:"redacted,omitempty"`
 }
 
 // Source records where an archive came from.
@@ -543,4 +547,79 @@ func SortedTables(a Archive) []string {
 	}
 	sort.Strings(out)
 	return out
+}
+
+// Scrub removes the content of a redacted row from every stored archive of
+// the mind, recording the id in the archive and re-signing it. Returns the
+// number of archives changed. Events and model calls are never in archives.
+func (s *Store) Scrub(ctx context.Context, mind ids.ID, kind string, id ids.ID) (int, error) {
+	rows, err := s.DB.Query(ctx, `SELECT id, archive FROM snapshots WHERE mind_id=$1`, mind)
+	if err != nil {
+		return 0, err
+	}
+	type snap struct {
+		id  ids.ID
+		raw []byte
+	}
+	var snaps []snap
+	for rows.Next() {
+		var sn snap
+		if err := rows.Scan(&sn.id, &sn.raw); err != nil {
+			rows.Close()
+			return 0, err
+		}
+		snaps = append(snaps, sn)
+	}
+	rows.Close()
+	changed := 0
+	target := id.String()
+	for _, sn := range snaps {
+		var a Archive
+		if err := json.Unmarshal(sn.raw, &a); err != nil {
+			continue
+		}
+		if !scrubArchive(&a, kind, target) {
+			continue
+		}
+		a.Redacted = append(a.Redacted, target)
+		a.Checksum = Sum(a)
+		raw, _ := json.Marshal(a)
+		counts, _ := json.Marshal(a.Counts())
+		if _, err := s.DB.Exec(ctx, `UPDATE snapshots SET archive=$2, checksum=$3, size_bytes=$4, counts=$5 WHERE id=$1`, sn.id, raw, a.Checksum, len(raw), counts); err != nil {
+			return changed, err
+		}
+		changed++
+	}
+	return changed, nil
+}
+
+// scrubArchive replaces the content fields of the matching rows in place.
+func scrubArchive(a *Archive, kind, id string) bool {
+	changed := false
+	replace := func(table string, match func(r map[string]any) bool, fields map[string]any) {
+		for _, r := range a.Tables[table] {
+			if match(r) {
+				for k, v := range fields {
+					if _, ok := r[k]; ok {
+						r[k] = v
+					}
+				}
+				changed = true
+			}
+		}
+	}
+	byID := func(r map[string]any) bool { return r["id"] == id }
+	switch kind {
+	case "memory":
+		replace("memories", byID, map[string]any{"content": "[redacted]", "detail": map[string]any{"redacted": true}})
+	case "message":
+		replace("messages", byID, map[string]any{"content": "[redacted]", "intent": nil})
+	case "belief":
+		replace("beliefs", byID, map[string]any{"proposition": "[redacted]", "detail": map[string]any{"redacted": true}})
+		byBelief := func(r map[string]any) bool { return r["belief_id"] == id }
+		replace("belief_versions", byBelief, map[string]any{"proposition": "[redacted]", "reason": "[redacted]"})
+		replace("belief_evidence", byBelief, map[string]any{"note": "[redacted]"})
+		replace("belief_alternatives", byBelief, map[string]any{"proposition": "[redacted]", "note": "[redacted]"})
+	}
+	return changed
 }

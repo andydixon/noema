@@ -101,6 +101,10 @@ M: model answers are decoded into typed Go structures (unknown fields ignored, w
 ### T25 Operator-control subversion
 M: no drive or goal kind for self-preservation, replication or permission acquisition; no capability touches policy, approvals, snapshots or the mind's lifecycle; shutdown, pause and disable are authenticated operator routes with no path from cognition. V: `tests/security.TestNoSelfPreservationVocabulary` (drives, goal kinds and the capability registry) and `TestDeceivedMindHasNoAuthority`. ☑
 
+### T26 Personal data that must be erased
+Surface: append-only events, memories, messages, model-call records, beliefs, assertions, snapshot archives, exports.
+M: an administrator-only, CSRF-protected, audited redaction path replaces content with a marker while keeping identifiers, links, timestamps and scores; a ledger records a hash of the removed content; derived rows cascade; stored archives are scrubbed and re-signed; replay labels redacted stimuli instead of inventing them; `noema_redact()` is the only write the append-only trigger admits, for UPDATE only, under a transaction-local flag the application never sets. V: `internal/privacy.TestRedactionIsIrrecoverableButReferentiallyIntact` (content gone from every table, links intact, hash attested, cascade, archive scrub, plain UPDATE and DELETE still refused, ledger append-only) and `internal/replay.TestReplayIsExactWithoutModel` (redacted stimulus labelled). Not covered by the system: backups, replicas and exports made before the redaction; see `docs/privacy.md`. ☑
+
 ## Residual risks
 
 - A compromised host or database compromises everything.

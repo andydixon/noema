@@ -6345,6 +6345,123 @@
     }
    }
   },
+  "/api/v1/minds/{mind}/redactions": {
+   "get": {
+    "tags": [
+     "minds"
+    ],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "type": "object"
+        }
+       }
+      }
+     },
+     "401": {
+      "$ref": "#/components/responses/Error"
+     },
+     "403": {
+      "$ref": "#/components/responses/Error"
+     },
+     "404": {
+      "$ref": "#/components/responses/Error"
+     },
+     "201": {
+      "description": "Redacted; irreversible"
+     }
+    },
+    "parameters": [
+     {
+      "name": "mind",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string"
+      }
+     }
+    ],
+    "operationId": "redactionsList",
+    "summary": "list the redaction ledger",
+    "x-required-role": "operator"
+   },
+   "post": {
+    "tags": [
+     "minds"
+    ],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "type": "object"
+        }
+       }
+      }
+     },
+     "401": {
+      "$ref": "#/components/responses/Error"
+     },
+     "403": {
+      "$ref": "#/components/responses/Error"
+     },
+     "404": {
+      "$ref": "#/components/responses/Error"
+     },
+     "201": {
+      "description": "Redacted; irreversible"
+     }
+    },
+    "parameters": [
+     {
+      "name": "mind",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string"
+      }
+     }
+    ],
+    "operationId": "redactionCreate",
+    "summary": "redact a row's content irreversibly (event, memory, message, llm_call, belief, assertion), optionally cascading to derived rows",
+    "x-required-role": "administrator",
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "type": "object",
+        "properties": {
+         "kind": {
+          "type": "string"
+         },
+         "id": {
+          "type": "string"
+         },
+         "reason": {
+          "type": "string"
+         },
+         "policy": {
+          "type": "string"
+         },
+         "cascade": {
+          "type": "boolean"
+         }
+        },
+        "required": [
+         "kind",
+         "id",
+         "reason"
+        ]
+       }
+      }
+     }
+    }
+   }
+  },
   "/api/v1/minds/{mind}/reflections": {
    "get": {
     "operationId": "reflectionsList",

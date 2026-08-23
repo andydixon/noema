@@ -64,6 +64,7 @@ const (
 	ModeChanged            Type = "mode_changed"
 	ResponseGenerated      Type = "response_generated"
 	CycleCompleted         Type = "cycle_completed"
+	Redaction              Type = "redaction" // content of an earlier row was made irrecoverable under a policy
 )
 
 // Category groups types for filtering and colouring in the UI.
@@ -88,7 +89,7 @@ var categories = map[Type]Category{
 	Observation: CatPerception, Perception: CatPerception,
 	ThoughtCandidate: CatCognition, ThoughtSelected: CatCognition, WorkspaceBroadcast: CatCognition, AttentionShift: CatCognition,
 	Reflection: CatCognition, ContradictionDetected: CatCognition, Metacognition: CatCognition, DreamAssociation: CatCognition,
-	NarrativeUpdated: CatCognition, ResponseGenerated: CatCognition, CycleCompleted: CatSystem, ModeChanged: CatSystem,
+	NarrativeUpdated: CatCognition, ResponseGenerated: CatCognition, CycleCompleted: CatSystem, ModeChanged: CatSystem, Redaction: CatSystem,
 	MemoryCreated: CatMemory, MemoryRetrieved: CatMemory, MemoryReinforced: CatMemory, MemoryDecayed: CatMemory, MemoryConsolidated: CatMemory,
 	BeliefCreated: CatBelief, BeliefUpdated: CatBelief, BeliefChallenged: CatBelief, BeliefRetracted: CatBelief,
 	HypothesisCreated: CatBelief, HypothesisSupported: CatBelief, HypothesisWeakened: CatBelief,
@@ -160,6 +161,7 @@ type Event struct {
 	Summary       string          `json:"summary"`
 	Metadata      map[string]any  `json:"metadata"`
 	Payload       json.RawMessage `json:"payload"`
+	RedactedAt    *time.Time      `json:"redacted_at,omitempty"` // content replaced by a marker; see redactions
 }
 
 // New describes an event to append. Zero OccurredAt means now.

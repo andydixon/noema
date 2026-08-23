@@ -60,6 +60,7 @@ type Memory struct {
 	LastRetrievedAt *time.Time          `json:"last_retrieved_at,omitempty"`
 	OriginEvent     ids.ID              `json:"origin_event,omitempty"`
 	Supersedes      ids.ID              `json:"supersedes,omitempty"`
+	RedactedAt      *time.Time          `json:"redacted_at,omitempty"`
 }
 
 // New describes a memory to store.
@@ -237,7 +238,7 @@ func nullID(id ids.ID) *string {
 	return &s
 }
 
-const cols = `m.id, m.mind_id, m.kind, m.epistemic, m.status, m.content, m.detail, m.source, m.trust, m.credibility, m.confidence, m.importance, m.salience, m.activation, m.valence, m.arousal, m.occurred_at, m.created_at, m.updated_at, m.retrieval_count, m.last_retrieved_at, m.origin_event, m.supersedes`
+const cols = `m.id, m.mind_id, m.kind, m.epistemic, m.status, m.content, m.detail, m.source, m.trust, m.credibility, m.confidence, m.importance, m.salience, m.activation, m.valence, m.arousal, m.occurred_at, m.created_at, m.updated_at, m.retrieval_count, m.last_retrieved_at, m.origin_event, m.supersedes, m.redacted_at`
 
 func scan(row pgx.Row) (Memory, error) {
 	var m Memory
@@ -245,7 +246,7 @@ func scan(row pgx.Row) (Memory, error) {
 	var detail []byte
 	var origin, supersedes *string
 	err := row.Scan(&m.ID, &m.MindID, &kind, &epi, &status, &m.Content, &detail, &m.Source, &trust, &m.Credibility, &m.Confidence, &m.Importance, &m.Salience, &m.Activation,
-		&m.Valence, &m.Arousal, &m.OccurredAt, &m.CreatedAt, &m.UpdatedAt, &m.RetrievalCount, &m.LastRetrievedAt, &origin, &supersedes)
+		&m.Valence, &m.Arousal, &m.OccurredAt, &m.CreatedAt, &m.UpdatedAt, &m.RetrievalCount, &m.LastRetrievedAt, &origin, &supersedes, &m.RedactedAt)
 	if err != nil {
 		return m, storage.Translate(err)
 	}
@@ -435,7 +436,7 @@ func (s *Store) Relationships(ctx context.Context, mind, id ids.ID) ([]Related, 
 		m := &r.Other
 		if err := rows.Scan(&r.ID, &r.FromMemory, &r.ToMemory, &rel, &r.Confidence, &r.Source, &r.CreatedAt, &r.Direction,
 			&m.ID, &m.MindID, &kind, &epi, &status, &m.Content, &detail, &m.Source, &trust, &m.Credibility, &m.Confidence, &m.Importance, &m.Salience, &m.Activation,
-			&m.Valence, &m.Arousal, &m.OccurredAt, &m.CreatedAt, &m.UpdatedAt, &m.RetrievalCount, &m.LastRetrievedAt, &origin, &supersedes); err != nil {
+			&m.Valence, &m.Arousal, &m.OccurredAt, &m.CreatedAt, &m.UpdatedAt, &m.RetrievalCount, &m.LastRetrievedAt, &origin, &supersedes, &m.RedactedAt); err != nil {
 			return nil, err
 		}
 		r.Relation = concepts.Relation(rel)
