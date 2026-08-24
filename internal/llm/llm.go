@@ -116,10 +116,13 @@ const (
 	KindOpenAI    ProviderKind = "openai"
 	KindAnthropic ProviderKind = "anthropic"
 	KindOllama    ProviderKind = "ollama"
+	KindBedrock   ProviderKind = "bedrock" // Amazon Bedrock Converse API, SigV4-signed
 )
 
 // Valid reports whether k is supported.
-func (k ProviderKind) Valid() bool { return k == KindOpenAI || k == KindAnthropic || k == KindOllama }
+func (k ProviderKind) Valid() bool {
+	return k == KindOpenAI || k == KindAnthropic || k == KindOllama || k == KindBedrock
+}
 
 // DefaultEndpoint suggests a base URL per kind.
 func (k ProviderKind) DefaultEndpoint() string {
@@ -130,6 +133,8 @@ func (k ProviderKind) DefaultEndpoint() string {
 		return "https://api.anthropic.com"
 	case KindOllama:
 		return "http://127.0.0.1:11434"
+	case KindBedrock:
+		return "https://bedrock-runtime.eu-west-2.amazonaws.com"
 	}
 	return ""
 }

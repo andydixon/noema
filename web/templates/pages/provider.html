@@ -6,7 +6,7 @@
   <form method="post" action="/llm/providers/{{$p.ID}}" class="card stack">
     <input type="hidden" name="_csrf" value="{{.CSRF}}">
     <label>Name <input name="name" value="{{$p.Name}}" required maxlength="64" {{if not $admin}}disabled{{end}}></label>
-    <label>Kind <select name="kind" {{if not $admin}}disabled{{end}}><option value="openai" {{if eq $p.Kind "openai"}}selected{{end}}>OpenAI-compatible</option><option value="anthropic" {{if eq $p.Kind "anthropic"}}selected{{end}}>Anthropic</option><option value="ollama" {{if eq $p.Kind "ollama"}}selected{{end}}>Ollama</option></select></label>
+    <label>Kind <select name="kind" {{if not $admin}}disabled{{end}}><option value="openai" {{if eq $p.Kind "openai"}}selected{{end}}>OpenAI-compatible</option><option value="anthropic" {{if eq $p.Kind "anthropic"}}selected{{end}}>Anthropic</option><option value="ollama" {{if eq $p.Kind "ollama"}}selected{{end}}>Ollama</option><option value="bedrock" {{if eq $p.Kind "bedrock"}}selected{{end}}>AWS Bedrock</option></select></label>
     <label>Endpoint <input name="endpoint" value="{{$p.Endpoint}}" {{if not $admin}}disabled{{end}}></label>
     <label>API key <span class="muted small">currently: {{$p.KeyDescribed}}</span> <input type="password" name="api_key" autocomplete="off" placeholder="leave blank to keep" {{if not $admin}}disabled{{end}}></label>
     <label>Timeout (ms) <input type="number" name="timeout_ms" value="{{$p.Timeout.Milliseconds}}" min="1000" {{if not $admin}}disabled{{end}}></label>

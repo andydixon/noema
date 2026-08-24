@@ -157,6 +157,8 @@ func (r *Router) build(c routing, m Model) (llm.LanguageModel, error) {
 		return providers.NewAnthropic(cfg), nil
 	case llm.KindOllama:
 		return providers.NewOllama(cfg), nil
+	case llm.KindBedrock:
+		return providers.NewBedrock(cfg)
 	}
 	return nil, fmt.Errorf("provider %s: unsupported kind %s", p.Name, p.Kind)
 }
@@ -187,6 +189,11 @@ func (r *Router) Embedder(ctx context.Context) embeddings.Embedder {
 	switch p.Kind {
 	case llm.KindOllama:
 		return providers.NewOllamaEmbedder(cfg, m.Dims)
+	case llm.KindBedrock:
+		if e, err := providers.NewBedrockEmbedder(cfg, m.Dims); err == nil {
+			return e
+		}
+		return embeddings.None{}
 	case llm.KindOpenAI:
 		return providers.NewOpenAIEmbedder(cfg, m.Dims)
 	}

@@ -75,7 +75,7 @@
       <form method="post" action="/llm/providers" class="stack">
         <input type="hidden" name="_csrf" value="{{.CSRF}}">
         <label>Name <input name="name" required maxlength="64" placeholder="openai-main"></label>
-        <label>Kind <select name="kind"><option value="openai">OpenAI-compatible (OpenAI, llama.cpp, vLLM, LM Studio)</option><option value="anthropic">Anthropic</option><option value="ollama">Ollama (native)</option></select></label>
+        <label>Kind <select name="kind"><option value="openai">OpenAI-compatible (OpenAI, llama.cpp, vLLM, LM Studio)</option><option value="anthropic">Anthropic</option><option value="ollama">Ollama (native)</option><option value="bedrock">AWS Bedrock (Converse API; key as ACCESS_KEY_ID:SECRET_ACCESS_KEY[:SESSION_TOKEN])</option></select></label>
         <label>Endpoint <input name="endpoint" placeholder="leave blank for the kind's default"></label>
         <label>API key <input type="password" name="api_key" autocomplete="off" placeholder="paste a key, or env:OPENAI_API_KEY"></label>
         <p class="muted small">Pasted keys are encrypted with the master key and never shown again. References (env:, file:) are resolved at call time.</p>

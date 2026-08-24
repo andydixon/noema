@@ -95,7 +95,7 @@ A **belief** is a proposition with `status` (hypothesis → tentative → likely
 
 ## 8. Language models and prompts
 
-`internal/llm` defines `LanguageModel` and `Embedder` interfaces. Providers (OpenAI-compatible, Anthropic, Ollama/llama.cpp; Bedrock behind the same interface later) are configured in the database with secret *references*, not secrets. **Roles** (classify, extract, hypothesise, summarise, narrate, respond, embed…) map to a primary model and fallbacks. Every call is recorded (`llm_request`/`llm_response` events plus `llm_calls` with prompt version, parameters, seed, usage, latency, cost) for inspection and replay.
+`internal/llm` defines `LanguageModel` and `Embedder` interfaces. Providers (OpenAI-compatible, Anthropic, Ollama/llama.cpp, Amazon Bedrock via a standard-library SigV4 signer) are configured in the database with secret *references*, not secrets. **Roles** (classify, extract, hypothesise, summarise, narrate, respond, embed…) map to a primary model and fallbacks. Every call is recorded (`llm_request`/`llm_response` events plus `llm_calls` with prompt version, parameters, seed, usage, latency, cost) for inspection and replay.
 
 Prompts are named and versioned rows; templates receive structured data. Untrusted content is passed in clearly delimited data blocks with an explicit instruction that it is data, and model output is parsed into typed JSON and validated. Model output never becomes an action without passing through the capability layer, and never becomes a belief without an evidence link.
 

@@ -2,6 +2,10 @@
 
 Language models are **cognitive service providers**. Cognitive code never names a vendor; it asks the router for a *role* and receives a response with a call id it can cite as evidence (ADR-0004).
 
+## Amazon Bedrock
+
+Kind `bedrock` speaks the Bedrock Converse API (`/model/{id}/converse`) and, for embeddings, `/model/{id}/invoke` with the Titan and Cohere request shapes. Requests are signed with AWS Signature Version 4 implemented over the standard library (HMAC-SHA256; the canonical URI is encoded twice as the specification requires outside S3) and pinned by tests to signatures produced by botocore. The endpoint is `https://bedrock-runtime.<region>.amazonaws.com`; the region is taken from the host and any other host is refused. The provider's API key reference resolves to one string, `ACCESS_KEY_ID:SECRET_ACCESS_KEY` or `ACCESS_KEY_ID:SECRET_ACCESS_KEY:SESSION_TOKEN`, so the whole credential is encrypted together and never split across columns. Provider errors are scrubbed of the secret and session token. Converse has no JSON-mode switch; when a role requests JSON the instruction is added to the system text and the answer is parsed and validated on Noema's side as for every other provider.
+
 ## Per-mind routing
 
 A mind's cognitive configuration may carry `llm_roles`, a map from role to model id, which overrides the daemon-wide routing for that mind alone. It exists so that forks of one snapshot can run on different providers in a controlled experiment. An override names exactly one model; if that model is missing or disabled the call fails with "no model" rather than falling back, and the runtime identity records the override next to the daemon routing.
@@ -22,7 +26,7 @@ Each role has a primary model, ordered fallbacks, and optional temperature / max
 
 ## Providers and models
 
-Provider kinds: `openai` (OpenAI and every OpenAI-compatible server: llama.cpp, vLLM, LM Studio, Ollama's `/v1`), `anthropic` (Messages API), `ollama` (native API with seed and JSON mode). AWS Bedrock is not yet implemented; it fits behind the same interface once a SigV4 signer is added.
+Provider kinds: `openai` (OpenAI and every OpenAI-compatible server: llama.cpp, vLLM, LM Studio, Ollama's `/v1`), `anthropic` (Messages API), `ollama` (native API with seed and JSON mode), `bedrock` (Amazon Bedrock Converse API, see below).
 
 Endpoints that resolve to private or loopback addresses are refused unless the provider has **allow private addresses** set (SSRF guard, threat T6). Credentials go in the API key field only; `Authorization` and `x-api-key` headers are rejected in the custom headers map.
 
