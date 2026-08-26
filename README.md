@@ -113,7 +113,7 @@ noemactl fork dani --snapshot <id> --name dani-test
 
 ## Status
 
-Version 0.1.0: all sixteen phases of [PLAN.md](PLAN.md) are implemented. Highlights beyond the first milestone: goals and motivation, predictions and calibration, metacognition, reflection and consolidation, the relationship graph, the capability and policy layer, integrations (research folder, git, Prometheus, webhooks), dreaming, snapshots and forks, cognitive replay, experiments, export/import, TOTP. See [CHANGELOG.md](CHANGELOG.md), [docs/RELEASE_NOTES.md](docs/RELEASE_NOTES.md) and the API document at [docs/openapi.json](docs/openapi.json) (also served at `/api/v1/openapi.json`).
+Version 0.1.0: all sixteen phases of [PLAN.md](PLAN.md) are implemented. Since then the epistemic honesty review (PLAN.md §7, summarised in [docs/epistemics.md](docs/epistemics.md)) separated assertions from beliefs, recorded evidence provenance, labelled every score as uncalibrated, added explicit unknowns, temporal beliefs, per-subject source reliability, runtime identity for replay, cognitive forks per model, a causal timeline, audited redaction and Amazon Bedrock. Highlights beyond the first milestone: goals and motivation, predictions and calibration, metacognition, reflection and consolidation, the relationship graph, the capability and policy layer, integrations (research folder, git, Prometheus, webhooks), dreaming, snapshots and forks, cognitive replay, experiments, export/import, TOTP. See [CHANGELOG.md](CHANGELOG.md), [docs/RELEASE_NOTES.md](docs/RELEASE_NOTES.md) and the API document at [docs/openapi.json](docs/openapi.json) (also served at `/api/v1/openapi.json`).
 
 ## Licence
 

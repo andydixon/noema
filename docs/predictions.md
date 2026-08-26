@@ -25,7 +25,7 @@ Outcomes emit `prediction_resolved` or, for refutations, `prediction_error` with
 
 - Operators, through the Predictions page, the API or `noemactl`.
 - Causal hypotheses: when the associate process turns "A may have caused B" into a belief, a prediction is derived automatically — the effect should recur within 24 hours if the cause is real — with the belief's confidence, so a miss lowers the hypothesis.
-- Later phases add predictions from consolidation and reflection.
+- Reflection reads calibration over the last ninety days and raises an overconfidence warning through metacognition; it does not create predictions. Consolidation creates none either. Prediction outcomes also feed source reliability (docs/beliefs.md).
 
 ## Calibration
 

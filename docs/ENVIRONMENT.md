@@ -6,7 +6,7 @@ Recorded at project start (2026-09-14) on the primary development machine.
 |---|---|---|
 | Go | 1.26.1 linux/amd64 (`GOTOOLCHAIN=auto`) | `go 1.26` in `go.mod`; stdlib `net/http` routing, `log/slog`, `embed` |
 | Git | 2.43.0, no `init.defaultBranch` configured | default branch is `master` (git's default) |
-| PostgreSQL | 16 local cluster on 5432 **without pgvector**; `pgvector/pgvector:pg16` image available | Dev/test DB is the compose container on **5433**. Vector features are optional and detected at migration time |
+| PostgreSQL | 16 local cluster on 5432 with the `postgresql-16-pgvector` package installed (since 2026-09-15); `pgvector/pgvector:pg16` image available | Dev/test DB is the compose container on **5433**. Vector features are optional and detected at migration time |
 | Docker | Engine + Compose v5.5 | `deploy/docker-compose.yml` provides db + app |
 | Static analysis | staticcheck 2026.2.1, gosec, govulncheck in `~/go/bin` | `make lint`, `make security` |
 | golangci-lint | not installed | not required; staticcheck + vet + gosec suffice |

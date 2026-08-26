@@ -29,7 +29,7 @@ A template is a reusable personality. When a mind is based on a template, each v
 
 ## Traits and the runtime
 
-Later phases consume the personality as follows:
+The runtime consumes the personality as follows:
 
 - attention weights are biased by traits such as curiosity and novelty preference;
 - affect baselines derive from traits (patience, confidence);

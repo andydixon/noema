@@ -16,6 +16,10 @@ First release: every phase of the plan is implemented, tested and documented.
 
 `go vet`, `go test -race ./...`, staticcheck, gosec (G104 excluded) and govulncheck are clean with Go 1.26.8.
 
+## Since 0.1.0 (unreleased)
+
+The review pass recorded in PLAN.md §7 and summarised in [epistemics.md](epistemics.md) is in the [Unreleased] section of the changelog. Its remaining limitations are listed at the end of that document.
+
 ## Known limits
 
 - Replays diverge honestly when retrieval scoring depends on wall-clock recency; a virtual clock for replay is future work.
