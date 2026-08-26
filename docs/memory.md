@@ -11,7 +11,7 @@ Noema keeps four long-term memory systems in one table (`memories`) distinguishe
 
 ## Fields that matter
 
-- `confidence` how likely the content is true; `importance` how much it matters; `salience` how strongly it presented itself.
+- `confidence` how well supported the content is (the epistemic score defined in docs/beliefs.md, not a probability); `importance` how much it matters; `salience` how strongly it presented itself.
 - `trust` and `credibility` come from the channel the information arrived through (operator > user ≈ system > tool > source > low). Credibility weighs retrieval and, later, belief confidence.
 - `activation` is accessibility. It rises on retrieval and decays over time (half-life 14 days, slowed by importance). **Decay never deletes**: a memory with activation 0.01 is still there, still linked, still readable.
 - `status` is active, retracted (an operator said it is inaccurate), superseded (replaced by a newer version) or archived. Non-active memories stay for provenance and are excluded from normal recall.
