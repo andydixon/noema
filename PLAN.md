@@ -183,7 +183,7 @@ See `ARCHITECTURE.md` §14. Rule: if a unit test can assert the exact output, it
 - Default branch `master` (git default on this machine).
 - JSON config file format (stdlib) rather than YAML.
 - No npm toolchain; UI assets hand-written and embedded.
-- Bedrock deferred until a SigV4 client is justified; interface supports it.
+- Bedrock added in 0.2 (ADR-0010) with a standard-library SigV4 signer.
 - Remote repository: none configured. Development continues locally; pushing will be documented when a remote exists.
 
 ---
@@ -236,7 +236,7 @@ Each finding was checked against the implementation, its tests and the documenta
 15. **Association vs causation.** Add relations `co_occurs_with`, `possibly_caused_by`, `temporally_precedes`, `asserted_by`; co-mention writes `co_occurs_with`; association hypotheses record `possibly_caused_by` between the two memories/entities; `caused_by` is reserved for explicit operator statements. Tests.
 16. **Interpretation.** Add an operational-meaning table to `docs/interpretation.md`.
 17. **Docs pass** after implementation; README status line clarified; THREAT_MODEL statuses verified.
-18. **Bedrock.** `internal/llm/providers/bedrock`: SigV4 (HMAC-SHA256, stdlib) over the Converse API for chat and Titan/Cohere embeddings via InvokeModel; credentials as secret references (`access_key_ref`, `secret_key_ref`, optional session token) and region on the provider row; same SSRF-safe client; wire-format tests with recorded fixtures.
+18. **Bedrock.** `internal/llm/providers/bedrock`: SigV4 (HMAC-SHA256, stdlib) over the Converse API for chat and Titan/Cohere embeddings via InvokeModel; the credential as one secret reference (`ACCESS_KEY_ID:SECRET_ACCESS_KEY[:SESSION_TOKEN]`) and the region read from a Bedrock runtime endpoint; same SSRF-safe client; migration 0024 widens the kind constraint; signing pinned to botocore reference vectors plus wire-format tests.
 
 ### 7.3 Affected packages and files
 
@@ -248,7 +248,7 @@ All additive: new tables (`assertions`, `source_reliability`, `redactions`, `exp
 
 ### 7.5 Security implications
 
-Policies are no longer imported from archives (fail closed; forks unaffected). Redaction is administrator-only, audited, CSRF-protected and irreversible by design. New endpoints are read-only except redaction and experiment variants (operator). Bedrock credentials are secret references; the signing key never leaves the process; endpoint is derived from the region, not user input. No new attack surface accepts file uploads or shell arguments.
+Policies are no longer imported from archives (fail closed; forks unaffected). Redaction is administrator-only, audited, CSRF-protected and irreversible by design. New endpoints are read-only except redaction and experiment variants (operator). Bedrock credentials are secret references; the signing key never leaves the process; the region is derived from an endpoint that must be a Bedrock runtime host. No new attack surface accepts file uploads or shell arguments.
 
 ### 7.6 Backwards compatibility
 
@@ -278,3 +278,29 @@ Per change: unit tests for the interpreter (eight speech patterns), provenance g
 ### 7.10 Rollback considerations
 
 Each commit is independently revertible; migrations are additive with down scripts, and no migration rewrites existing values other than defaulting new columns. Reverting provenance leaves extra columns unread. Reverting redaction leaves the ledger table; redacted content is gone by design and cannot be rolled back, which is documented on the redaction screen. Reverting per-mind LLM routing leaves the config key ignored.
+
+### 7.11 Status (2026-09-15)
+
+| # | Topic | Status | Commit |
+|---|---|---|---|
+| 4 | Sequence semantics | done | 920c2c0 |
+| 5 | Security docs vs code; policy import | done | 6a0dd74, c684e87 |
+| 6 | Security test claims | done | 0577be3, 93a082d |
+| 7 | Capability boundary test | done | 93a082d |
+| 2 | Evidence provenance | done | 27c7a42 |
+| 1 | Assertions | done | 2020ac5 |
+| 13 | Explicit unknown | done | dcd4c5e |
+| 3 | Confidence semantics, calibration, primary uncertainty | done | da5e7ce |
+| 12 | Temporal beliefs | done | 5291942 |
+| 14 | Contextual reliability | done | 10a0314, 10c2eb6 |
+| 15 | Association vs causation | done | 831d476 |
+| 9 | Replay identity and divergence | done | 767f765 |
+| 10 | Forks per model | done | 1fca8fe |
+| 11 | Causal timeline | done | 14a77bf |
+| 8 | Redaction | done | 761e00f |
+| 18 | Bedrock | done | 0a46012 |
+| 16 | Interpretation table | done | c9c2cc9 |
+| 17 | Documentation consistency | done | 7c69791 and the site rebuild |
+| 25 | Final deliverable | done | f43495c (`docs/epistemics.md`) |
+
+Every code commit passed `go test -race ./...`, `go vet`, staticcheck, gosec (G104 excluded) and govulncheck. Remaining limitations are listed in `docs/epistemics.md` §7.
