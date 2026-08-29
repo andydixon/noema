@@ -22,9 +22,13 @@ Noema was built in sixteen explicit phases, each committed with tests and docume
 | 15 | Snapshots, forks, comparison, export/import, replay, experiments |
 | 16 | Two-factor authentication, security suite, OpenAPI, scanners, performance pass, screenshots, release |
 
+## The 0.2 review
+
+After the 0.1 release the project was reviewed against its own claims: is what the documentation says about evidence, security, reproducibility and privacy true of the code? Each finding was classified with evidence before anything changed, recorded in the plan, and fixed with the smallest coherent change, its own tests and its own commit. The outcome is summarised under [epistemic honesty](epistemics): assertions kept apart from beliefs, evidence provenance and per-family counting, honest score labels with gated calibration, explicit unknowns, temporal scope, source reliability per subject, association distinguished from causation, runtime identity on snapshots and replays, forks per model, a bounded causal timeline, audited redaction, a threat model rewritten from the implementation, and Amazon Bedrock. Eight migrations were added; none discarded data, and every one has a down file.
+
 ## How it is verified
 
-Every subsystem has unit tests that run against a fresh database schema; an end-to-end acceptance test drives the whole daemon with a fake model through the first milestone (start, log in, create a mind, converse, inspect memory and beliefs, restart and continue); a security suite exercises prompt injection, roles, cross-mind isolation, stored scripts, secret disclosure and hostile archives; and an opt-in load test seeds a realistic volume and rejects any hot query that drifts off its index. The race detector, staticcheck, gosec and govulncheck were clean at release.
+Every subsystem has unit tests that run against a fresh database schema; an end-to-end acceptance test drives the whole daemon with a fake model through the first milestone (start, log in, create a mind, converse, inspect memory and beliefs, restart and continue); a security suite exercises prompt injection, roles, cross-mind isolation, stored scripts, secret disclosure and hostile archives; and an opt-in load test seeds a realistic volume and rejects any hot query that drifts off its index. The race detector, staticcheck, gosec and govulncheck were clean at release and at every commit of the 0.2 review, which added tests for provenance grouping, calibration gating, unknown status, temporal supersession, per-subject reliability, relation semantics, cursor gaps, chain traversal bounds, secret-free identity digests, variant comparison, fail-closed routing, redaction, injection by effect, assembled-SQL scanning, the deceived mind, garbage model output, drive vocabulary and Bedrock signing against reference vectors.
 
 ## Measured performance
 

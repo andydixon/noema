@@ -16,7 +16,7 @@ Every role has a primary model and ordered fallbacks. A role with no working mod
 
 ## Providers
 
-Three provider kinds are implemented over raw HTTP with no SDKs: **OpenAI-compatible** (chat completions with JSON mode, also used for local servers that speak the same protocol), **Anthropic** (Messages API) and **Ollama**. A provider row holds a name, kind, endpoint, timeout, extra headers, an `allow_private_endpoint` flag (required for local endpoints, because the outbound HTTP client refuses private and loopback ranges by default) and an **API key reference**. Models belong to providers and carry context window, dimensions for embedding models, per-token cost estimates and default parameters. The interface tests connectivity with a real call and records the result.
+Four provider kinds are implemented over raw HTTP with no SDKs: **OpenAI-compatible** (chat completions with JSON mode, also used for local servers that speak the same protocol), **Anthropic** (Messages API), **Ollama** and **Amazon Bedrock** (the Converse API for chat roles, Titan and Cohere models for embeddings). Bedrock requests are signed with AWS Signature Version 4 implemented over the standard library and pinned by tests to signatures produced by the reference AWS signer; the endpoint must be a Bedrock runtime host, from which the region is read, and the credential is one secret reference holding the access key, secret key and optional session token together. A provider row holds a name, kind, endpoint, timeout, extra headers, an `allow_private_endpoint` flag (required for local endpoints, because the outbound HTTP client refuses private and loopback ranges by default) and an **API key reference**. Models belong to providers and carry context window, dimensions for embedding models, per-token cost estimates and default parameters. The interface tests connectivity with a real call and records the result.
 
 ## Secrets
 
@@ -24,7 +24,7 @@ Keys are never stored in clear. A key entered in the interface becomes an `enc:`
 
 ## Routing, budgets and concurrency
 
-The router resolves a role to its models, tries them in order, and records which one answered. A daemon-wide concurrency pool bounds simultaneous calls. Budgets are enforced at three levels: a per-cycle call cap per mind, a per-mind daily token budget and a global daily token budget; exhaustion is a recorded event and the deterministic branch, not an exception. Usage is aggregated per mind, role and model for the interface and for Prometheus.
+The router resolves a role to its models, tries them in order, and records which one answered. A mind may carry its own role routing, which experiments use to run forks of one snapshot under different models; an override that names a missing or disabled model fails closed rather than falling back to the default, so a comparison between providers is always the comparison it claims to be. A daemon-wide concurrency pool bounds simultaneous calls. Budgets are enforced at three levels: a per-cycle call cap per mind, a per-mind daily token budget and a global daily token budget; exhaustion is a recorded event and the deterministic branch, not an exception. Usage is aggregated per mind, role and model for the interface and for Prometheus.
 
 ## Recording and replay
 

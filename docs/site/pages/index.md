@@ -8,11 +8,11 @@
 
 <div class="pillars">
 <div class="pillar"><h3>It never loses the thread</h3><p>A mind runs whether or not anyone is talking to it. Messages, documents, commits, metrics and webhooks arrive as events; the mind perceives them, recalls what is relevant, forms and revises beliefs, and picks up exactly where it left off after a restart. There is no context window to fall off the end of.</p></div>
-<div class="pillar"><h3>Confidence is earned, not asserted</h3><p>Every proposition says what kind of knowledge it is. A claim stays a claim until independent evidence arrives, confidence is computed by a formula you can read on the page, and one source repeating itself is discounted. A Noema mind says <em>I do not know</em> because the arithmetic tells it to.</p></div>
-<div class="pillar"><h3>You can always ask why</h3><p>Every thought that reached the workspace carries its attention score and its parents. Every memory carries its source and trust. Every reply carries the beliefs it rests on. Every model call is recorded with its prompt version. Nothing in the history can be edited, by anyone, including the mind.</p></div>
+<div class="pillar"><h3>Confidence is earned, not asserted</h3><p>Every proposition says what kind of knowledge it is. What someone <em>said</em> is recorded apart from what the mind <em>believes</em>. A claim stays a claim until independent evidence arrives, the score is computed by a formula you can read on the page, one source repeating itself is discounted, and the number is labelled for what it is. A Noema mind says <em>I do not know</em> because the arithmetic tells it to.</p></div>
+<div class="pillar"><h3>You can always ask why</h3><p>Every thought that reached the workspace carries its attention score and its parents. Every memory carries its source and trust. Every reply carries the beliefs it rests on. Every model call is recorded with its prompt version. Nothing in the history can be edited, by anyone, including the mind; the one exception is an audited redaction that removes words and keeps their shape.</p></div>
 <div class="pillar"><h3>It cannot act behind your back</h3><p>The only path to the outside world is a capability layer with ALLOW, ASK and DENY policies, approvals bound to the exact request, and two capabilities locked shut forever. Dreams and replays cannot act at all. There is no self-preservation drive; shutdown is always yours.</p></div>
-<div class="pillar"><h3>The model is replaceable</h3><p>Perception, hypothesis, summary, judgement, narrative and response are roles. Point a role at OpenAI, Anthropic, a local Ollama or nothing at all: the deterministic core keeps working, the mind keeps its identity, memories and beliefs, and recorded calls make model-dependent steps reproducible.</p></div>
-<div class="pillar"><h3>Built to be studied</h3><p>Snapshot a mind, fork it, change one thing, and compare. Replay its recorded cognition and see, step by step, whether the result was exact, approximate or diverged. Run controlled experiments with stimulus scripts and expectations. This is a laboratory, not a chatbot.</p></div>
+<div class="pillar"><h3>The model is replaceable</h3><p>Perception, hypothesis, summary, judgement, narrative and response are roles. Point a role at OpenAI, Anthropic, Amazon Bedrock, a local Ollama or nothing at all: the deterministic core keeps working, the mind keeps its identity, memories and beliefs, and recorded calls make model-dependent steps reproducible.</p></div>
+<div class="pillar"><h3>Built to be studied</h3><p>Snapshot a mind, fork it, change one thing, and compare. Replay its recorded cognition under a recorded runtime identity and see, step by step, whether the result was exact, approximate or diverged. Fork one snapshot under two models and compare. Run controlled experiments with stimulus scripts and expectations. This is a laboratory, not a chatbot.</p></div>
 </div>
 
 ## What you see
@@ -44,9 +44,9 @@ Around that loop sit the long-lived structures: four kinds of memory with fused,
 ## By the numbers
 
 <div class="numbers">
-<div><b>34 700</b><span>lines of Go, standard library first, three dependencies</span></div>
-<div><b>47</b><span>cognitive event types, all append-only</span></div>
-<div><b>162</b><span>documented API operations, coverage-tested</span></div>
+<div><b>39 600</b><span>lines of Go, standard library first, three dependencies</span></div>
+<div><b>48</b><span>cognitive event types, all append-only</span></div>
+<div><b>167</b><span>documented API operations, coverage-tested</span></div>
 <div><b>31</b><span>command-line commands</span></div>
 <div><b>16</b><span>phases from plan to release, each committed with tests</span></div>
 <div><b>0</b><span>findings from the race detector, staticcheck, gosec and govulncheck at release</span></div>
@@ -70,7 +70,8 @@ Noema does not claim consciousness, sentience or personhood. Its components borr
 
 1. [Concepts](concepts): the vocabulary in one page, and the interpretation boundary.
 2. [The cognitive cycle](cognition): how a thought is proposed, scored, admitted and acted on.
-3. [Beliefs and evidence](beliefs): why confidence is a number you can check.
-4. [Capabilities and policy](capabilities): how a mind acts, and why the defaults say ask.
-5. [Snapshots, forks, replay and experiments](snapshots-replay): the laboratory.
-6. [Interface tour](ui-tour): every screen with screenshots.
+3. [Beliefs and evidence](beliefs): why the score is a number you can check, and what it does and does not mean.
+4. [Epistemic honesty](epistemics): the review that made the system true to its own claims.
+5. [Capabilities and policy](capabilities): how a mind acts, and why the defaults say ask.
+6. [Snapshots, forks, replay and experiments](snapshots-replay): the laboratory.
+7. [Interface tour](ui-tour): every screen with screenshots.

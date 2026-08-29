@@ -1,4 +1,8 @@
-Beliefs are the mind's propositions about the world, each with a confidence that is *derived* from evidence rather than asserted. This page gives the arithmetic, the lifecycle and the operator controls.
+Beliefs are the mind's propositions about the world, each with a score that is *derived* from evidence rather than asserted, and each honest about what that score is. This page gives the arithmetic, what every number means, the lifecycle including the unknown and superseded states, how sources earn reliability, and the operator controls.
+
+## What the numbers mean
+
+Every number on a belief page has one defined meaning, and none of them is a probability unless the page says so. The **epistemic score** is the deterministic output of the arithmetic below over the recorded evidence: a ranking of how well supported a proposition is given what this mind has seen and how it weighs it. It is comparable between beliefs of one mind; it is not an 83 per cent chance of being true. The **calibrated estimate** is the observed hit rate of the mind's resolved predictions whose stated confidence fell in the same range, shown only once at least twenty predictions in that range have been decided; predictions are the one place a score meets reality, so they are the only empirical basis offered, and until it exists the page says why not. The **primary uncertainty** is the deterministic reason the score should be doubted most: a single source family, second-hand evidence only, conflicting evidence, little evidence, or an unclear reading of what was said.
 
 ## Confidence
 
@@ -12,7 +16,15 @@ where `for` and `against` are the sums of family contributions and `diversity` r
 
 ## Statuses
 
-`hypothesis` (below 0.35), `tentative`, `likely`, `accepted` (above 0.85), `contested` (significant evidence on both sides), `rejected` (retracted by evidence or an operator) and `superseded` (replaced by a corrected proposition). Status follows confidence and evidence shape automatically; an operator can pin `rejected`.
+`unknown` (recorded, but no live evidence for or against), `hypothesis` (a proposal awaiting evidence), `tentative`, `likely`, `accepted`, `contested` (real evidence on both sides), `rejected` (evidence or an operator pushed the score low) and `superseded` (replaced by a corrected proposition or a later state). Status follows the score and the shape of the evidence automatically; an operator can pin `rejected`. Absence of evidence never collapses towards false: a belief whose evidence has all been retracted becomes `unknown`, its score is not quoted, and an introspective question is answered with "I do not know".
+
+## Time
+
+Every belief is classified deterministically as **persistent** (a name, a relationship, a fact about the past), **transient** (a status, a level, a location, a mood) or of unknown scope, and carries the time it was observed. When a newer transient belief conflicts with an older one observed at least a minute earlier, the older one is closed with a validity interval and marked superseded rather than contested; the mind holds the current state and can list the earlier ones. Persistent beliefs that conflict are contradictions in the ordinary sense.
+
+## Source reliability
+
+Credibility starts from the channel's trust level. It is then adjusted per **source and subject**: a source whose supported beliefs were borne out by predictions or upheld by operators becomes more credible on that subject, one whose beliefs were refuted or retracted becomes less so, and nothing carries across subjects. Reliability is applied only once three outcomes exist and is never global, so a monitoring integration that is excellent on disk usage and noisy on latency is treated as exactly that.
 
 ## Contradictions
 

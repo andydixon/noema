@@ -49,6 +49,10 @@ The weights are per mind (see [configuration](configuration)), modulated each cy
 
 The metacognition process watches for the failure modes of a system that thinks in a loop: the same candidate fingerprint winning repeatedly (loop detector), a belief whose confidence moved far on little evidence, a contradiction left unresolved for too long, and model or cycle budgets running low. Each produces a `metacognition` event, a workspace warning and, when thresholds are crossed, a notification to the operator. Loops also suppress the repeating candidate for a while.
 
+## The causal timeline
+
+Every event records the links it was written with: the event that directly caused it, the events it was assembled from, and the evidence it cites. The timeline page for any event walks those links backwards to causes and forwards to consequences, up to six hops and two hundred events, and draws each edge as caused, parent or cited. Events in the same cycle are grouped and the grouping is labelled correlation, because sharing a cycle is not a cause. Nothing on the page is inferred: where the system did not record why something happened, no arrow is drawn. It answers "why does this belief exist", "what changed it", "which model call contributed" and "what later depended on it" from the record alone.
+
 ## Operator controls
 
 From the interface or `noemactl workspace`, an operator can trigger a cycle, pause and resume, reset the workspace or the motivation state, and reload configuration. Every control is an `operator_action` event in the mind's own history and an entry in the audit log, and the mind encodes it as an autobiographical memory: it knows it was changed.

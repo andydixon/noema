@@ -25,6 +25,10 @@ Users have one of three roles. **Observer** can read everything. **Operator** ca
 
 `POST /api/v1/webhooks/{id}` is the one unauthenticated route. It requires the `X-Noema-Timestamp` and `X-Noema-Signature` headers described under [integrations](integrations) and refuses everything else.
 
+## Added in 0.2
+
+`GET /api/v1/minds/{mind}/assertions` and `/assertions/actors` list what was said to a mind and by whom, apart from what it believes. `GET /api/v1/events/{id}/chain` returns the bounded causal chain around an event. `POST /api/v1/minds/{mind}/redactions` (administrators) performs an audited redaction and `GET` lists the ledger. Experiments accept `variants`, and snapshot, replay and experiment responses carry the runtime identity and, for replays, the compatibility label and divergence analysis.
+
 ## Route reference
 
 The table below is generated from the OpenAPI document.

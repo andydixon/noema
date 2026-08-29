@@ -22,7 +22,7 @@ The overview is the mind's front page: identity and self-model, the current inte
 
 <figure><img src="img/thoughts.png" alt="Thought stream"><figcaption>Thoughts: the live stream of a mind's cognition with filters by type and category.</figcaption></figure>
 
-The thought stream is the mind's timeline as events, newest first, updating live. Each row links to the event page, which shows parents and children, the payload, the score breakdown for selections, evidence references, and the model call if one was made. This is the page to answer "why did it do that".
+The thought stream is the mind's timeline as events, newest first, updating live. Each row links to the event page, which shows parents and children, the payload, the score breakdown for selections, evidence references, and the model call if one was made. From there the **timeline** page walks the causal chain up to six hops each way, drawing only the links the events recorded and grouping by cycle as correlation. This is the page to answer "why did it do that".
 
 ## Workspace
 
@@ -40,7 +40,7 @@ The memory explorer searches and filters long-term memory; every result carries 
 
 <figure><img src="img/beliefs.png" alt="Beliefs"><figcaption>Beliefs: propositions with confidence, status and evidence counts; contested beliefs are highlighted.</figcaption></figure>
 
-The belief explorer lists propositions with confidence, status, subject and evidence counts, and highlights contradictions. The detail page shows the confidence formula with every evidence row, version history, alternatives and links, and the operator corrections.
+The belief explorer lists propositions with their epistemic score (labelled as uncalibrated in the column itself), status including unknown, subject and evidence counts, and highlights contradictions. The detail page opens with the score line: the epistemic score, the calibrated estimate or the reason none is available, and the main uncertainty. Below it are the evidence rows grouped by family with their derivation, the assertions that stand behind them and who made them, temporal scope and earlier states where the belief describes something that changes, version history, alternatives and links, and the operator corrections.
 
 ## Conversation
 
@@ -87,6 +87,10 @@ The experiments section lists experiments with status, creates new ones from a s
 ## Language models
 
 <figure><img src="img/llm.png" alt="LLM configuration"><figcaption>LLM: providers, models, role routing, budgets and usage; prompts are managed on their own page.</figcaption></figure>
+
+## Redactions
+
+Each mind has a redactions page for administrators: the ledger of what was redacted, when, why and under which policy, with the content hash, and a form to redact an event, memory, message, model call, belief or assertion with optional cascade. Redacted rows elsewhere in the interface show the marker in place of content and keep everything else.
 
 ## Account and administration
 
