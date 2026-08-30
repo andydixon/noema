@@ -4,6 +4,12 @@ All notable changes to Noema are recorded here. Format follows Keep a Changelog;
 
 ## [Unreleased]
 
+Nothing yet.
+
+## [0.2.0] - 2026-09-15
+
+Epistemic honesty review pass (PLAN.md §7, summarised in docs/epistemics.md) and Amazon Bedrock support.
+
 ### Security
 - Archives never import policy rules; forks keep them. The omission is audited.
 - NUL bytes in any request path, query or body are refused with a 400 at the edge instead of surfacing as a database error.
