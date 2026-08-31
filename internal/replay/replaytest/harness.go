@@ -54,9 +54,7 @@ func NewHarness(t *testing.T) *Harness {
 	for _, c := range capabilities.Builtins() {
 		caps.Registry.Add(c)
 	}
-	reg := brain.NewRegistry().AddProcess(cognition.Attend{}).AddProcess(cognition.Retrieve{}).AddProcess(cognition.Associate{}).AddProcess(cognition.Perceive{}).
-		AddProcess(cognition.GoalMonitor{}).AddProcess(cognition.Curiosity{}).AddProcess(cognition.Metacognition{}).AddProcess(cognition.Act{})
-	cognition.Handlers{Memory: mem, Beliefs: bs, Conversations: conversation.NewStore(pool), Graph: graph.NewStore(pool), Assertions: epistemics.NewStore(pool)}.Register(reg)
+	reg := cognition.NewRegistry(cognition.Stores{Memory: mem, Beliefs: bs, Conversations: conversation.NewStore(pool), Graph: graph.NewStore(pool), Assertions: epistemics.NewStore(pool)})
 	cfg := brain.Config{DB: pool, Events: es, Minds: ms, Registry: reg, Pool: scheduler.NewPool(2), Log: log, Metrics: observability.NewMetrics(),
 		Services: brain.Services{Events: es, Memory: mem, Beliefs: bs, Goals: goals.NewStore(pool), Motivation: motivation.NewStore(pool), Predictions: predictions.NewStore(pool), Capabilities: caps}}
 	ident := &identity.Capturer{DB: pool, Minds: ms}

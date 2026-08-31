@@ -174,10 +174,8 @@ func run() error {
 	deps.Consolidation = &consolidation.Service{DB: db, Memory: deps.Memory, Beliefs: deps.Beliefs, Events: deps.Events, LLM: deps.LLM, Prompts: deps.Prompts, Minds: deps.Minds, Log: log}
 	deps.Dreaming = &dreaming.Service{DB: db, Memory: deps.Memory, Beliefs: deps.Beliefs, Events: deps.Events, LLM: deps.LLM, Prompts: deps.Prompts, Log: log}
 	deps.Reflection = &reflection.Service{DB: db, Events: deps.Events, Beliefs: deps.Beliefs, Goals: deps.Goals, Memory: deps.Memory, Predictions: deps.Predictions, LLM: deps.LLM, Prompts: deps.Prompts, Log: log}
-	registry := brain.NewRegistry().AddProcess(cognition.Attend{}).AddProcess(cognition.Retrieve{}).AddProcess(cognition.Associate{}).AddProcess(cognition.Perceive{}).
-		AddProcess(cognition.GoalMonitor{}).AddProcess(cognition.Curiosity{}).AddProcess(cognition.Metacognition{}).AddProcess(cognition.Act{}).
-		AddHook(cognition.MotivationHook{Store: deps.Motivation}).AddHook(cognition.NarrativeHook{Store: deps.Narrative}).AddHook(cognition.NotifyHook{Store: deps.Notifications})
-	cognition.Handlers{Memory: deps.Memory, Beliefs: deps.Beliefs, Conversations: deps.Conversations, Graph: deps.Graph, Assertions: deps.Assertions}.Register(registry)
+	registry := cognition.NewRegistry(cognition.Stores{Memory: deps.Memory, Beliefs: deps.Beliefs, Conversations: deps.Conversations, Graph: deps.Graph, Assertions: deps.Assertions,
+		Motivation: deps.Motivation, Narrative: deps.Narrative, Notifications: deps.Notifications})
 	brainCfg := brain.Config{DB: db, Events: deps.Events, Minds: deps.Minds, Registry: registry, Pool: scheduler.NewPool(cfg.MaxWorkers),
 		Log: log, Metrics: metrics, Services: brain.Services{Events: deps.Events, Memory: deps.Memory, Beliefs: deps.Beliefs, LLM: deps.LLM, Prompts: deps.Prompts,
 			Goals: deps.Goals, Motivation: deps.Motivation, Predictions: deps.Predictions, Capabilities: deps.Capabilities}}

@@ -100,9 +100,7 @@ func Start(t *testing.T) *Harness {
 	}
 	group := scheduler.NewGroup(ctx, log)
 	t.Cleanup(func() { group.Stop() })
-	registry := brain.NewRegistry().AddProcess(cognition.Attend{}).AddProcess(cognition.Retrieve{}).AddProcess(cognition.Associate{}).AddProcess(cognition.Perceive{}).
-		AddProcess(cognition.GoalMonitor{}).AddProcess(cognition.Curiosity{}).AddProcess(cognition.Metacognition{}).AddProcess(cognition.Act{})
-	cognition.Handlers{Memory: deps.Memory, Beliefs: deps.Beliefs, Conversations: deps.Conversations, Graph: deps.Graph, Assertions: deps.Assertions}.Register(registry)
+	registry := cognition.NewRegistry(cognition.Stores{Memory: deps.Memory, Beliefs: deps.Beliefs, Conversations: deps.Conversations, Graph: deps.Graph, Assertions: deps.Assertions})
 	deps.Brain = brain.NewManager(brain.Config{DB: pool, Events: deps.Events, Minds: deps.Minds, Registry: registry, Pool: scheduler.NewPool(2), Log: log, Metrics: deps.Metrics,
 		Services: brain.Services{Events: deps.Events, Memory: deps.Memory, Beliefs: deps.Beliefs, LLM: deps.LLM, Prompts: deps.Prompts, Goals: deps.Goals, Motivation: deps.Motivation, Predictions: deps.Predictions, Capabilities: deps.Capabilities}}, group)
 	if err := deps.Brain.Start(ctx); err != nil {
