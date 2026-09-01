@@ -21,7 +21,6 @@ import (
 	"github.com/andydixon/noema/internal/attention"
 	"github.com/andydixon/noema/internal/auth"
 	"github.com/andydixon/noema/internal/beliefs"
-	"github.com/andydixon/noema/internal/capabilities"
 	"github.com/andydixon/noema/internal/consolidation"
 	"github.com/andydixon/noema/internal/conversation"
 	"github.com/andydixon/noema/internal/goals"
@@ -60,8 +59,6 @@ type UI struct {
 	entF      func(r *http.Request, mind, id ids.ID) (api.EntityDetail, error)
 	mergeF    func(r *http.Request, mind ids.ID, e graph.Entity, other string) error
 	distinctF func(r *http.Request, mind ids.ID, e graph.Entity, other string) error
-	policyF   func(r *http.Request, p capabilities.Policy) (capabilities.Policy, error)
-	decideF   func(r *http.Request, id ids.ID, decision, note string, params map[string]any) (any, error)
 }
 
 // Actions groups the server-side operations the UI delegates to the API layer
@@ -80,13 +77,11 @@ type Actions struct {
 	Resolve     func(r *http.Request, mind, id ids.ID, outcome predictions.Status, reason string) (predictions.Result, error)
 	ResetState  func(r *http.Request, mind ids.ID) (motivation.State, error)
 	Consolidate func(r *http.Request, mind ids.ID) (consolidation.Job, error)
-	Study       func() *api.Server // snapshots, forks, import, replay, experiments (audited server paths)
+	Study       func() *api.Server // audited server paths shared with the API: study, capabilities, approvals, volition
 	Reflect     func(r *http.Request, mind ids.ID) (reflection.Reflection, error)
 	Entity      func(r *http.Request, mind, id ids.ID) (api.EntityDetail, error)
 	Merge       func(r *http.Request, mind ids.ID, e graph.Entity, other string) error
 	Distinct    func(r *http.Request, mind ids.ID, e graph.Entity, other string) error
-	Policy      func(r *http.Request, p capabilities.Policy) (capabilities.Policy, error)
-	Decide      func(r *http.Request, id ids.ID, decision, note string, params map[string]any) (any, error)
 }
 
 // View is the data passed to every template.
@@ -116,7 +111,7 @@ func New(deps app.Deps, a Actions) (*UI, error) {
 			deps.Log.Info("ui: serving templates and static files from ./web (development)")
 		}
 	}
-	u := &UI{deps: deps, static: staticFS, statusF: a.Status, ctxF: a.Context, wsF: a.Workspace, memF: a.Memory, belF: a.Belief, emitF: a.Emitter, postF: a.Post, goalF: a.Goal, goalUpdF: a.GoalUpdate, predF: a.Predict, resolveF: a.Resolve, resetF: a.ResetState, consolF: a.Consolidate, studyF: a.Study, reflF: a.Reflect, entF: a.Entity, mergeF: a.Merge, distinctF: a.Distinct, policyF: a.Policy, decideF: a.Decide}
+	u := &UI{deps: deps, static: staticFS, statusF: a.Status, ctxF: a.Context, wsF: a.Workspace, memF: a.Memory, belF: a.Belief, emitF: a.Emitter, postF: a.Post, goalF: a.Goal, goalUpdF: a.GoalUpdate, predF: a.Predict, resolveF: a.Resolve, resetF: a.ResetState, consolF: a.Consolidate, studyF: a.Study, reflF: a.Reflect, entF: a.Entity, mergeF: a.Merge, distinctF: a.Distinct}
 	if err := u.parse(tmplFS); err != nil {
 		return nil, err
 	}

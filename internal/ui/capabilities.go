@@ -62,7 +62,7 @@ func (u *UI) policyCreate(w http.ResponseWriter, r *http.Request) {
 			p.HoursFrom, p.HoursTo = &hf, &ht
 		}
 	}
-	if _, err := u.policyF(r, p); err != nil {
+	if _, err := u.studyF().CreatePolicy(r, p); err != nil {
 		u.flash(w, r, "error", err.Error(), "/policies")
 		return
 	}
@@ -126,7 +126,7 @@ func (u *UI) approvalDecide(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	decision := r.PostFormValue("decision")
-	if _, err := u.decideF(r, id, decision, r.PostFormValue("note"), params); err != nil {
+	if _, err := u.studyF().Decide(r, id, decision, r.PostFormValue("note"), params); err != nil {
 		u.flash(w, r, "error", err.Error(), "/approvals")
 		return
 	}
