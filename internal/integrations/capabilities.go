@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/andydixon/noema/internal/capabilities"
 	"github.com/andydixon/noema/pkg/ids"
@@ -15,7 +16,8 @@ import (
 // can only reach endpoints an operator connected to it, never arbitrary ones.
 func Capabilities(m *Manager, git GitPoller, prom PrometheusPoller) []capabilities.Capability {
 	return []capabilities.Capability{
-		{Name: "read_metrics", Description: "Evaluate a PromQL expression against a connected Prometheus integration (target = integration name).", Risk: capabilities.RiskLow, TargetKind: "service",
+		{Name: "read_metrics", Description: "Evaluate a PromQL expression against a connected Prometheus integration (target = integration name).", Risk: capabilities.RiskLow, TargetKind: "service", Access: capabilities.AccessRead, Idempotent: true, Timeout: 20 * time.Second,
+			SideEffects: "one query against the connected Prometheus", Estimate: capabilities.Cost{WallSeconds: 1, Network: 1},
 			Params: map[string]capabilities.Param{"expr": {Type: "string", Required: true, Description: "PromQL expression", MaxLen: 1000}}, DefaultEffect: capabilities.Allow,
 			Executor: func(ctx context.Context, inv capabilities.Invocation) (capabilities.Result, error) {
 				in, err := m.named(ctx, inv.MindID, Prometheus, inv.Target)
@@ -37,7 +39,8 @@ func Capabilities(m *Manager, git GitPoller, prom PrometheusPoller) []capabiliti
 				}
 				return capabilities.Result{Summary: fmt.Sprintf("%s = %g", expr, v), Data: map[string]any{"value": v, "labels": labels, "integration_id": in.ID}}, nil
 			}},
-		{Name: "repository.read", Description: "Read one file from a mirrored git integration (target = integration name; params ref, path).", Risk: capabilities.RiskMedium, TargetKind: "repository",
+		{Name: "repository.read", Description: "Read one file from a mirrored git integration (target = integration name; params ref, path).", Risk: capabilities.RiskMedium, TargetKind: "repository", Access: capabilities.AccessRead, Idempotent: true, Timeout: 30 * time.Second,
+			SideEffects: "reads a file from the local mirror; nothing is written", Estimate: capabilities.Cost{WallSeconds: 1},
 			Params: map[string]capabilities.Param{"path": {Type: "string", Required: true, Description: "path inside the repository", MaxLen: 500}, "ref": {Type: "string", Description: "branch, tag or commit (default HEAD)", MaxLen: 200}}, DefaultEffect: capabilities.Ask,
 			Executor: func(ctx context.Context, inv capabilities.Invocation) (capabilities.Result, error) {
 				in, err := m.named(ctx, inv.MindID, Git, inv.Target)

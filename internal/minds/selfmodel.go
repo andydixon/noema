@@ -14,7 +14,19 @@ type SelfModel struct {
 	CurrentGoals       []string           `json:"current_goals"`
 	ConfidenceByDomain map[string]float64 `json:"confidence_by_domain"`
 	KnowledgeGaps      []string           `json:"knowledge_gaps"`
-	UpdatedAt          time.Time          `json:"updated_at"`
+	// Grants lists temporary authority currently in force. The capability
+	// layer rewrites it whenever a grant is made, used up, revoked or expires.
+	Grants    []GrantEntry `json:"grants,omitempty"`
+	UpdatedAt time.Time    `json:"updated_at"`
+}
+
+// GrantEntry is one live scoped grant as the mind sees it.
+type GrantEntry struct {
+	Capability string    `json:"capability"`
+	Target     string    `json:"target"`
+	Access     string    `json:"access"`
+	ExpiresAt  time.Time `json:"expires_at"`
+	Remaining  *int      `json:"remaining_operations,omitempty"`
 }
 
 // CapabilityEntry records one capability and the policy that governs it.

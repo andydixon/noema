@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"net/url"
 	"testing"
+	"time"
 
 	"github.com/andydixon/noema/internal/capabilities"
 	"github.com/andydixon/noema/tests/harness"
@@ -42,5 +43,31 @@ func TestOperatorDecidesInTheBrowser(t *testing.T) {
 		if a.Status != want || a.DecisionBy != "admin" {
 			t.Fatalf("%s: status %s by %q", decision, a.Status, a.DecisionBy)
 		}
+	}
+	// A mind's capability request is granted (narrowed) from the browser, and
+	// the resulting temporary grant can be revoked there.
+	ops := 20
+	req, err := h.Deps.Capabilities.RequestCapability(ctx, capabilities.CapabilityRequest{MindID: m.ID, Capability: "http.fetch", TargetPattern: "https://status.example.org/*", DurationSeconds: 1800, MaxOperations: &ops, Reason: "status page needed for the incident", Risk: "none beyond one request", Fallback: "ask the operator"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	res, err = c.Get(h.Srv.URL + "/approvals")
+	if err != nil || res.StatusCode != 200 {
+		t.Fatalf("approvals page: %v %d", err, res.StatusCode)
+	}
+	res, err = c.PostForm(h.Srv.URL+"/capability-requests/"+req.ID.String()+"/decide", url.Values{"_csrf": {csrf}, "decision": {"grant"}, "duration_minutes": {"10"}, "max_operations": {"3"}})
+	if err != nil || res.StatusCode != 303 {
+		t.Fatalf("grant form: %v %d", err, res.StatusCode)
+	}
+	grants, _ := h.Deps.Capabilities.ScopedGrants(ctx, m.ID, true)
+	if len(grants) != 1 || *grants[0].MaxOperations != 3 || time.Until(grants[0].ExpiresAt) > 11*time.Minute || grants[0].GrantedBy != "admin" {
+		t.Fatalf("grant from browser: %+v", grants)
+	}
+	res, err = c.PostForm(h.Srv.URL+"/scoped-grants/"+grants[0].ID.String()+"/revoke", url.Values{"_csrf": {csrf}})
+	if err != nil || res.StatusCode != 303 {
+		t.Fatalf("revoke form: %v %d", err, res.StatusCode)
+	}
+	if live, _ := h.Deps.Capabilities.ScopedGrants(ctx, m.ID, true); len(live) != 0 {
+		t.Fatal("grant still live after revoke")
 	}
 }

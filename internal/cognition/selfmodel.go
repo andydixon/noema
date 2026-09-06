@@ -47,10 +47,21 @@ func (s SelfModelSync) Sync(ctx context.Context, mind ids.ID) {
 			}
 			caps = append(caps, minds.CapabilityEntry{Name: i.Capability.Name, Description: i.Capability.Description, Policy: eff})
 		}
-		if fmt.Sprint(caps) == fmt.Sprint(sm.Capabilities) {
+		var grants []minds.GrantEntry
+		if live, err := s.Caps.ScopedGrants(ctx, m.ID, true); err == nil {
+			for _, g := range live {
+				e := minds.GrantEntry{Capability: g.Capability, Target: g.TargetPattern, Access: string(g.Access), ExpiresAt: g.ExpiresAt}
+				if g.MaxOperations != nil {
+					left := *g.MaxOperations - g.UsedOperations
+					e.Remaining = &left
+				}
+				grants = append(grants, e)
+			}
+		}
+		if fmt.Sprint(caps) == fmt.Sprint(sm.Capabilities) && fmt.Sprint(grants) == fmt.Sprint(sm.Grants) {
 			continue
 		}
-		sm.Capabilities = caps
+		sm.Capabilities, sm.Grants = caps, grants
 		sm.Refresh(m.Personality)
 		if err := s.Minds.SaveSelfModel(ctx, m.ID, sm); err != nil {
 			s.Log.Warn("self-model save failed", "mind", m.Slug, "err", err)
@@ -65,7 +76,7 @@ func (s SelfModelSync) Sync(ctx context.Context, mind ids.ID) {
 				ask++
 			}
 		}
-		s.Events.Append(ctx, events.New{MindID: m.ID, Type: events.SelfModelUpdated, Source: "capabilities", Summary: fmt.Sprintf("self-model: %d capabilities allowed, %d need approval, rest denied", allow, ask), //nolint:errcheck
-			Salience: 0.3, Confidence: 1, Metadata: map[string]any{"allow": allow, "ask": ask}, Payload: map[string]any{"capabilities": caps}})
+		s.Events.Append(ctx, events.New{MindID: m.ID, Type: events.SelfModelUpdated, Source: "capabilities", Summary: fmt.Sprintf("self-model: %d capabilities allowed, %d need approval, %d temporary grants, rest denied", allow, ask, len(grants)), //nolint:errcheck
+			Salience: 0.3, Confidence: 1, Metadata: map[string]any{"allow": allow, "ask": ask, "grants": len(grants)}, Payload: map[string]any{"capabilities": caps, "grants": grants}})
 	}
 }

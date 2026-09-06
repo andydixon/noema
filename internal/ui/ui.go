@@ -125,10 +125,21 @@ func (u *UI) parse(fsys fs.FS) error {
 		"roles":     auth.AllRoles,
 		"date":      func(t time.Time) string { return t.Local().Format("2006-01-02 15:04") },
 		"ago":       ago,
-		"duration":  func(s int64) string { return (time.Duration(s) * time.Second).Truncate(time.Second).String() },
-		"bytes":     humanBytes,
-		"pct":       func(f float64) string { return fmt.Sprintf("%.0f%%", f*100) },
-		"list":      func(xs ...string) []string { return xs },
+		"duration": func(v any) string {
+			var secs int64
+			switch x := v.(type) {
+			case int:
+				secs = int64(x)
+			case int64:
+				secs = x
+			case float64:
+				secs = int64(x)
+			}
+			return (time.Duration(secs) * time.Second).Truncate(time.Second).String()
+		},
+		"bytes": humanBytes,
+		"pct":   func(f float64) string { return fmt.Sprintf("%.0f%%", f*100) },
+		"list":  func(xs ...string) []string { return xs },
 		"conf": func(v any) string {
 			switch x := v.(type) {
 			case float64:

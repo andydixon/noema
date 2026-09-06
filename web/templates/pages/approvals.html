@@ -6,6 +6,7 @@
   {{if .Data.Pending}}{{range .Data.Pending}}
   <div class="approval">
     <div class="approval-head"><span class="badge rk-{{.Risk}}">{{.Risk}}</span> <strong>{{index $.Data.MindNames .MindID}}</strong> wants <code>{{.Capability}}</code>{{if .Target}} on <span class="mono">{{.Target}}</span>{{end}} <span class="muted small">· requested {{ago .CreatedAt}} · expires {{.ExpiresAt.Local.Format "02 Jan 15:04"}}{{if .EventID}} · <a href="/events/{{.EventID}}">event</a>{{end}}</span></div>
+    {{with index $.Data.Caps .Capability}}<p class="small muted">{{.Access}} · {{if .Idempotent}}idempotent{{else}}not idempotent{{end}}{{if .SideEffects}} · side effects: {{.SideEffects}}{{end}}</p>{{end}}
     <div class="grid cols-2 tight">
       <div><h3>Reason</h3><p>{{if .Reason}}{{.Reason}}{{else}}<em class="muted">none given</em>{{end}}</p>
         {{if .Evidence}}<h3>Evidence</h3><ul class="plain small">{{range .Evidence}}<li><span class="badge">{{.Kind}}</span> {{if eq .Kind "event"}}<a href="/events/{{.ID}}">{{.ID}}</a>{{else}}{{.ID}}{{end}} {{.Note}}</li>{{end}}</ul>{{end}}</div>
@@ -23,6 +24,51 @@
     {{end}}
   </div>{{end}}
   {{else}}<p class="muted">Nothing is waiting.</p>{{end}}
+</section>
+<section class="card">
+  <h2>Capability requests <span class="muted small">{{len .Data.Batches}} batch(es)</span></h2>
+  <p class="muted small">Temporary, scoped authority a mind has asked for. Granting creates an expiring grant that applies only where policy says ASK; it never overrides DENY. You may grant less than was asked.</p>
+  {{if .Data.Batches}}{{range .Data.Batches}}
+  <div class="approval">
+    <div class="approval-head"><strong>{{index $.Data.MindNames .MindID}}</strong> · {{len .Requests}} related request(s){{if .IntentionID}} for intention <a class="mono small" href="/intentions/{{.IntentionID}}">{{trunc (printf "%s" .IntentionID) 8}}</a>{{end}}</div>
+    {{range .Requests}}
+    <div class="stack">
+      <div><span class="badge">{{.Access}}</span> <code>{{.Capability}}</code> on <span class="mono">{{.TargetPattern}}</span> for {{duration .DurationSeconds}}{{if .MaxOperations}}, at most {{deref_int .MaxOperations}} operations{{end}} <span class="muted small">· expires {{.ExpiresAt.Local.Format "02 Jan 15:04"}}{{if .EventID}} · <a href="/events/{{.EventID}}">event</a>{{end}}</span></div>
+      <div class="grid cols-2 tight">
+        <div><h3>Why</h3><p>{{.Reason}}</p>
+          {{if .Evidence}}<h3>Evidence</h3><ul class="plain small">{{range .Evidence}}<li><span class="badge">{{.Kind}}</span> {{if eq .Kind "event"}}<a href="/events/{{.ID}}">{{.ID}}</a>{{else}}{{.ID}}{{end}} {{.Note}}</li>{{end}}</ul>{{end}}
+          {{if .ParamConstraints}}<h3>Parameter limits</h3><pre class="json">{{pretty (jsonOf .ParamConstraints)}}</pre>{{end}}</div>
+        <div><h3>Risk</h3><p>{{if .Risk}}{{.Risk}}{{else}}<em class="muted">none stated</em>{{end}}</p>
+          {{if .Mitigation}}<h3>Mitigation</h3><p>{{.Mitigation}}</p>{{end}}
+          {{if .Fallback}}<h3>If refused</h3><p>{{.Fallback}}</p>{{end}}
+          {{if .Alternatives}}<h3>Alternatives</h3><ul class="plain small">{{range .Alternatives}}<li>{{.}}</li>{{end}}</ul>{{end}}
+          {{with index $.Data.Caps .Capability}}{{if .SideEffects}}<h3>Side effects</h3><p class="small">{{.SideEffects}}</p>{{end}}{{end}}
+          <p class="small muted">Earlier decisions on this capability for this mind: {{index .History "granted"}} granted, {{index .History "denied"}} denied. History informs; it never grants.</p></div>
+      </div>
+      {{if $op}}
+      <form method="post" action="/capability-requests/{{.ID}}/decide" class="row">
+        <input type="hidden" name="_csrf" value="{{$.CSRF}}">
+        <input name="duration_minutes" type="number" min="1" placeholder="minutes (≤ asked)" aria-label="duration in minutes" size="8">
+        <input name="max_operations" type="number" min="1" placeholder="operations" aria-label="maximum operations" size="6">
+        <input name="target_pattern" placeholder="{{.TargetPattern}}" aria-label="target pattern" size="12">
+        <input name="note" placeholder="note (shown to the mind)" class="grow" maxlength="500">
+        <button class="btn btn-primary" name="decision" value="grant">Grant</button>
+        <button class="btn btn-danger" name="decision" value="deny">Deny</button>
+      </form>
+      {{end}}
+    </div>
+    {{end}}
+  </div>{{end}}
+  {{else}}<p class="muted">No open capability requests.</p>{{end}}
+</section>
+<section class="card">
+  <h2>Temporary grants in force <span class="muted small">{{len .Data.Grants}}</span></h2>
+  {{if .Data.Grants}}<table class="table compact"><thead><tr><th>Mind</th><th>Capability</th><th>Target</th><th>Access</th><th>Limits</th><th>Expires</th><th>By</th><th></th></tr></thead><tbody>{{range .Data.Grants}}<tr>
+    <td class="small">{{index $.Data.MindNames .MindID}}</td><td><code>{{.Capability}}</code></td><td class="mono small">{{.TargetPattern}}</td><td class="small">{{.Access}}</td>
+    <td class="small">{{if .MaxOperations}}{{.UsedOperations}} of {{deref_int .MaxOperations}} used{{else}}{{.UsedOperations}} used{{end}}{{if .ParamConstraints}} · {{range $k, $v := .ParamConstraints}}{{$k}}={{$v}} {{end}}{{end}}</td>
+    <td class="small nowrap">{{.ExpiresAt.Local.Format "02 Jan 15:04"}}</td><td class="small">{{.GrantedBy}}</td>
+    <td>{{if $op}}<form method="post" action="/scoped-grants/{{.ID}}/revoke" class="inline"><input type="hidden" name="_csrf" value="{{$.CSRF}}"><button class="btn small btn-danger" data-confirm="Revoke this grant now?">Revoke</button></form>{{end}}</td></tr>{{end}}</tbody></table>
+  {{else}}<p class="muted">None. Session approvals appear on the policies page.</p>{{end}}
 </section>
 <section class="grid cols-2">
   <div class="card"><h2>Decided recently</h2>

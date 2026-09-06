@@ -10,6 +10,7 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"github.com/andydixon/noema/internal/security/actors"
 	"github.com/andydixon/noema/internal/security/secrets"
 	"github.com/andydixon/noema/internal/storage"
 	"github.com/andydixon/noema/pkg/ids"
@@ -78,6 +79,9 @@ func (s *Service) CreateUser(ctx context.Context, username, password string, rol
 	username = strings.TrimSpace(username)
 	if len(username) < 2 || len(username) > 64 {
 		return User{}, errors.New("username must be 2-64 characters")
+	}
+	if !actors.IsPerson(username) {
+		return User{}, errors.New("username is reserved for internal components or contains ':'")
 	}
 	if !role.Valid() {
 		return User{}, fmt.Errorf("invalid role %q", role)

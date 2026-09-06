@@ -64,8 +64,21 @@ type Harness struct {
 
 const AdminPass, ObserverPass = "administrator-pass-1", "observer-pass-12345"
 
+// Options adjust the assembled daemon for a test.
+type Options struct {
+	// Capabilities are extra test capabilities registered before the
+	// registry is frozen.
+	Capabilities []capabilities.Capability
+}
+
 // Start builds and serves a daemon for one test.
 func Start(t *testing.T) *Harness {
+	t.Helper()
+	return StartWith(t, Options{})
+}
+
+// StartWith builds a daemon with options.
+func StartWith(t *testing.T, o Options) *Harness {
 	t.Helper()
 	pool := storage.TestPool(t, migrations.FS)
 	ctx := context.Background()
@@ -85,6 +98,10 @@ func Start(t *testing.T) *Harness {
 	for _, c := range capabilities.Builtins() {
 		capReg.Add(c)
 	}
+	for _, c := range o.Capabilities {
+		capReg.Add(c)
+	}
+	capReg.Freeze()
 	deps.Capabilities = &capabilities.Service{Registry: capReg, DB: pool, Events: deps.Events, Log: log}
 	deps.Integrations = &integrations.Manager{Store: integrations.NewStore(pool), Events: deps.Events, Graph: deps.Graph, Log: log, Pollers: map[integrations.Kind]integrations.Poller{}}
 	deps.Dreaming = &dreaming.Service{DB: pool, Memory: deps.Memory, Beliefs: deps.Beliefs, Events: deps.Events, Log: log}

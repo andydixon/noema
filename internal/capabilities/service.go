@@ -92,6 +92,11 @@ type Service struct {
 	SessionTTL  time.Duration
 	Now         func() time.Time
 	OnSelfModel func(ctx context.Context, mind ids.ID) // called when effective policies may have changed
+	// MaxPendingRequests caps open capability requests per mind so operator
+	// attention is not spent on a stream of prompts (default 5).
+	MaxPendingRequests int
+	// RequestTTL is how long an undecided capability request stays open (default 24h).
+	RequestTTL time.Duration
 }
 
 func (s *Service) now() time.Time {
@@ -268,11 +273,14 @@ func (s *Service) Invoke(ctx context.Context, inv Invocation) (Outcome, error) {
 		return Outcome{}, err
 	}
 	inv.Params = params
+	if inv.Target, err = c.ResolveTarget(inv.Target, params); err != nil {
+		return Outcome{}, err
+	}
 	action, _ := params["action"].(string)
 	if action == "" {
 		action = "*"
 	}
-	d, err := s.Decide(ctx, inv.MindID, c, inv.Target, action)
+	d, err := s.decideInvocation(ctx, inv, c, action)
 	if err != nil {
 		return Outcome{}, err
 	}
@@ -280,9 +288,9 @@ func (s *Service) Invoke(ctx context.Context, inv Invocation) (Outcome, error) {
 		s.Metrics.ToolRequests.WithLabelValues(c.Name).Inc()
 	}
 	hash := Hash(inv.MindID, c.Name, inv.Target, params)
-	base := map[string]any{"capability": c.Name, "target": inv.Target, "params": params, "risk": c.Risk, "reason": inv.Reason, "hash": hash, "decision": d}
+	base := map[string]any{"capability": c.Name, "target": inv.Target, "params": params, "risk": c.Risk, "access": c.Access, "reason": inv.Reason, "hash": hash, "decision": d, "origin": inv.Origin}
 	evs, err := s.Events.Append(ctx, events.New{MindID: inv.MindID, Type: events.PolicyDecision, Source: "capabilities", Summary: fmt.Sprintf("policy %s for %s on %q: %s", strings.ToUpper(string(d.Effect)), c.Name, inv.Target, d.Reason),
-		Salience: 0.3, Confidence: 1, CorrelationID: inv.Correlation, Evidence: toEvidence(inv.Evidence), Metadata: map[string]any{"capability": c.Name, "effect": d.Effect, "policy_id": string(d.PolicyID)}, Payload: base})
+		Salience: 0.3, Confidence: 1, CorrelationID: inv.Correlation, Evidence: toEvidence(inv.Evidence), Metadata: map[string]any{"capability": c.Name, "effect": d.Effect, "policy_id": string(d.PolicyID), "grant_id": string(d.GrantID), "origin": inv.Origin}, Payload: base})
 	if err != nil {
 		return Outcome{}, err
 	}
@@ -302,7 +310,38 @@ func (s *Service) Invoke(ctx context.Context, inv Invocation) (Outcome, error) {
 		}
 		return Outcome{Status: "pending", Decision: d, ApprovalID: a.ID, EventID: a.EventID}, nil
 	}
+	if !d.GrantID.IsZero() && !s.consumeGrant(ctx, d.GrantID) {
+		// Another invocation used the last operation, or the grant lapsed
+		// between decision and execution: fall back to asking.
+		d.Effect, d.Reason, d.GrantID = Ask, "scoped grant exhausted or expired before execution", ids.Nil
+		a, err := s.createApproval(ctx, inv, c, hash, decisionEv)
+		if err != nil {
+			return Outcome{}, err
+		}
+		return Outcome{Status: "pending", Decision: d, ApprovalID: a.ID, EventID: a.EventID}, nil
+	}
 	return s.execute(ctx, inv, c, d, decisionEv, ids.Nil)
+}
+
+// decideInvocation is Decide for a concrete request: scoped grants may match
+// on parameters and are consulted only when policy says ASK, and a request
+// that requires approval can never be allowed without one.
+func (s *Service) decideInvocation(ctx context.Context, inv Invocation, c Capability, action string) (Decision, error) {
+	d, err := s.Decide(ctx, inv.MindID, c, inv.Target, action)
+	if err != nil {
+		return d, err
+	}
+	if d.Effect == Ask && !c.Locked && !inv.RequireApproval {
+		if g, ok := s.matchingGrant(ctx, inv.MindID, c, inv.Target, inv.Params); ok {
+			d.Effect, d.GrantID = Allow, g.ID
+			d.Reason = fmt.Sprintf("scoped grant by %s until %s%s", g.GrantedBy, g.ExpiresAt.Format(time.RFC3339), remaining(g))
+		}
+	}
+	if d.Effect == Allow && inv.RequireApproval {
+		d.Effect, d.Tightened, d.GrantID = Ask, true, ids.Nil
+		d.Reason = "approval required by a commitment (policy alone would allow: " + d.Reason + ")"
+	}
+	return d, nil
 }
 
 func (s *Service) createApproval(ctx context.Context, inv Invocation, c Capability, hash string, cause ids.ID) (Approval, error) {
@@ -338,7 +377,11 @@ func (s *Service) execute(ctx context.Context, inv Invocation, c Capability, d D
 				execErr = fmt.Errorf("executor panicked: %v", r)
 			}
 		}()
-		ectx, cancel := context.WithTimeout(ctx, 60*time.Second)
+		timeout := c.Timeout
+		if timeout <= 0 {
+			timeout = 60 * time.Second
+		}
+		ectx, cancel := context.WithTimeout(ctx, timeout)
 		defer cancel()
 		res, execErr = c.Executor(ectx, inv)
 	}()
@@ -356,12 +399,12 @@ func (s *Service) execute(ctx context.Context, inv Invocation, c Capability, d D
 		exec.Result = rj
 		payload["result"] = res
 		ev, _ = s.Events.Append(ctx, events.New{MindID: inv.MindID, Type: events.ToolExecuted, Source: "capabilities", Summary: fmt.Sprintf("%s on %q: %s", c.Name, inv.Target, truncate(res.Summary, 160)),
-			Salience: 0.5, Confidence: 1, CausationID: cause, CorrelationID: inv.Correlation, Evidence: toEvidence(inv.Evidence), Metadata: map[string]any{"capability": c.Name, "target": inv.Target, "execution_id": string(exec.ID), "trust": events.TrustTool}, Payload: payload})
+			Salience: 0.5, Confidence: 1, CausationID: cause, CorrelationID: inv.Correlation, Evidence: toEvidence(inv.Evidence), Metadata: map[string]any{"capability": c.Name, "target": inv.Target, "execution_id": string(exec.ID), "trust": c.OutputTrust}, Payload: payload})
 		// Tool output re-enters cognition as an observation with tool trust.
 		if strings.TrimSpace(res.Output) != "" {
 			s.Events.Append(ctx, events.New{MindID: inv.MindID, Type: events.Observation, Source: "tool:" + c.Name, Summary: "tool output from " + c.Name + ": " + truncate(oneLine(res.Output), 140), Salience: 0.6, Confidence: 0.9, CausationID: firstID(ev), CorrelationID: inv.Correlation, //nolint:errcheck
-				Metadata: map[string]any{"trust": events.TrustTool, "capability": c.Name, "execution_id": string(exec.ID)},
-				Payload:  events.ObservationPayload{Text: truncate(res.Output, 20000), ContentType: "text/plain", Source: "tool:" + c.Name, Trust: events.TrustTool, Method: "capability", Reference: string(exec.ID), Channel: inv.Target}})
+				Metadata: map[string]any{"trust": c.OutputTrust, "capability": c.Name, "execution_id": string(exec.ID)},
+				Payload:  events.ObservationPayload{Text: truncate(res.Output, 20000), ContentType: "text/plain", Source: "tool:" + c.Name, Trust: c.OutputTrust, Method: "capability", Reference: string(exec.ID), Channel: inv.Target}})
 		}
 	}
 	exec.EventID = firstID(ev)
@@ -443,6 +486,9 @@ func (s *Service) GetApproval(ctx context.Context, id ids.ID) (Approval, error) 
 // Approve executes the request now. Modified params are re-validated and
 // re-hashed; forSession additionally grants matching requests until SessionTTL.
 func (s *Service) Approve(ctx context.Context, id ids.ID, by, note string, forSession bool, modified map[string]any) (Outcome, error) {
+	if !ValidDecider(by) {
+		return Outcome{}, ErrReservedDecider
+	}
 	a, err := s.GetApproval(ctx, id)
 	if err != nil {
 		return Outcome{}, err
@@ -462,6 +508,9 @@ func (s *Service) Approve(ctx context.Context, id ids.ID, by, note string, forSe
 	if modified != nil {
 		if params, err = c.ValidateParams(modified); err != nil {
 			return Outcome{}, err
+		}
+		if _, err := c.ResolveTarget(a.Target, params); err != nil {
+			return Outcome{}, fmt.Errorf("%w: modified parameters change what the request acts on; deny it and let the mind ask again", ErrInvalid)
 		}
 	}
 	hash := Hash(a.MindID, a.Capability, a.Target, params)
@@ -499,6 +548,9 @@ func (s *Service) Approve(ctx context.Context, id ids.ID, by, note string, forSe
 
 // Deny refuses a request with an explanation the mind will see.
 func (s *Service) Deny(ctx context.Context, id ids.ID, by, note string) (Approval, error) {
+	if !ValidDecider(by) {
+		return Approval{}, ErrReservedDecider
+	}
 	a, err := s.GetApproval(ctx, id)
 	if err != nil {
 		return Approval{}, err

@@ -17,6 +17,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/andydixon/noema/pkg/events"
 	"github.com/andydixon/noema/pkg/ids"
 )
 
@@ -52,6 +53,24 @@ type Param struct {
 	MaxLen      int    `json:"max_len,omitempty"`
 }
 
+// Access says whether a capability changes anything outside Noema.
+type Access string
+
+// Access classes. Unknown access is treated as write (fail closed).
+const (
+	AccessRead  Access = "read"  // observes; no external state changes
+	AccessWrite Access = "write" // changes external state
+)
+
+// Cost is a capability's expected resource use per invocation, used for plan
+// estimates. Zero values mean "negligible", not "unknown".
+type Cost struct {
+	WallSeconds float64 `json:"wall_seconds,omitempty"`
+	Network     int     `json:"network_operations,omitempty"`
+	Money       float64 `json:"money,omitempty"`
+	Tokens      int     `json:"llm_tokens,omitempty"`
+}
+
 // Invocation is a validated request to run a capability.
 type Invocation struct {
 	MindID      ids.ID
@@ -62,6 +81,12 @@ type Invocation struct {
 	Evidence    []EvidenceRef
 	Correlation ids.ID
 	ApprovalID  ids.ID
+	// RequireApproval turns an ALLOW decision into ASK. Cognition sets it
+	// when a commitment demands approval; it can only tighten a decision.
+	RequireApproval bool
+	// Origin names the cognitive object that asked (for example
+	// "plan_step:<id>"), recorded with the decision for provenance.
+	Origin string
 }
 
 // EvidenceRef mirrors events.EvidenceRef without importing it (keeps this
@@ -88,22 +113,52 @@ type Capability struct {
 	Name          string           `json:"name"`
 	Description   string           `json:"description"`
 	Risk          Risk             `json:"risk"`
-	TargetKind    string           `json:"target_kind"` // url | path | host | service | repository | none
+	TargetKind    string           `json:"target_kind"` // url | path | host | service | repository | domain | none
 	Params        map[string]Param `json:"params"`
 	DefaultEffect Effect           `json:"default_effect"` // when no policy matches
 	Locked        bool             `json:"locked"`         // always DENY; cannot be relaxed
-	Executor      Executor         `json:"-"`
+	Access        Access           `json:"access"`         // read | write
+	SideEffects   string           `json:"side_effects"`   // what changes in the world when it runs
+	Idempotent    bool             `json:"idempotent"`     // running it twice has the same effect as once
+	Timeout       time.Duration    `json:"timeout"`        // executor deadline (default 60s)
+	Estimate      Cost             `json:"estimate"`
+	// TargetFrom derives the policy target from validated parameters (the
+	// unit a restart acts on, the host of a URL), so a policy or grant on a
+	// target always matches what the executor will touch. A caller-supplied
+	// target that disagrees is refused.
+	TargetFrom func(params map[string]any) (string, error) `json:"-"`
+	// OutputTrust is the trust given to the observation made from the
+	// output (default tool). Content fetched from the web is low trust.
+	OutputTrust events.Trust `json:"output_trust"`
+	Executor    Executor     `json:"-"`
 }
 
-// Registry holds capabilities. It is built in code; nothing at runtime can
-// add one, so a mind cannot invent tools.
-type Registry struct{ caps map[string]Capability }
+// Registry holds capabilities. It is built in code at start-up and frozen
+// before any mind runs; nothing at runtime can add one, so a mind cannot
+// invent tools.
+type Registry struct {
+	caps   map[string]Capability
+	frozen bool
+}
 
 // NewRegistry creates an empty registry.
 func NewRegistry() *Registry { return &Registry{caps: map[string]Capability{}} }
 
-// Add registers a capability.
+// Add registers a capability. Adding to a frozen registry is a programming
+// error and panics: capabilities are code, never runtime data.
 func (r *Registry) Add(c Capability) *Registry {
+	if r.frozen {
+		panic("capabilities: registry is frozen; " + c.Name + " cannot be added at runtime")
+	}
+	if c.Access != AccessRead {
+		c.Access = AccessWrite
+	}
+	if c.Timeout <= 0 {
+		c.Timeout = 60 * time.Second
+	}
+	if !c.OutputTrust.Valid() {
+		c.OutputTrust = events.TrustTool
+	}
 	if c.Params == nil {
 		c.Params = map[string]Param{}
 	}
@@ -116,6 +171,12 @@ func (r *Registry) Add(c Capability) *Registry {
 	r.caps[c.Name] = c
 	return r
 }
+
+// Freeze stops further registration.
+func (r *Registry) Freeze() { r.frozen = true }
+
+// Frozen reports whether the registry accepts no more capabilities.
+func (r *Registry) Frozen() bool { return r.frozen }
 
 // Get returns a capability.
 func (r *Registry) Get(name string) (Capability, bool) {
@@ -195,6 +256,22 @@ func (c Capability) ValidateParams(params map[string]any) (map[string]any, error
 	return out, nil
 }
 
+// ResolveTarget applies TargetFrom: it returns the target the request acts
+// on, or an error when the caller named a different one.
+func (c Capability) ResolveTarget(target string, params map[string]any) (string, error) {
+	if c.TargetFrom == nil {
+		return target, nil
+	}
+	derived, err := c.TargetFrom(params)
+	if err != nil {
+		return "", fmt.Errorf("%w: %v", ErrInvalid, err)
+	}
+	if target != "" && !strings.EqualFold(target, derived) {
+		return "", fmt.Errorf("%w: target %q does not match the parameters (%q)", ErrInvalid, target, derived)
+	}
+	return derived, nil
+}
+
 // Hash binds an approval to the exact request.
 func Hash(mind ids.ID, capability, target string, params map[string]any) string {
 	raw, _ := json.Marshal(struct {
@@ -268,10 +345,12 @@ func (p Policy) matches(mind ids.ID, capability, target, action string, now time
 type Decision struct {
 	Effect      Effect `json:"effect"`
 	PolicyID    ids.ID `json:"policy_id,omitempty"`
+	GrantID     ids.ID `json:"grant_id,omitempty"` // scoped grant that turned ASK into ALLOW
 	Specificity int    `json:"specificity"`
 	Reason      string `json:"reason"`
 	Locked      bool   `json:"locked"`
 	Considered  int    `json:"considered"`
+	Tightened   bool   `json:"tightened,omitempty"` // ALLOW became ASK because the invocation required approval
 }
 
 func rank(e Effect) int {

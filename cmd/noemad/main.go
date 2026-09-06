@@ -166,6 +166,7 @@ func run() error {
 	for _, c := range integrations.Capabilities(deps.Integrations, integrations.GitPoller{DataDir: "./data/git"}, integrations.PrometheusPoller{Secrets: sec}) {
 		capReg.Add(c)
 	}
+	capReg.Freeze()
 	deps.Capabilities = &capabilities.Service{Registry: capReg, DB: db, Events: deps.Events, Log: log, Metrics: metrics, ApprovalTTL: 24 * time.Hour, SessionTTL: 8 * time.Hour}
 	selfSync := cognition.SelfModelSync{Minds: deps.Minds, Caps: deps.Capabilities, Events: deps.Events, Log: log}
 	deps.Capabilities.OnSelfModel = selfSync.Sync
@@ -202,7 +203,14 @@ func run() error {
 	}}
 	selfSync.Sync(ctx, ids.Nil)
 	group.Every("integrations.tick", time.Minute, deps.Integrations.Tick)
-	group.Every("approvals.expire", 5*time.Minute, func(ctx context.Context) error { _, err := deps.Capabilities.ExpirePending(ctx); return err })
+	group.Every("approvals.expire", 5*time.Minute, func(ctx context.Context) error {
+		if _, err := deps.Capabilities.ExpirePending(ctx); err != nil {
+			return err
+		}
+		_, err := deps.Capabilities.ExpireCapabilityRequests(ctx)
+		return err
+	})
+	group.Every("grants.sweep", time.Minute, func(ctx context.Context) error { _, err := deps.Capabilities.SweepGrants(ctx); return err })
 	group.Every("predictions.resolve", time.Minute, deps.Resolver.Run)
 	group.Every("cognition.background", 5*time.Minute, func(ctx context.Context) error { return backgroundCognition(ctx, deps) })
 	group.Every("memory.decay", 6*time.Hour, func(ctx context.Context) error { return decayMemories(ctx, deps) })
