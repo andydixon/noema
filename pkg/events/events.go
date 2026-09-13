@@ -65,6 +65,39 @@ const (
 	ResponseGenerated      Type = "response_generated"
 	CycleCompleted         Type = "cycle_completed"
 	Redaction              Type = "redaction" // content of an earlier row was made irrecoverable under a policy
+
+	// Volition (docs/volition.md): wants, intentions and commitments are
+	// distinct states; each transition is recorded.
+	WantCreated           Type = "want_created"
+	WantReinforced        Type = "want_reinforced"
+	WantSuppressed        Type = "want_suppressed" // a want was not pursued because of a commitment, conflict or policy; it stays represented
+	WantConflictDetected  Type = "want_conflict_detected"
+	IntentionFormed       Type = "intention_formed"
+	IntentionBlocked      Type = "intention_blocked"
+	IntentionSuspended    Type = "intention_suspended"
+	IntentionResumed      Type = "intention_resumed"
+	IntentionReconsidered Type = "intention_reconsidered"
+	IntentionAbandoned    Type = "intention_abandoned"
+	IntentionFulfilled    Type = "intention_fulfilled"
+	IntentionSuperseded   Type = "intention_superseded"
+	CommitmentCreated     Type = "commitment_created"
+	CommitmentDue         Type = "commitment_due"
+	CommitmentConflict    Type = "commitment_conflict"
+	CommitmentFulfilled   Type = "commitment_fulfilled"
+	CommitmentBroken      Type = "commitment_broken"
+	CommitmentRevoked     Type = "commitment_revoked"
+
+	// Planning (docs/planning.md). Action requests, authorisation and
+	// completion reuse policy_decision and tool_*; expectation resolution
+	// reuses prediction_resolved and prediction_error.
+	PlanCreated       Type = "plan_created"
+	PlanValidated     Type = "plan_validated"
+	PlanStepStarted   Type = "plan_step_started"
+	PlanStepCompleted Type = "plan_step_completed"
+	PlanStepFailed    Type = "plan_step_failed"
+	PlanReplanned     Type = "plan_replanned"
+	PlanCompleted     Type = "plan_completed"
+	PlanAbandoned     Type = "plan_abandoned"
 )
 
 // Category groups types for filtering and colouring in the UI.
@@ -83,6 +116,8 @@ const (
 	CatLLM        Category = "llm"
 	CatOperator   Category = "operator"
 	CatSystem     Category = "system"
+	CatVolition   Category = "volition"
+	CatPlan       Category = "plan"
 )
 
 var categories = map[Type]Category{
@@ -100,6 +135,11 @@ var categories = map[Type]Category{
 	NotificationCreated: CatAction, NotificationSuppressed: CatAction, PolicyDecision: CatAction,
 	LLMRequest: CatLLM, LLMResponse: CatLLM,
 	SelfModelUpdated: CatSystem, OperatorAction: CatOperator,
+	WantCreated: CatVolition, WantReinforced: CatVolition, WantSuppressed: CatVolition, WantConflictDetected: CatVolition,
+	IntentionFormed: CatVolition, IntentionBlocked: CatVolition, IntentionSuspended: CatVolition, IntentionResumed: CatVolition, IntentionReconsidered: CatVolition,
+	IntentionAbandoned: CatVolition, IntentionFulfilled: CatVolition, IntentionSuperseded: CatVolition,
+	CommitmentCreated: CatVolition, CommitmentDue: CatVolition, CommitmentConflict: CatVolition, CommitmentFulfilled: CatVolition, CommitmentBroken: CatVolition, CommitmentRevoked: CatVolition,
+	PlanCreated: CatPlan, PlanValidated: CatPlan, PlanStepStarted: CatPlan, PlanStepCompleted: CatPlan, PlanStepFailed: CatPlan, PlanReplanned: CatPlan, PlanCompleted: CatPlan, PlanAbandoned: CatPlan,
 }
 
 // CategoryOf returns the category of a type (CatSystem for unknown types).
@@ -135,7 +175,7 @@ func sortTypes(ts []Type) {
 // memory, belief, another event, an entity, a document, an LLM call, a
 // prediction, a message.
 type EvidenceRef struct {
-	Kind string `json:"kind"` // event | memory | belief | entity | document | llm_call | prediction | goal | message | approval
+	Kind string `json:"kind"` // event | memory | belief | entity | document | llm_call | prediction | goal | message | approval | want | intention | commitment | plan | plan_step | capability_request | execution
 	ID   string `json:"id"`
 	Note string `json:"note,omitempty"`
 }

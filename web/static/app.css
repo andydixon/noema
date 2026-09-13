@@ -142,6 +142,7 @@ ul.plain { list-style: none; padding: 0; margin: 0; }
 .etype.cat-belief { border-left-color: #d97706; } .etype.cat-prediction { border-left-color: #db2777; } .etype.cat-goal { border-left-color: #16a34a; }
 .etype.cat-affect { border-left-color: #e11d48; } .etype.cat-action { border-left-color: #b45309; } .etype.cat-llm { border-left-color: #64748b; }
 .etype.cat-operator { border-left-color: #0f766e; } .etype.cat-system { border-left-color: var(--border); }
+.etype.cat-volition { border-left-color: #7c3aed; } .etype.cat-plan { border-left-color: #0369a1; }
 tr.fresh { animation: fresh 2.5s ease-out; }
 @keyframes fresh { from { background: var(--accent-soft); } to { background: transparent; } }
 body.stream-offline [data-stream-status] { background: var(--danger-soft); color: var(--danger); }
