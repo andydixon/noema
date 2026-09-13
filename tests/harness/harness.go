@@ -23,6 +23,7 @@ import (
 	"github.com/andydixon/noema/internal/beliefs"
 	"github.com/andydixon/noema/internal/brain"
 	"github.com/andydixon/noema/internal/capabilities"
+	"github.com/andydixon/noema/internal/capabilities/host"
 	"github.com/andydixon/noema/internal/cognition"
 	"github.com/andydixon/noema/internal/config"
 	"github.com/andydixon/noema/internal/consolidation"
@@ -66,6 +67,9 @@ const AdminPass, ObserverPass = "administrator-pass-1", "observer-pass-12345"
 
 // Options adjust the assembled daemon for a test.
 type Options struct {
+	// HostRunner backs the host and service capabilities. Nil leaves them
+	// registered but failing, so no test touches a real systemd unit.
+	HostRunner host.Runner
 	// Capabilities are extra test capabilities registered before the
 	// registry is frozen.
 	Capabilities []capabilities.Capability
@@ -96,6 +100,9 @@ func StartWith(t *testing.T, o Options) *Harness {
 	deps.Graph = graph.NewStore(pool)
 	capReg := capabilities.NewRegistry()
 	for _, c := range capabilities.Builtins() {
+		capReg.Add(c)
+	}
+	for _, c := range host.Capabilities(host.Options{Runner: o.HostRunner}) {
 		capReg.Add(c)
 	}
 	for _, c := range o.Capabilities {

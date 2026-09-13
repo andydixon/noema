@@ -21,6 +21,8 @@ import (
 	"github.com/andydixon/noema/internal/beliefs"
 	"github.com/andydixon/noema/internal/brain"
 	"github.com/andydixon/noema/internal/capabilities"
+	"github.com/andydixon/noema/internal/capabilities/browser"
+	"github.com/andydixon/noema/internal/capabilities/host"
 	"github.com/andydixon/noema/internal/cognition"
 	"github.com/andydixon/noema/internal/config"
 	"github.com/andydixon/noema/internal/consolidation"
@@ -164,6 +166,12 @@ func run() error {
 	deps.Integrations = &integrations.Manager{Store: integrations.NewStore(db), Events: deps.Events, Graph: deps.Graph, Secrets: sec, Log: log, Pool: scheduler.NewPool(2),
 		Pollers: map[integrations.Kind]integrations.Poller{integrations.ResearchFolder: integrations.ResearchPoller{}, integrations.Git: integrations.GitPoller{DataDir: "./data/git"}, integrations.Prometheus: integrations.PrometheusPoller{Secrets: sec}}}
 	for _, c := range integrations.Capabilities(deps.Integrations, integrations.GitPoller{DataDir: "./data/git"}, integrations.PrometheusPoller{Secrets: sec}) {
+		capReg.Add(c)
+	}
+	for _, c := range host.Capabilities(host.Options{Runner: host.ExecRunner{}}) {
+		capReg.Add(c)
+	}
+	for _, c := range browser.Capabilities(browser.Options{}) {
 		capReg.Add(c)
 	}
 	capReg.Freeze()
