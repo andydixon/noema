@@ -170,7 +170,7 @@ func Capabilities(o Options) []capabilities.Capability {
 				return capabilities.Result{Summary: fmt.Sprintf("%d processes", len(procs)), Data: map[string]any{"processes": procs}}, nil
 			}},
 		{Name: "service.status", Description: "Report a systemd unit's load, active and sub state and main PID.", Risk: capabilities.RiskLow, TargetKind: "service", Access: capabilities.AccessRead, Idempotent: true, Timeout: 10 * time.Second,
-			SideEffects: "none", DefaultEffect: capabilities.Ask, Params: svc, TargetFrom: unitTarget,
+			SideEffects: "none", DefaultEffect: capabilities.Allow, Params: svc, TargetFrom: unitTarget,
 			Executor: func(ctx context.Context, inv capabilities.Invocation) (capabilities.Result, error) {
 				unit, err := unitTarget(inv.Params)
 				if err != nil || run == nil {

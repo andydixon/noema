@@ -40,6 +40,8 @@ const (
 //	             event summary of the given types within the window.
 //	belief:      the referenced belief's confidence reaches min_confidence by the window end.
 //	operator:    only an operator can resolve it.
+//	verification: a plan step's expected outcome, resolved by the planning
+//	             executor from a read-only observation after the action.
 type Criteria struct {
 	Kind          string   `json:"kind"`
 	Expect        string   `json:"expect,omitempty"` // occurs | absent
@@ -140,6 +142,9 @@ func (n *New) validate() error {
 		if n.Criteria.BeliefID.IsZero() || n.Criteria.MinConfidence <= 0 {
 			return fmt.Errorf("%w: belief criteria need belief_id and min_confidence", ErrInvalid)
 		}
+	case "verification":
+		// An expectation attached to a plan step; the planning executor
+		// resolves it by observing the world after the action.
 	case "operator", "":
 		n.Criteria.Kind = "operator"
 	default:
@@ -310,6 +315,11 @@ func Judge(p Prediction, now time.Time, window []events.Event, beliefConfidence 
 		}
 		if now.After(p.WindowEnd) {
 			return Outcome{Status: StatusRefuted, Evidence: []events.EvidenceRef{{Kind: "belief", ID: string(p.Criteria.BeliefID)}}, Reason: "window closed below the confidence threshold"}, true
+		}
+		return Outcome{}, false
+	case "verification":
+		if now.After(p.WindowEnd.Add(time.Hour)) {
+			return Outcome{Status: StatusExpired, Reason: "no verification was performed within an hour of the window"}, true
 		}
 		return Outcome{}, false
 	default:

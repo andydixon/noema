@@ -40,6 +40,7 @@ type Approval struct {
 	Error          string          `json:"error"`
 	EventID        ids.ID          `json:"event_id,omitempty"`
 	CorrelationID  ids.ID          `json:"correlation_id,omitempty"`
+	Origin         string          `json:"origin,omitempty"`
 	ExpiresAt      time.Time       `json:"expires_at"`
 	CreatedAt      time.Time       `json:"created_at"`
 }
@@ -56,6 +57,7 @@ type Execution struct {
 	DurationMS int             `json:"duration_ms"`
 	ApprovalID ids.ID          `json:"approval_id,omitempty"`
 	EventID    ids.ID          `json:"event_id,omitempty"`
+	Origin     string          `json:"origin,omitempty"`
 	CreatedAt  time.Time       `json:"created_at"`
 }
 
@@ -323,6 +325,33 @@ func (s *Service) Invoke(ctx context.Context, inv Invocation) (Outcome, error) {
 	return s.execute(ctx, inv, c, d, decisionEv, ids.Nil)
 }
 
+// Preview reports what Invoke would decide for a request without recording
+// or executing anything: parameters validated, target derived, policy,
+// session and scoped grants and approval requirements applied. Planning uses
+// it to choose routes; it confers nothing.
+func (s *Service) Preview(ctx context.Context, inv Invocation) (Decision, error) {
+	c, ok := s.Registry.Get(inv.Capability)
+	if !ok {
+		return Decision{Effect: Deny, Reason: "unknown capability"}, fmt.Errorf("%w: %s", ErrUnknown, inv.Capability)
+	}
+	if c.Locked {
+		return Decision{Effect: Deny, Locked: true, Reason: "capability is locked to DENY by design"}, nil
+	}
+	params, err := c.ValidateParams(inv.Params)
+	if err != nil {
+		return Decision{Effect: Deny, Reason: err.Error()}, err
+	}
+	inv.Params = params
+	if inv.Target, err = c.ResolveTarget(inv.Target, params); err != nil {
+		return Decision{Effect: Deny, Reason: err.Error()}, err
+	}
+	action, _ := params["action"].(string)
+	if action == "" {
+		action = "*"
+	}
+	return s.decideInvocation(ctx, inv, c, action)
+}
+
 // decideInvocation is Decide for a concrete request: scoped grants may match
 // on parameters and are consulted only when policy says ASK, and a request
 // that requires approval can never be allowed without one.
@@ -349,21 +378,21 @@ func (s *Service) createApproval(ctx context.Context, inv Invocation, c Capabili
 	if ttl <= 0 {
 		ttl = 24 * time.Hour
 	}
-	a := Approval{ID: ids.New(), MindID: inv.MindID, Capability: c.Name, Target: inv.Target, Params: inv.Params, RequestHash: hash, Reason: inv.Reason, Risk: c.Risk, Evidence: inv.Evidence, Status: "pending", CorrelationID: inv.Correlation, ExpiresAt: s.now().Add(ttl), CreatedAt: s.now()}
+	a := Approval{ID: ids.New(), MindID: inv.MindID, Capability: c.Name, Target: inv.Target, Params: inv.Params, RequestHash: hash, Reason: inv.Reason, Risk: c.Risk, Evidence: inv.Evidence, Status: "pending", CorrelationID: inv.Correlation, Origin: inv.Origin, ExpiresAt: s.now().Add(ttl), CreatedAt: s.now()}
 	if a.Evidence == nil {
 		a.Evidence = []EvidenceRef{}
 	}
 	ev, err := s.Events.Append(ctx, events.New{MindID: inv.MindID, Type: events.ToolRequested, Source: "capabilities", Summary: fmt.Sprintf("approval requested: %s on %q — %s", c.Name, inv.Target, firstNonEmpty(inv.Reason, "no reason given")),
 		Salience: 0.6, Confidence: 1, CausationID: cause, CorrelationID: inv.Correlation, Evidence: toEvidence(inv.Evidence),
-		Metadata: map[string]any{"capability": c.Name, "target": inv.Target, "approval_id": string(a.ID), "risk": c.Risk}, Payload: map[string]any{"approval_id": a.ID, "capability": c.Name, "target": inv.Target, "params": inv.Params, "risk": c.Risk, "reason": inv.Reason, "expires_at": a.ExpiresAt}})
+		Metadata: map[string]any{"capability": c.Name, "target": inv.Target, "approval_id": string(a.ID), "risk": c.Risk, "origin": inv.Origin}, Payload: map[string]any{"approval_id": a.ID, "capability": c.Name, "target": inv.Target, "params": inv.Params, "risk": c.Risk, "reason": inv.Reason, "expires_at": a.ExpiresAt}})
 	if err != nil {
 		return Approval{}, err
 	}
 	a.EventID = ev[0].ID
 	params, _ := json.Marshal(inv.Params)
 	evid, _ := json.Marshal(a.Evidence)
-	_, err = s.DB.Exec(ctx, `INSERT INTO approval_requests (id, mind_id, capability, target, params, request_hash, reason, risk, evidence, status, event_id, correlation_id, expires_at)
-		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,'pending',$10,$11,$12)`, a.ID, a.MindID, a.Capability, a.Target, params, a.RequestHash, a.Reason, string(a.Risk), evid, string(a.EventID), nullID(a.CorrelationID), a.ExpiresAt)
+	_, err = s.DB.Exec(ctx, `INSERT INTO approval_requests (id, mind_id, capability, target, params, request_hash, reason, risk, evidence, status, event_id, correlation_id, expires_at, origin)
+		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,'pending',$10,$11,$12,$13)`, a.ID, a.MindID, a.Capability, a.Target, params, a.RequestHash, a.Reason, string(a.Risk), evid, string(a.EventID), nullID(a.CorrelationID), a.ExpiresAt, a.Origin)
 	return a, err
 }
 
@@ -386,20 +415,20 @@ func (s *Service) execute(ctx context.Context, inv Invocation, c Capability, d D
 		res, execErr = c.Executor(ectx, inv)
 	}()
 	dur := time.Since(start)
-	exec := Execution{ID: ids.New(), MindID: inv.MindID, Capability: c.Name, Target: inv.Target, Params: inv.Params, DurationMS: int(dur.Milliseconds()), ApprovalID: approvalID, CreatedAt: s.now()}
-	payload := map[string]any{"capability": c.Name, "target": inv.Target, "params": inv.Params, "approval_id": approvalID, "duration_ms": exec.DurationMS}
+	exec := Execution{ID: ids.New(), MindID: inv.MindID, Capability: c.Name, Target: inv.Target, Params: inv.Params, DurationMS: int(dur.Milliseconds()), ApprovalID: approvalID, Origin: inv.Origin, CreatedAt: s.now()}
+	payload := map[string]any{"capability": c.Name, "target": inv.Target, "params": inv.Params, "approval_id": approvalID, "duration_ms": exec.DurationMS, "origin": inv.Origin}
 	var ev []events.Event
 	if execErr != nil {
 		exec.Error = execErr.Error()
 		payload["error"] = exec.Error
 		ev, _ = s.Events.Append(ctx, events.New{MindID: inv.MindID, Type: events.ToolFailed, Source: "capabilities", Summary: fmt.Sprintf("%s on %q failed: %s", c.Name, inv.Target, truncate(exec.Error, 160)),
-			Salience: 0.6, Confidence: 1, CausationID: cause, CorrelationID: inv.Correlation, Metadata: map[string]any{"capability": c.Name, "target": inv.Target, "execution_id": string(exec.ID)}, Payload: payload})
+			Salience: 0.6, Confidence: 1, CausationID: cause, CorrelationID: inv.Correlation, Metadata: map[string]any{"capability": c.Name, "target": inv.Target, "execution_id": string(exec.ID), "origin": inv.Origin, "approval_id": string(approvalID)}, Payload: payload})
 	} else {
 		rj, _ := json.Marshal(res)
 		exec.Result = rj
 		payload["result"] = res
 		ev, _ = s.Events.Append(ctx, events.New{MindID: inv.MindID, Type: events.ToolExecuted, Source: "capabilities", Summary: fmt.Sprintf("%s on %q: %s", c.Name, inv.Target, truncate(res.Summary, 160)),
-			Salience: 0.5, Confidence: 1, CausationID: cause, CorrelationID: inv.Correlation, Evidence: toEvidence(inv.Evidence), Metadata: map[string]any{"capability": c.Name, "target": inv.Target, "execution_id": string(exec.ID), "trust": c.OutputTrust}, Payload: payload})
+			Salience: 0.5, Confidence: 1, CausationID: cause, CorrelationID: inv.Correlation, Evidence: toEvidence(inv.Evidence), Metadata: map[string]any{"capability": c.Name, "target": inv.Target, "execution_id": string(exec.ID), "trust": c.OutputTrust, "origin": inv.Origin, "approval_id": string(approvalID)}, Payload: payload})
 		// Tool output re-enters cognition as an observation with tool trust.
 		if strings.TrimSpace(res.Output) != "" {
 			s.Events.Append(ctx, events.New{MindID: inv.MindID, Type: events.Observation, Source: "tool:" + c.Name, Summary: "tool output from " + c.Name + ": " + truncate(oneLine(res.Output), 140), Salience: 0.6, Confidence: 0.9, CausationID: firstID(ev), CorrelationID: inv.Correlation, //nolint:errcheck
@@ -409,8 +438,8 @@ func (s *Service) execute(ctx context.Context, inv Invocation, c Capability, d D
 	}
 	exec.EventID = firstID(ev)
 	params, _ := json.Marshal(inv.Params)
-	_, err := s.DB.Exec(ctx, `INSERT INTO tool_executions (id, mind_id, capability, target, params, result, error, duration_ms, approval_id, event_id) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
-		exec.ID, exec.MindID, exec.Capability, exec.Target, params, nullRaw(exec.Result), exec.Error, exec.DurationMS, nullID(approvalID), nullID(exec.EventID))
+	_, err := s.DB.Exec(ctx, `INSERT INTO tool_executions (id, mind_id, capability, target, params, result, error, duration_ms, approval_id, event_id, origin) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`,
+		exec.ID, exec.MindID, exec.Capability, exec.Target, params, nullRaw(exec.Result), exec.Error, exec.DurationMS, nullID(approvalID), nullID(exec.EventID), exec.Origin)
 	if err != nil {
 		s.Log.Error("record execution failed", "err", err)
 	}
@@ -422,7 +451,7 @@ func (s *Service) execute(ctx context.Context, inv Invocation, c Capability, d D
 
 // ---- approvals ----
 
-const approvalCols = `id, mind_id, capability, target, params, request_hash, reason, risk, evidence, status, decision_by, decision_note, decided_at, session_grant, modified_params, result, error, event_id, correlation_id, expires_at, created_at`
+const approvalCols = `id, mind_id, capability, target, params, request_hash, reason, risk, evidence, status, decision_by, decision_note, decided_at, session_grant, modified_params, result, error, event_id, correlation_id, expires_at, created_at, origin`
 
 func scanApproval(row pgx.Row) (Approval, error) {
 	var a Approval
@@ -430,7 +459,7 @@ func scanApproval(row pgx.Row) (Approval, error) {
 	var modified, result *json.RawMessage
 	var risk string
 	var ev, corr *string
-	if err := row.Scan(&a.ID, &a.MindID, &a.Capability, &a.Target, &params, &a.RequestHash, &a.Reason, &risk, &evid, &a.Status, &a.DecisionBy, &a.DecisionNote, &a.DecidedAt, &a.SessionGrant, &modified, &result, &a.Error, &ev, &corr, &a.ExpiresAt, &a.CreatedAt); err != nil {
+	if err := row.Scan(&a.ID, &a.MindID, &a.Capability, &a.Target, &params, &a.RequestHash, &a.Reason, &risk, &evid, &a.Status, &a.DecisionBy, &a.DecisionNote, &a.DecidedAt, &a.SessionGrant, &modified, &result, &a.Error, &ev, &corr, &a.ExpiresAt, &a.CreatedAt, &a.Origin); err != nil {
 		return a, storage.Translate(err)
 	}
 	a.Risk = Risk(risk)
@@ -531,7 +560,7 @@ func (s *Service) Approve(ctx context.Context, id ids.ID, by, note string, forSe
 	}
 	ev, _ := s.Events.Append(ctx, events.New{MindID: a.MindID, Type: events.ToolAuthorised, Source: "operator", Summary: fmt.Sprintf("operator %s approved %s on %q%s", by, a.Capability, a.Target, map[bool]string{true: " for this session", false: ""}[forSession]),
 		Salience: 0.5, Confidence: 1, CausationID: a.EventID, CorrelationID: a.CorrelationID, Metadata: map[string]any{"approval_id": string(a.ID), "actor": by, "capability": a.Capability, "for_session": forSession}, Payload: details})
-	inv := Invocation{MindID: a.MindID, Capability: a.Capability, Target: a.Target, Params: params, Reason: a.Reason, Evidence: a.Evidence, Correlation: a.CorrelationID, ApprovalID: a.ID}
+	inv := Invocation{MindID: a.MindID, Capability: a.Capability, Target: a.Target, Params: params, Reason: a.Reason, Evidence: a.Evidence, Correlation: a.CorrelationID, ApprovalID: a.ID, Origin: a.Origin}
 	out, err := s.execute(ctx, inv, c, Decision{Effect: Allow, Reason: "approved by " + by}, firstID(ev), a.ID)
 	if err != nil {
 		return out, err
@@ -622,7 +651,56 @@ func (s *Service) Executions(ctx context.Context, mind ids.ID, limit int) ([]Exe
 	if limit <= 0 || limit > 500 {
 		limit = 50
 	}
-	rows, err := s.DB.Query(ctx, `SELECT id, mind_id, capability, target, params, result, error, duration_ms, approval_id, event_id, created_at FROM tool_executions WHERE ($1::uuid IS NULL OR mind_id=$1) ORDER BY created_at DESC LIMIT $2`, nullID(mind), limit)
+	return s.queryExecutions(ctx, `SELECT id, mind_id, capability, target, params, result, error, duration_ms, approval_id, event_id, created_at, origin FROM tool_executions WHERE ($1::uuid IS NULL OR mind_id=$1) ORDER BY created_at DESC LIMIT $2`, nullID(mind), limit)
+}
+
+// ExecutionsByOrigin lists executions a cognitive object asked for, oldest first.
+func (s *Service) ExecutionsByOrigin(ctx context.Context, mind ids.ID, origin string) ([]Execution, error) {
+	return s.queryExecutions(ctx, `SELECT id, mind_id, capability, target, params, result, error, duration_ms, approval_id, event_id, created_at, origin FROM tool_executions WHERE mind_id=$1 AND origin=$2 ORDER BY created_at LIMIT 100`, mind, origin)
+}
+
+// GetExecution fetches one execution.
+func (s *Service) GetExecution(ctx context.Context, id ids.ID) (Execution, error) {
+	out, err := s.queryExecutions(ctx, `SELECT id, mind_id, capability, target, params, result, error, duration_ms, approval_id, event_id, created_at, origin FROM tool_executions WHERE id=$1`, id)
+	if err != nil {
+		return Execution{}, err
+	}
+	if len(out) == 0 {
+		return Execution{}, storage.ErrNotFound
+	}
+	return out[0], nil
+}
+
+// ApprovalsByOrigin lists approval requests a cognitive object raised, oldest first.
+func (s *Service) ApprovalsByOrigin(ctx context.Context, mind ids.ID, origin string) ([]Approval, error) {
+	rows, err := s.DB.Query(ctx, `SELECT `+approvalCols+` FROM approval_requests WHERE mind_id=$1 AND origin=$2 ORDER BY created_at LIMIT 100`, mind, origin)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []Approval
+	for rows.Next() {
+		a, err := scanApproval(rows)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, a)
+	}
+	return out, rows.Err()
+}
+
+// WithdrawApproval lets the requesting mind withdraw a pending approval
+// request it no longer needs (its plan changed). It never approves anything.
+func (s *Service) WithdrawApproval(ctx context.Context, mind, id ids.ID, reason string) error {
+	tag, err := s.DB.Exec(ctx, `UPDATE approval_requests SET status='withdrawn', decision_note=$3 WHERE id=$1 AND mind_id=$2 AND status='pending'`, id, mind, reason)
+	if err == nil && tag.RowsAffected() == 0 {
+		return storage.ErrNotFound
+	}
+	return err
+}
+
+func (s *Service) queryExecutions(ctx context.Context, sql string, args ...any) ([]Execution, error) {
+	rows, err := s.DB.Query(ctx, sql, args...)
 	if err != nil {
 		return nil, err
 	}
@@ -633,7 +711,7 @@ func (s *Service) Executions(ctx context.Context, mind ids.ID, limit int) ([]Exe
 		var params []byte
 		var result *json.RawMessage
 		var appr, ev *string
-		if err := rows.Scan(&e.ID, &e.MindID, &e.Capability, &e.Target, &params, &result, &e.Error, &e.DurationMS, &appr, &ev, &e.CreatedAt); err != nil {
+		if err := rows.Scan(&e.ID, &e.MindID, &e.Capability, &e.Target, &params, &result, &e.Error, &e.DurationMS, &appr, &ev, &e.CreatedAt, &e.Origin); err != nil {
 			return nil, err
 		}
 		json.Unmarshal(params, &e.Params) //nolint:errcheck

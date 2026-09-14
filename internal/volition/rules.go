@@ -760,7 +760,9 @@ type Trigger struct {
 	Action *ActionInfo
 	// Commitment is set for commitment triggers.
 	Commitment *Commitment
-	// OutcomeObserved is set for world_changed: the desired state already holds.
+	// OutcomeObserved is set for world_changed when the desired state already
+	// holds, and for plan_completed when the plan's completion means the
+	// desired outcome was reached.
 	OutcomeObserved bool
 }
 
@@ -805,6 +807,9 @@ func Reconsider(it Intention, t Trigger, rc ReconsiderContext) Reconsideration {
 	}
 	switch t.Kind {
 	case TriggerPlanCompleted:
+		if !t.OutcomeObserved {
+			return Reconsideration{Outcome: Abandon, Reason: "the plan finished without achieving the desired outcome (" + firstNonEmpty(t.Detail, "fallback strategy") + "); it has been handed to the operator"}
+		}
 		return Reconsideration{Outcome: Fulfil, Reason: "the plan completed and its checks passed"}
 	case TriggerGoalCompleted:
 		if it.Kind == IntentPursue || it.Kind == IntentInvestigate {
@@ -818,8 +823,8 @@ func Reconsider(it Intention, t Trigger, rc ReconsiderContext) Reconsideration {
 	case TriggerApprovalDenied:
 		return replanOr("the operator denied the request (" + firstNonEmpty(t.Detail, "no reason given") + ")")
 	case TriggerApprovalExpired:
-		if it.Status == IntentionBlocked && it.BlockedKind == BlockApproval && it.Reconsiderations > 0 {
-			return Reconsideration{Outcome: Suspend, Reason: "approval expired again without a decision; waiting rather than asking repeatedly"}
+		if rc.Replans > 0 {
+			return Reconsideration{Outcome: Suspend, Reason: "approval expired again without a decision; waiting rather than asking the operator repeatedly"}
 		}
 		return replanOr("the approval request expired before anyone decided")
 	case TriggerCapabilityChanged:
