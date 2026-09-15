@@ -30,7 +30,7 @@ type Stores struct {
 // ablation names the same components everywhere.
 func NewRegistry(s Stores) *brain.Registry {
 	r := brain.NewRegistry().AddProcess(Attend{}).AddProcess(Retrieve{}).AddProcess(Associate{}).AddProcess(Perceive{}).
-		AddProcess(GoalMonitor{}).AddProcess(Curiosity{}).AddProcess(Metacognition{}).AddProcess(Act{})
+		AddProcess(GoalMonitor{}).AddProcess(Curiosity{}).AddProcess(Metacognition{}).AddProcess(Act{}).AddProcess(Intend{})
 	if s.Motivation != nil {
 		r.AddHook(MotivationHook{Store: s.Motivation})
 	}
@@ -40,6 +40,7 @@ func NewRegistry(s Stores) *brain.Registry {
 	if s.Notifications != nil {
 		r.AddHook(NotifyHook{Store: s.Notifications})
 	}
+	r.AddHook(VolitionHook{})
 	Handlers{Memory: s.Memory, Beliefs: s.Beliefs, Conversations: s.Conversations, Graph: s.Graph, Assertions: s.Assertions}.Register(r)
 	return r
 }

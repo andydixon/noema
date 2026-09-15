@@ -171,7 +171,11 @@ func FromRequest(ev events.Event, actor, text string, p Proposal, dctx DeriveCon
 	if s < WantThreshold {
 		return nil
 	}
-	return []Candidate{{Subject: "act:" + p.Capability + ":" + p.Target, Description: fmt.Sprintf("do what %s asked: %s", firstNonEmpty(actor, "someone"), trunc(text, 140)), Origin: OriginRequest, OriginEvent: ev.ID,
+	origin := OriginRequest
+	if operator {
+		origin = OriginOperator
+	}
+	return []Candidate{{Subject: "act:" + p.Capability + ":" + p.Target, Description: fmt.Sprintf("do what %s asked: %s", firstNonEmpty(actor, "someone"), trunc(text, 140)), Origin: origin, OriginEvent: ev.ID,
 		OriginRef: "event:" + string(ev.ID), Strength: s, Terms: terms, Urgency: 0.6, Valence: "approach", Drives: []string{"task_completion", "social_coherence"}, Values: []string{"kindness"}, Proposal: &p}}
 }
 
@@ -616,7 +620,10 @@ func Form(in FormationInput) Formation {
 	}
 	t["commitment"] = round3(0.15 * in.CommitmentWeight)
 	t["expected_utility"] = round3(0.1 * in.Confidence)
-	if !in.Operator && w.Origin != OriginRequest {
+	switch {
+	case in.Operator:
+		t["operator_request"] = 0.1 // a person with authority asked for it
+	case w.Origin != OriginRequest:
 		t["autonomy"] = round3(0.05 * autonomy)
 	}
 	var why []string

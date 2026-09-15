@@ -82,7 +82,8 @@ type Invocation struct {
 	Correlation ids.ID
 	ApprovalID  ids.ID
 	// RequireApproval turns an ALLOW decision into ASK. Cognition sets it
-	// when a commitment demands approval; it can only tighten a decision.
+	// when a commitment or a value constraint demands approval; it can only
+	// tighten a decision.
 	RequireApproval bool
 	// Origin names the cognitive object that asked (for example
 	// "plan_step:<id>"), recorded with the decision for provenance.

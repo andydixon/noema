@@ -368,7 +368,7 @@ func (s *Service) decideInvocation(ctx context.Context, inv Invocation, c Capabi
 	}
 	if d.Effect == Allow && inv.RequireApproval {
 		d.Effect, d.Tightened, d.GrantID = Ask, true, ids.Nil
-		d.Reason = "approval required by a commitment (policy alone would allow: " + d.Reason + ")"
+		d.Reason = "approval required by the requesting intention (a commitment or value constraint); policy alone would allow: " + d.Reason
 	}
 	return d, nil
 }

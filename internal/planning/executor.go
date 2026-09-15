@@ -155,11 +155,22 @@ func (e *Executor) TickMind(ctx context.Context, mind ids.ID) error {
 // validate, store and link. It acts on nothing; the executor picks the plan
 // up after the transaction commits.
 func (e *Executor) Start(ctx context.Context, r volition.Recorder, it volition.Intention) (Plan, error) {
+	return e.start(ctx, r, it, false)
+}
+
+// start plans an intention. When fresh, earlier revisions do not exclude
+// their strategies: the plan is being redone under new constraints (a
+// commitment now requires approval), not because the strategy failed.
+func (e *Executor) start(ctx context.Context, r volition.Recorder, it volition.Intention, fresh bool) (Plan, error) {
 	previous, err := e.Plans.ForIntention(ctx, r.Q, it.ID)
 	if err != nil {
 		return Plan{}, err
 	}
-	d, err := e.Planner.Propose(ctx, it, previous)
+	considered := previous
+	if fresh {
+		considered = nil
+	}
+	d, err := e.Planner.Propose(ctx, it, considered)
 	if err != nil {
 		return Plan{}, err
 	}
@@ -369,7 +380,7 @@ func (e *Executor) explain(p Plan, it volition.Intention, st Step, c capabilitie
 		fmt.Fprintf(&b, " Alternatives considered: %s.", strings.Join(alts, ", "))
 	}
 	if st.RequireApproval || (it.RequireApproval && c.Access == capabilities.AccessWrite) {
-		b.WriteString(" A commitment requires approval for this action.")
+		b.WriteString(" A commitment or value constraint requires approval for this action.")
 	}
 	return b.String()
 }
@@ -510,10 +521,11 @@ func (e *Executor) pollApproval(ctx context.Context, p *Plan, it volition.Intent
 		if err := e.resumeParent(ctx, p, it, st, "operator "+a.DecisionBy+" approved"); err != nil {
 			return false, err
 		}
+		cause := a.EventID
 		execs, _ := e.Caps.ExecutionsByOrigin(ctx, p.MindID, st.Origin())
 		for _, x := range execs {
 			if x.ApprovalID == a.ID {
-				st.ExecutionID = x.ID
+				st.ExecutionID, cause = x.ID, x.EventID // the expectation follows from the execution, not the request
 			}
 		}
 		if a.Status == "failed" {
@@ -524,7 +536,7 @@ func (e *Executor) pollApproval(ctx context.Context, p *Plan, it volition.Intent
 			json.Unmarshal(a.Result, &res) //nolint:errcheck
 		}
 		it, _ = e.Volition.GetIntention(ctx, nil, p.MindID, it.ID)
-		return e.completeAction(ctx, p, it, st, res, a.EventID)
+		return e.completeAction(ctx, p, it, st, res, cause)
 	case "denied":
 		e.dropSubordinate(ctx, p, st, "operator denied the approval")
 		return true, e.fail(ctx, p, st, "operator "+a.DecisionBy+" denied: "+a.DecisionNote, volition.TriggerApprovalDenied, nil)
@@ -796,7 +808,7 @@ func (e *Executor) reconsider(ctx context.Context, p Plan, it volition.Intention
 			return err
 		}
 		e.cancelOpenSteps(ctx, p, "replanning: "+rc.Reason)
-		np, err := e.Start(ctx, r, cur)
+		np, err := e.start(ctx, r, cur, rc.Outcome == volition.Tighten)
 		if err != nil {
 			reason := "no alternative plan remains: " + err.Error()
 			if _, aerr := e.Volition.Apply(ctx, r, p.MindID, it.ID, volition.Reconsideration{Outcome: volition.Abandon, Reason: reason}, volition.Trigger{Kind: volition.TriggerReplanLimit, Detail: err.Error()}); aerr != nil && !errors.Is(aerr, volition.ErrClosed) {

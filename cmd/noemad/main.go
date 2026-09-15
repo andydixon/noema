@@ -44,6 +44,7 @@ import (
 	"github.com/andydixon/noema/internal/narrative"
 	"github.com/andydixon/noema/internal/notifications"
 	"github.com/andydixon/noema/internal/observability"
+	"github.com/andydixon/noema/internal/planning"
 	"github.com/andydixon/noema/internal/predictions"
 	"github.com/andydixon/noema/internal/privacy"
 	"github.com/andydixon/noema/internal/reflection"
@@ -54,6 +55,7 @@ import (
 	"github.com/andydixon/noema/internal/storage"
 	"github.com/andydixon/noema/internal/ui"
 	"github.com/andydixon/noema/internal/version"
+	"github.com/andydixon/noema/internal/volition"
 	"github.com/andydixon/noema/migrations"
 	"github.com/andydixon/noema/pkg/events"
 	"github.com/andydixon/noema/pkg/ids"
@@ -183,11 +185,16 @@ func run() error {
 	deps.Consolidation = &consolidation.Service{DB: db, Memory: deps.Memory, Beliefs: deps.Beliefs, Events: deps.Events, LLM: deps.LLM, Prompts: deps.Prompts, Minds: deps.Minds, Log: log}
 	deps.Dreaming = &dreaming.Service{DB: db, Memory: deps.Memory, Beliefs: deps.Beliefs, Events: deps.Events, LLM: deps.LLM, Prompts: deps.Prompts, Log: log}
 	deps.Reflection = &reflection.Service{DB: db, Events: deps.Events, Beliefs: deps.Beliefs, Goals: deps.Goals, Memory: deps.Memory, Predictions: deps.Predictions, LLM: deps.LLM, Prompts: deps.Prompts, Log: log}
+	deps.Volition = volition.NewStore(db)
+	deps.Plans = planning.NewStore(db)
+	deps.Executor = &planning.Executor{Plans: deps.Plans, Volition: deps.Volition, Caps: deps.Capabilities, Predictions: deps.Predictions, Resolver: deps.Resolver, Events: deps.Events, Minds: deps.Minds, Memory: deps.Memory, Log: log,
+		Planner: &planning.Planner{Registry: capReg, Effect: planning.PolicyEffect(deps.Capabilities), Model: planning.ModelPlanner(deps.LLM, deps.Prompts)}}
 	registry := cognition.NewRegistry(cognition.Stores{Memory: deps.Memory, Beliefs: deps.Beliefs, Conversations: deps.Conversations, Graph: deps.Graph, Assertions: deps.Assertions,
 		Motivation: deps.Motivation, Narrative: deps.Narrative, Notifications: deps.Notifications})
 	brainCfg := brain.Config{DB: db, Events: deps.Events, Minds: deps.Minds, Registry: registry, Pool: scheduler.NewPool(cfg.MaxWorkers),
 		Log: log, Metrics: metrics, Services: brain.Services{Events: deps.Events, Memory: deps.Memory, Beliefs: deps.Beliefs, LLM: deps.LLM, Prompts: deps.Prompts,
-			Goals: deps.Goals, Motivation: deps.Motivation, Predictions: deps.Predictions, Capabilities: deps.Capabilities}}
+			Goals: deps.Goals, Motivation: deps.Motivation, Predictions: deps.Predictions, Capabilities: deps.Capabilities, Volition: deps.Volition, Plans: deps.Plans, Executor: deps.Executor},
+		AfterCommit: deps.Executor.WakeOn()}
 	deps.Brain = brain.NewManager(brainCfg, group)
 	// Sandbox runtimes (replay, experiments) share the registry but use a
 	// router that serves recorded model responses when it can.
@@ -198,6 +205,7 @@ func run() error {
 	sandboxCfg := brainCfg
 	sandboxCfg.Pool = scheduler.NewPool(2)
 	sandboxCfg.Services.LLM = replayLLM
+	sandboxCfg.AfterCommit = nil // sandbox minds plan but never act
 	ident := &identity.Capturer{DB: db, Config: &cfg, Minds: deps.Minds, LLM: deps.LLMStore, Prompts: deps.Prompts, Capabilities: deps.Capabilities}
 	deps.Snapshots = &snapshots.Store{DB: db, Events: deps.Events, Minds: deps.Minds, Identity: ident}
 	deps.Privacy = &privacy.Service{DB: db, Events: deps.Events, Audit: auditLog, Snapshots: deps.Snapshots, Log: log}
@@ -220,6 +228,12 @@ func run() error {
 	})
 	group.Every("grants.sweep", time.Minute, func(ctx context.Context) error { _, err := deps.Capabilities.SweepGrants(ctx); return err })
 	group.Every("predictions.resolve", time.Minute, deps.Resolver.Run)
+	group.Go("planning.executor", func(ctx context.Context) error { return deps.Executor.Run(ctx, 15*time.Second) })
+	if planEvents, err := deps.Events.Bus().Subscribe(group.Context(), ids.Nil, 512); err == nil {
+		group.Go("planning.react", func(ctx context.Context) error { return deps.Executor.Listen(ctx, planEvents) })
+	} else {
+		log.Warn("plan reactions disabled: no event subscription", "err", err)
+	}
 	group.Every("cognition.background", 5*time.Minute, func(ctx context.Context) error { return backgroundCognition(ctx, deps) })
 	group.Every("memory.decay", 6*time.Hour, func(ctx context.Context) error { return decayMemories(ctx, deps) })
 	group.Every("memory.embed", time.Minute, func(ctx context.Context) error { _, err := deps.Memory.EmbedMissing(ctx, 50); return err })

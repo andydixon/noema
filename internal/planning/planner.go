@@ -97,8 +97,8 @@ func (p *Planner) Propose(ctx context.Context, it volition.Intention, previous [
 		return Draft{Alternatives: alts}, fmt.Errorf("%w for %q", ErrNoPlan, it.Description)
 	}
 	chosen.Alternatives = alts
-	if len(previous) > 0 {
-		chosen.Origin = map[bool]string{true: "model", false: "replan"}[chosen.Origin == "model"]
+	if len(previous) > 0 && chosen.Origin != "model" {
+		chosen.Origin = "replan"
 	}
 	return *chosen, nil
 }

@@ -203,7 +203,7 @@ func TestApprovedActionIsVerifiedAndLearnt(t *testing.T) {
 		t.Fatalf("intention–action gap not represented: parent %+v sub %+v", parent, sub)
 	}
 	a, _ := f.caps.GetApproval(f.ctx, p1.ApprovalID)
-	if !strings.Contains(a.Reason, "Expected:") || !strings.Contains(a.Reason, "Side effects:") || !strings.Contains(a.Reason, "commitment requires approval") || a.Origin != p1.Origin() {
+	if !strings.Contains(a.Reason, "Expected:") || !strings.Contains(a.Reason, "Side effects:") || !strings.Contains(a.Reason, "requires approval for this action") || a.Origin != p1.Origin() {
 		t.Fatalf("approval does not explain itself: %q origin %q", a.Reason, a.Origin)
 	}
 	f.tick() // nothing moves while the operator has not decided

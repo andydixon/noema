@@ -14,7 +14,7 @@ CREATE TABLE wants (
   urgency            double precision NOT NULL DEFAULT 0 CHECK (urgency >= 0 AND urgency <= 1),
   status             text NOT NULL DEFAULT 'active' CHECK (status IN ('active','satisfied','expired','abandoned','superseded')),
   drives             text[] NOT NULL DEFAULT '{}',
-  "values"           text[] NOT NULL DEFAULT '{}',
+  value_keys         text[] NOT NULL DEFAULT '{}',
   goal_id            uuid,
   commitment_id      uuid,
   proposal           jsonb,                          -- optional means: {kind, capability, target, params}

@@ -26,6 +26,7 @@ const (
 	RoleJudge      Role = "judge"       // relevance, paraphrase and contradiction judgement
 	RoleNarrate    Role = "narrate"     // internal narrative and reflection prose
 	RoleEmbed      Role = "embed"       // embeddings for semantic retrieval
+	RolePlan       Role = "plan"        // propose plan decompositions (validated elsewhere)
 )
 
 // RoleInfo documents a role for the configuration UI.
@@ -44,6 +45,7 @@ var Roles = []RoleInfo{
 	{RoleJudge, "Yes/no and scalar judgements: relevance, paraphrase equivalence, contradiction.", "cheap"},
 	{RoleNarrate, "Write the internal narrative and reflection notes.", "cheap or local"},
 	{RoleEmbed, "Embed text for semantic retrieval.", "embedding"},
+	{RolePlan, "Propose step decompositions for intentions using registered capabilities; Go validates structure, vocabulary and policy.", "strong"},
 }
 
 // Message is one turn in a chat-style request.

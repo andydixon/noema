@@ -40,7 +40,7 @@ func (g GoalMonitor) Observe(ctx context.Context, s *brain.State) ([]brain.Candi
 			break
 		}
 		out = append(out, brain.Candidate{Kind: "goal", Subject: string(gl.ID), Summary: "goal stalled: " + gl.Title,
-			Content:  map[string]any{"goal_id": string(gl.ID), "reason": "no progress for " + stall.String(), "ref": string(gl.ID)},
+			Content:  map[string]any{"goal_id": string(gl.ID), "reason": "no progress for " + stall.String(), "ref": string(gl.ID), "stalled": true},
 			Features: attention.Features{Salience: 0.4, GoalRelevance: gl.Priority, Consequence: 0.5 * gl.Priority, Urgency: 0.3, Confidence: 1}, Confidence: 1,
 			Evidence: []events.EvidenceRef{{Kind: "goal", ID: string(gl.ID)}}})
 	}
@@ -67,7 +67,7 @@ func (h Handlers) goal(ctx context.Context, c *brain.Cycle, t workspace.Thought)
 	src, _ := t.Content["source_event"].(string)
 	c.Runtime.Hold(workspace.Item{Key: "goal:" + gid, Content: t.Summary, Kind: "goal", Ref: gid, SourceEvent: ids.ID(src)})
 	c.Emit(events.New{Type: events.GoalUpdated, Source: "brain.goals", Summary: t.Summary + " (" + reason + ")", Salience: t.Score, Confidence: 1, CausationID: t.EventID,
-		Evidence: t.Evidence, Metadata: map[string]any{"goal_id": gid, "attended": true}, Payload: map[string]any{"goal_id": gid, "reason": reason}})
+		Evidence: t.Evidence, Metadata: map[string]any{"goal_id": gid, "attended": true, "stalled": t.Content["stalled"] == true}, Payload: map[string]any{"goal_id": gid, "reason": reason}})
 	return nil
 }
 

@@ -106,7 +106,7 @@ func jsonOr(v any, empty string) []byte {
 
 // ---- wants ----
 
-const wantCols = `id, mind_id, subject, description, origin_type, origin_event, origin_ref, strength, valence, urgency, status, drives, "values", goal_id, commitment_id, proposal, terms, reinforcements, suppressions, last_reinforced_at, resolution, resolved_at, created_at, updated_at`
+const wantCols = `id, mind_id, subject, description, origin_type, origin_event, origin_ref, strength, valence, urgency, status, drives, value_keys, goal_id, commitment_id, proposal, terms, reinforcements, suppressions, last_reinforced_at, resolution, resolved_at, created_at, updated_at`
 
 func scanWant(row pgx.Row) (Want, error) {
 	var w Want
@@ -171,7 +171,7 @@ func (s *Store) UpsertWant(ctx context.Context, r Recorder, mind ids.ID, c Candi
 	if w.Proposal != nil {
 		proposal, _ = json.Marshal(w.Proposal)
 	}
-	if _, err := r.Q.Exec(ctx, `INSERT INTO wants (id, mind_id, subject, description, origin_type, origin_event, origin_ref, strength, valence, urgency, status, drives, "values", goal_id, commitment_id, proposal, terms, last_reinforced_at, created_at, updated_at)
+	if _, err := r.Q.Exec(ctx, `INSERT INTO wants (id, mind_id, subject, description, origin_type, origin_event, origin_ref, strength, valence, urgency, status, drives, value_keys, goal_id, commitment_id, proposal, terms, last_reinforced_at, created_at, updated_at)
 		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,'active',$11,$12,$13,$14,$15,$16,$17,$17,$17)`,
 		w.ID, mind, w.Subject, w.Description, string(w.Origin), nullID(w.OriginEvent), w.OriginRef, w.Strength, w.Valence, w.Urgency, w.Drives, w.Values, nullID(w.GoalID), nullID(w.CommitmentID), proposal, jsonOr(w.Terms, "{}"), now); err != nil {
 		return Want{}, false, storage.Translate(err)

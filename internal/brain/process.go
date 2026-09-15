@@ -18,7 +18,9 @@ import (
 	"github.com/andydixon/noema/internal/memory"
 	"github.com/andydixon/noema/internal/minds"
 	"github.com/andydixon/noema/internal/motivation"
+	"github.com/andydixon/noema/internal/planning"
 	"github.com/andydixon/noema/internal/predictions"
+	"github.com/andydixon/noema/internal/volition"
 	"github.com/andydixon/noema/internal/workspace"
 	"github.com/andydixon/noema/pkg/events"
 	"github.com/andydixon/noema/pkg/ids"
@@ -104,6 +106,11 @@ type Services struct {
 	Motivation   *motivation.Store
 	Predictions  *predictions.Store
 	Capabilities *capabilities.Service
+	Volition     *volition.Store
+	Plans        *planning.Store
+	// Executor plans formed intentions inside the cycle transaction. It never
+	// acts from inside a cycle: acting happens after commit, in its own loop.
+	Executor *planning.Executor
 }
 
 // EventReader is the subset of the event store processes may call.

@@ -14,6 +14,7 @@ import (
 	evstore "github.com/andydixon/noema/internal/events"
 	"github.com/andydixon/noema/internal/llm"
 	"github.com/andydixon/noema/internal/memory"
+	"github.com/andydixon/noema/internal/volition"
 	"github.com/andydixon/noema/internal/workspace"
 	"github.com/andydixon/noema/pkg/concepts"
 	"github.com/andydixon/noema/pkg/events"
@@ -232,6 +233,14 @@ func (h Handlers) buildIntent(ctx context.Context, c *brain.Cycle, a conversatio
 			}
 		}
 	case "request":
+		if prop := volition.ProposalFromText(text, ""); prop != nil && prop.Kind == "capability" && c.State.Services.Volition != nil {
+			in.Kind = "acknowledge"
+			in.Summary = "Say that the request was recorded as something the mind wants to do, and that acting depends on commitments and policy, which are checked outside this reply."
+			in.Points = append(in.Points, fmt.Sprintf("I have recorded that I want to run %s on %s because you asked.", prop.Capability, prop.Target),
+				"Whether I form an intention to act depends on my commitments and on policy; if approval is needed you will see a request, and nothing runs before it.")
+			h.addKnowledge(ctx, c, &in, topic)
+			break
+		}
 		in.Kind = "decline"
 		var usable []string
 		for _, cap := range c.State.SelfModel.Capabilities {

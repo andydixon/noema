@@ -42,6 +42,7 @@ import (
 	"github.com/andydixon/noema/internal/narrative"
 	"github.com/andydixon/noema/internal/notifications"
 	"github.com/andydixon/noema/internal/observability"
+	"github.com/andydixon/noema/internal/planning"
 	"github.com/andydixon/noema/internal/predictions"
 	"github.com/andydixon/noema/internal/privacy"
 	"github.com/andydixon/noema/internal/reflection"
@@ -50,6 +51,7 @@ import (
 	"github.com/andydixon/noema/internal/snapshots"
 	"github.com/andydixon/noema/internal/storage"
 	"github.com/andydixon/noema/internal/ui"
+	"github.com/andydixon/noema/internal/volition"
 	"github.com/andydixon/noema/migrations"
 	"github.com/andydixon/noema/pkg/events"
 	"github.com/andydixon/noema/pkg/ids"
@@ -124,9 +126,18 @@ func StartWith(t *testing.T, o Options) *Harness {
 	}
 	group := scheduler.NewGroup(ctx, log)
 	t.Cleanup(func() { group.Stop() })
+	deps.Volition = volition.NewStore(pool)
+	deps.Plans = planning.NewStore(pool)
+	deps.Executor = &planning.Executor{Plans: deps.Plans, Volition: deps.Volition, Caps: deps.Capabilities, Predictions: deps.Predictions, Resolver: deps.Resolver, Events: deps.Events, Minds: deps.Minds, Memory: deps.Memory, Log: log,
+		Planner: &planning.Planner{Registry: capReg, Effect: planning.PolicyEffect(deps.Capabilities), Model: planning.ModelPlanner(deps.LLM, deps.Prompts)}}
 	registry := cognition.NewRegistry(cognition.Stores{Memory: deps.Memory, Beliefs: deps.Beliefs, Conversations: deps.Conversations, Graph: deps.Graph, Assertions: deps.Assertions})
 	deps.Brain = brain.NewManager(brain.Config{DB: pool, Events: deps.Events, Minds: deps.Minds, Registry: registry, Pool: scheduler.NewPool(2), Log: log, Metrics: deps.Metrics,
-		Services: brain.Services{Events: deps.Events, Memory: deps.Memory, Beliefs: deps.Beliefs, LLM: deps.LLM, Prompts: deps.Prompts, Goals: deps.Goals, Motivation: deps.Motivation, Predictions: deps.Predictions, Capabilities: deps.Capabilities}}, group)
+		Services: brain.Services{Events: deps.Events, Memory: deps.Memory, Beliefs: deps.Beliefs, LLM: deps.LLM, Prompts: deps.Prompts, Goals: deps.Goals, Motivation: deps.Motivation, Predictions: deps.Predictions, Capabilities: deps.Capabilities,
+			Volition: deps.Volition, Plans: deps.Plans, Executor: deps.Executor}, AfterCommit: deps.Executor.WakeOn()}, group)
+	group.Go("planning.executor", func(ctx context.Context) error { return deps.Executor.Run(ctx, time.Second) })
+	if planEvents, err := deps.Events.Bus().Subscribe(group.Context(), ids.Nil, 512); err == nil {
+		group.Go("planning.react", func(ctx context.Context) error { return deps.Executor.Listen(ctx, planEvents) })
+	}
 	if err := deps.Brain.Start(ctx); err != nil {
 		t.Fatal(err)
 	}

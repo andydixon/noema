@@ -125,6 +125,8 @@ type Runtime struct {
 	loops    *loopDetector
 	budget   *cycleBudget
 	now      func() time.Time
+
+	afterCommit func(mind ids.ID, emitted []events.Event)
 }
 
 type command struct {
@@ -143,13 +145,16 @@ type Config struct {
 	Log      *slog.Logger
 	Metrics  *observability.Metrics
 	Services Services
+	// AfterCommit, when set, is called with the events a cycle committed
+	// (the daemon wakes the plan executor with it). Sandbox runtimes leave it nil.
+	AfterCommit func(mind ids.ID, emitted []events.Event)
 }
 
 // NewRuntime creates a runtime for a mind and loads its persisted state.
 func NewRuntime(ctx context.Context, cfg Config, m minds.Mind) (*Runtime, error) {
 	r := &Runtime{mind: m, db: cfg.DB, events: cfg.Events, minds: cfg.Minds, registry: cfg.Registry, pool: cfg.Pool,
 		log: cfg.Log.With("mind", m.Slug), metrics: cfg.Metrics, services: cfg.Services,
-		wake: make(chan struct{}, 1), commands: make(chan command), snaps: make(chan chan workspace.State), now: time.Now}
+		wake: make(chan struct{}, 1), commands: make(chan command), snaps: make(chan chan workspace.State), now: time.Now, afterCommit: cfg.AfterCommit}
 	r.loops = newLoopDetector(m.Config.LoopDetectWindow, m.Config.LoopDetectThreshold)
 	r.budget = newCycleBudget(m.Config.MaxCyclesPerMinute)
 	if err := r.loadState(ctx); err != nil {
@@ -379,6 +384,9 @@ func (r *Runtime) Step(ctx context.Context, trigger string) ([]events.Event, err
 		return nil, err
 	}
 	r.events.Publish(emitted...) // only after commit, so subscribers never see phantom events
+	if r.afterCommit != nil && len(emitted) > 0 {
+		r.afterCommit(r.mind.ID, emitted)
+	}
 	return emitted, nil
 }
 

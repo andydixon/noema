@@ -47,6 +47,20 @@ type CognitiveConfig struct {
 	// role → model id. It is what lets two forks of one snapshot run on
 	// different providers while sharing everything else.
 	LLMRoles map[string]string `json:"llm_roles,omitempty"`
+
+	// Ablations disable named cognitive components in a research fork
+	// (docs/cognitive-research.md). Only forks may carry them.
+	Ablations []string `json:"ablations,omitempty"`
+}
+
+// Ablated reports whether a component is disabled in this configuration.
+func (c CognitiveConfig) Ablated(component string) bool {
+	for _, a := range c.Ablations {
+		if a == component {
+			return true
+		}
+	}
+	return false
 }
 
 // AttentionFeatures is the fixed set of scoring features (spec §6). Weights are

@@ -33,12 +33,14 @@ import (
 	"github.com/andydixon/noema/internal/narrative"
 	"github.com/andydixon/noema/internal/notifications"
 	"github.com/andydixon/noema/internal/observability"
+	"github.com/andydixon/noema/internal/planning"
 	"github.com/andydixon/noema/internal/predictions"
 	"github.com/andydixon/noema/internal/privacy"
 	"github.com/andydixon/noema/internal/reflection"
 	"github.com/andydixon/noema/internal/replay"
 	"github.com/andydixon/noema/internal/security/secrets"
 	"github.com/andydixon/noema/internal/snapshots"
+	"github.com/andydixon/noema/internal/volition"
 )
 
 // Deps is everything a handler may need. Fields are added per phase.
@@ -72,6 +74,9 @@ type Deps struct {
 	Snapshots     *snapshots.Store
 	Replay        *replay.Service
 	Experiments   *experiments.Service
+	Volition      *volition.Store
+	Plans         *planning.Store
+	Executor      *planning.Executor
 	LLM           *router.Router
 	LLMStore      *router.Store
 	Prompts       *prompts.Store
