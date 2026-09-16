@@ -16,6 +16,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/andydixon/noema/internal/agency"
 	"github.com/andydixon/noema/internal/api"
 	"github.com/andydixon/noema/internal/app"
 	"github.com/andydixon/noema/internal/audit"
@@ -46,6 +47,7 @@ import (
 	"github.com/andydixon/noema/internal/predictions"
 	"github.com/andydixon/noema/internal/privacy"
 	"github.com/andydixon/noema/internal/reflection"
+	"github.com/andydixon/noema/internal/research"
 	"github.com/andydixon/noema/internal/scheduler"
 	"github.com/andydixon/noema/internal/security/secrets"
 	"github.com/andydixon/noema/internal/snapshots"
@@ -130,7 +132,9 @@ func StartWith(t *testing.T, o Options) *Harness {
 	deps.Plans = planning.NewStore(pool)
 	deps.Executor = &planning.Executor{Plans: deps.Plans, Volition: deps.Volition, Caps: deps.Capabilities, Predictions: deps.Predictions, Resolver: deps.Resolver, Events: deps.Events, Minds: deps.Minds, Memory: deps.Memory, Log: log,
 		Planner: &planning.Planner{Registry: capReg, Effect: planning.PolicyEffect(deps.Capabilities), Model: planning.ModelPlanner(deps.LLM, deps.Prompts)}}
-	registry := cognition.NewRegistry(cognition.Stores{Memory: deps.Memory, Beliefs: deps.Beliefs, Conversations: deps.Conversations, Graph: deps.Graph, Assertions: deps.Assertions})
+	deps.Research = research.NewStore(pool)
+	deps.Agency = &agency.Service{DB: pool, Caps: deps.Capabilities, Plans: deps.Plans, Volition: deps.Volition, Goals: deps.Goals, Beliefs: deps.Beliefs, Predictions: deps.Predictions, Events: deps.Events}
+	registry := cognition.NewRegistry(cognition.Stores{Agency: deps.Agency, Research: deps.Research, Memory: deps.Memory, Beliefs: deps.Beliefs, Conversations: deps.Conversations, Graph: deps.Graph, Assertions: deps.Assertions})
 	deps.Brain = brain.NewManager(brain.Config{DB: pool, Events: deps.Events, Minds: deps.Minds, Registry: registry, Pool: scheduler.NewPool(2), Log: log, Metrics: deps.Metrics,
 		Services: brain.Services{Events: deps.Events, Memory: deps.Memory, Beliefs: deps.Beliefs, LLM: deps.LLM, Prompts: deps.Prompts, Goals: deps.Goals, Motivation: deps.Motivation, Predictions: deps.Predictions, Capabilities: deps.Capabilities,
 			Volition: deps.Volition, Plans: deps.Plans, Executor: deps.Executor}, AfterCommit: deps.Executor.WakeOn()}, group)

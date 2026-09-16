@@ -1,6 +1,7 @@
 package cognition
 
 import (
+	"github.com/andydixon/noema/internal/agency"
 	"github.com/andydixon/noema/internal/beliefs"
 	"github.com/andydixon/noema/internal/brain"
 	"github.com/andydixon/noema/internal/conversation"
@@ -10,6 +11,7 @@ import (
 	"github.com/andydixon/noema/internal/motivation"
 	"github.com/andydixon/noema/internal/narrative"
 	"github.com/andydixon/noema/internal/notifications"
+	"github.com/andydixon/noema/internal/research"
 )
 
 // Stores bundles what the default processes, handlers and hooks write to.
@@ -23,6 +25,8 @@ type Stores struct {
 	Motivation    *motivation.Store
 	Narrative     *narrative.Store
 	Notifications *notifications.Store
+	Agency        *agency.Service
+	Research      *research.Store
 }
 
 // NewRegistry assembles the cognitive registry. The daemon, the test harness
@@ -41,6 +45,6 @@ func NewRegistry(s Stores) *brain.Registry {
 		r.AddHook(NotifyHook{Store: s.Notifications})
 	}
 	r.AddHook(VolitionHook{})
-	Handlers{Memory: s.Memory, Beliefs: s.Beliefs, Conversations: s.Conversations, Graph: s.Graph, Assertions: s.Assertions}.Register(r)
+	Handlers{Memory: s.Memory, Beliefs: s.Beliefs, Conversations: s.Conversations, Graph: s.Graph, Assertions: s.Assertions, Agency: s.Agency, Research: s.Research}.Register(r)
 	return r
 }

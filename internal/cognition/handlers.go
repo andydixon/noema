@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/andydixon/noema/internal/agency"
 	"github.com/andydixon/noema/internal/beliefs"
 	"github.com/andydixon/noema/internal/brain"
 	"github.com/andydixon/noema/internal/conversation"
@@ -15,6 +16,7 @@ import (
 	"github.com/andydixon/noema/internal/graph"
 	"github.com/andydixon/noema/internal/memory"
 	"github.com/andydixon/noema/internal/predictions"
+	"github.com/andydixon/noema/internal/research"
 	"github.com/andydixon/noema/internal/storage"
 	"github.com/andydixon/noema/internal/workspace"
 	"github.com/andydixon/noema/pkg/concepts"
@@ -29,6 +31,8 @@ type Handlers struct {
 	Conversations *conversation.Store
 	Graph         *graph.Store
 	Assertions    *epistemics.Store // nil disables assertion records (claims still become evidence)
+	Agency        *agency.Service   // forensic explanations for "why did you do that?"
+	Research      *research.Store   // introspection accuracy and other measurements
 }
 
 // Register installs the handlers on a registry.

@@ -10,6 +10,7 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"github.com/andydixon/noema/internal/agency"
 	"github.com/andydixon/noema/internal/audit"
 	"github.com/andydixon/noema/internal/auth"
 	"github.com/andydixon/noema/internal/beliefs"
@@ -38,6 +39,7 @@ import (
 	"github.com/andydixon/noema/internal/privacy"
 	"github.com/andydixon/noema/internal/reflection"
 	"github.com/andydixon/noema/internal/replay"
+	"github.com/andydixon/noema/internal/research"
 	"github.com/andydixon/noema/internal/security/secrets"
 	"github.com/andydixon/noema/internal/snapshots"
 	"github.com/andydixon/noema/internal/volition"
@@ -77,6 +79,8 @@ type Deps struct {
 	Volition      *volition.Store
 	Plans         *planning.Store
 	Executor      *planning.Executor
+	Agency        *agency.Service
+	Research      *research.Store
 	LLM           *router.Router
 	LLMStore      *router.Store
 	Prompts       *prompts.Store

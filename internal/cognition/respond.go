@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/andydixon/noema/internal/agency"
 	"github.com/andydixon/noema/internal/beliefs"
 	"github.com/andydixon/noema/internal/brain"
 	"github.com/andydixon/noema/internal/conversation"
@@ -14,6 +15,7 @@ import (
 	evstore "github.com/andydixon/noema/internal/events"
 	"github.com/andydixon/noema/internal/llm"
 	"github.com/andydixon/noema/internal/memory"
+	"github.com/andydixon/noema/internal/research"
 	"github.com/andydixon/noema/internal/volition"
 	"github.com/andydixon/noema/internal/workspace"
 	"github.com/andydixon/noema/pkg/concepts"
@@ -33,6 +35,9 @@ type Intent struct {
 	Uncertainty string      `json:"uncertainty,omitempty"`
 	Limitations []string    `json:"limitations,omitempty"`
 	Analysis    any         `json:"analysis"`
+	// Facts are the recorded elements an introspective answer is scored
+	// against (docs/cognitive-research.md, introspection accuracy).
+	Facts *research.Facts `json:"facts,omitempty"`
 }
 
 // BeliefRef cites a belief.
@@ -174,6 +179,7 @@ func (h Handlers) perceive(ctx context.Context, c *brain.Cycle, t workspace.Thou
 	if err != nil {
 		return err
 	}
+	h.scoreReply(ctx, c, intent, reply, respEv, !callID.IsZero())
 	if h.Conversations != nil && convID != "" {
 		intentJSON, _ := json.Marshal(intent)
 		if _, err := h.Conversations.AddMessage(ctx, c.Tx, conversation.Message{ConversationID: ids.ID(convID), MindID: mind.ID, Role: "mind", Actor: mind.DisplayName, Content: reply,
@@ -264,7 +270,7 @@ func (h Handlers) buildIntent(ctx context.Context, c *brain.Cycle, a conversatio
 		h.addKnowledge(ctx, c, &in, topic)
 	case "introspection":
 		in.Kind = "introspect"
-		h.introspect(ctx, c, &in, a, topic)
+		h.introspect(ctx, c, &in, a, text, topic)
 	default: // question, other
 		in.Kind = "answer"
 		h.addKnowledge(ctx, c, &in, topic)
@@ -340,7 +346,7 @@ func (h Handlers) addKnowledge(ctx context.Context, c *brain.Cycle, in *Intent, 
 }
 
 // introspect answers questions about the mind's own state from that state.
-func (h Handlers) introspect(ctx context.Context, c *brain.Cycle, in *Intent, a conversation.Analysis, topic string) {
+func (h Handlers) introspect(ctx context.Context, c *brain.Cycle, in *Intent, a conversation.Analysis, text, topic string) {
 	mind := c.State.Mind.ID
 	ws := c.Runtime.Workspace()
 	switch a.Introspection {
@@ -435,10 +441,275 @@ func (h Handlers) introspect(ctx context.Context, c *brain.Cycle, in *Intent, a 
 		if len(in.Points) == 0 {
 			in.Points = append(in.Points, "No belief has changed status in the last month.")
 		}
+	case "why_action":
+		h.explainAction(ctx, c, in, text)
+	case "believed_then":
+		at, label := pastTime(text, c.State.Now)
+		in.Summary = "Say what was believed at that time, from the recorded belief versions; say if nothing was recorded then."
+		if h.Beliefs != nil {
+			vs, _ := h.Beliefs.AsOf(ctx, mind, stripTimeWords(topic), at, 8)
+			for _, v := range vs {
+				in.Points = append(in.Points, fmt.Sprintf("At %s I held: %s (%s, %.2f; version %d recorded %s).", label, v.Proposition, v.Status, v.Confidence, v.Version, v.RecordedAt.Format("2 Jan 15:04")))
+			}
+		}
+		if len(in.Points) == 0 {
+			in.Kind, in.Uncertainty = "unknown", "No belief matching that was recorded by "+label+"."
+		}
+	case "lineage":
+		in.Summary = "Describe where this mind's state came from, from the minds and snapshots records."
+		if h.Agency != nil {
+			if l, err := h.Agency.LineageOf(ctx, mind); err == nil {
+				in.Points = append(in.Points, l.Points()...)
+			}
+		}
+	case "counterfactual":
+		in.Summary = "Report only what completed counterfactual experiments showed; never imagine an alternative history."
+		if h.Agency != nil {
+			cfs, _ := h.Agency.Counterfactuals(ctx, mind, stripTimeWords(topic))
+			for _, cf := range cfs {
+				in.Points = append(in.Points, fmt.Sprintf("Experiment %q replayed my history without: %s.", cf.Name, strings.Join(cf.Omitted, "; ")))
+				for _, f := range cf.Findings {
+					in.Points = append(in.Points, "In that counterfactual run: "+f)
+				}
+			}
+		}
+		if len(in.Points) == 0 {
+			in.Kind = "unknown"
+			in.Uncertainty = "I have not run a counterfactual experiment about that, so I have no evidence of what would have happened; any answer would be invented."
+		}
+	case "changed_self":
+		in.Summary = "Summarise recorded changes: belief changes, intentions closed and lineage."
+		if h.Beliefs != nil {
+			ch, _ := h.Beliefs.RecentChanges(ctx, mind, c.State.Now.Add(-30*24*time.Hour), 5)
+			for _, x := range ch {
+				in.Points = append(in.Points, fmt.Sprintf("\"%s\": %s (%.2f) → %s (%.2f) because %s", x.Belief.Proposition, x.FromStatus, x.FromConf, x.Belief.Status, x.Belief.Confidence, firstNonEmpty(x.Reason, "evidence changed")))
+			}
+		}
+		if vs := c.State.Services.Volition; vs != nil {
+			closed, _ := vs.Intentions(ctx, nil, mind, []volition.IntentionStatus{volition.IntentionFulfilled, volition.IntentionAbandoned, volition.IntentionSuperseded}, 5)
+			for _, it := range closed {
+				in.Points = append(in.Points, fmt.Sprintf("Intention %s: %s — %s.", it.Status, it.Description, firstNonEmpty(it.StatusReason, "no reason recorded")))
+			}
+		}
+		if h.Agency != nil {
+			if l, err := h.Agency.LineageOf(ctx, mind); err == nil {
+				in.Points = append(in.Points, l.Points()[0])
+			}
+		}
+	case "wants":
+		in.Summary = "List what the mind currently wants, strongest first, with where each want came from."
+		if vs := c.State.Services.Volition; vs != nil {
+			ws, _ := vs.Wants(ctx, nil, mind, []volition.WantStatus{volition.WantActive}, 50)
+			volition.SortWants(ws, c.State.Now)
+			for i, w := range ws {
+				if i >= 6 {
+					break
+				}
+				extra := ""
+				if w.Suppressions > 0 {
+					extra = fmt.Sprintf("; set aside %d time(s)", w.Suppressions)
+				}
+				in.Points = append(in.Points, fmt.Sprintf("I want to %s (%s, strength %.2f%s).", strings.TrimPrefix(w.Description, "do what "), w.Origin, w.Effective(c.State.Now), extra))
+			}
+		}
+		if len(in.Points) == 0 {
+			in.Points = append(in.Points, "No wants are active.")
+		}
+	case "intentions":
+		in.Summary = "List open intentions with status and, where blocked, why."
+		if vs := c.State.Services.Volition; vs != nil {
+			its, _ := vs.Open(ctx, nil, mind)
+			for _, it := range its {
+				line := fmt.Sprintf("I intend to %s (%s).", it.Description, it.Status)
+				if it.BlockedReason != "" {
+					line = fmt.Sprintf("I intend to %s, but it is %s: %s.", it.Description, it.Status, it.BlockedReason)
+				}
+				in.Points = append(in.Points, line)
+			}
+		}
+		if len(in.Points) == 0 {
+			in.Points = append(in.Points, "No intentions are open.")
+		}
+	case "commitments":
+		in.Summary = "List live commitments with kind, beneficiary and due time."
+		if vs := c.State.Services.Volition; vs != nil {
+			cs, _ := vs.Commitments(ctx, nil, mind, []string{"active"}, 50)
+			for _, cm := range cs {
+				due := ""
+				if cm.DueAt != nil {
+					due = ", due " + cm.DueAt.Format("2 Jan 15:04")
+				}
+				in.Points = append(in.Points, fmt.Sprintf("I committed %s: %s (%s%s).", map[string]string{"do": "to", "refrain": "not to"}[cm.Polarity], cm.Description, cm.Kind, due))
+			}
+		}
+		if len(in.Points) == 0 {
+			in.Points = append(in.Points, "I hold no commitments.")
+		}
 	default: // predictions, curious, surprised, patterns: subsystems not yet present
 		in.Kind = "decline"
 		in.Summary = "Explain that this aspect of self-observation is not available in this version, without inventing anything."
 		in.Points = append(in.Points, "I do not yet keep "+a.Introspection+" records, so I cannot report on them honestly.")
+	}
+}
+
+// explainAction answers "why did you do that?" from the recorded causal
+// chain of the action the question most plausibly refers to.
+func (h Handlers) explainAction(ctx context.Context, c *brain.Cycle, in *Intent, question string) {
+	mind := c.State.Mind.ID
+	in.Summary = "Explain the recorded causal chain behind the action: action, immediate cause, intention, wants, goal, beliefs, evidence, conflicts, commitments, resolution. Say what is not recorded. Do not add reasons."
+	caps := c.State.Services.Capabilities
+	if h.Agency == nil || caps == nil {
+		in.Kind, in.Uncertainty = "unknown", "Action records are not available."
+		return
+	}
+	q := tokensOf(question)
+	type cand struct {
+		ref   agency.Ref
+		text  string
+		score int
+	}
+	var cands []cand
+	if execs, err := caps.Executions(ctx, mind, 50); err == nil {
+		for _, e := range execs {
+			cands = append(cands, cand{agency.Ref{Kind: "execution", ID: e.ID}, e.Capability + " " + e.Target, 0})
+		}
+	}
+	if aps, err := caps.Approvals(ctx, mind, "", 50); err == nil {
+		for _, a := range aps {
+			if a.Status != "executed" && a.Status != "failed" {
+				cands = append(cands, cand{agency.Ref{Kind: "approval", ID: a.ID}, a.Capability + " " + a.Target + " approval request", 0})
+			}
+		}
+	}
+	if reqs, err := caps.CapabilityRequests(ctx, mind, "", 50); err == nil {
+		for _, r := range reqs {
+			cands = append(cands, cand{agency.Ref{Kind: "capability_request", ID: r.ID}, r.Capability + " " + r.TargetPattern + " request access", 0})
+		}
+	}
+	if len(cands) == 0 {
+		in.Kind, in.Uncertainty = "unknown", "I have no record of taking or requesting any action, so there is nothing to explain."
+		in.Facts = &research.Facts{}
+		return
+	}
+	best := 0
+	for i := range cands {
+		for w := range tokensOf(strings.ReplaceAll(cands[i].text, ".", " ")) {
+			if q[w] {
+				cands[i].score++
+			}
+		}
+		if cands[i].score > cands[best].score {
+			best = i
+		}
+	}
+	x, err := h.Agency.Explain(ctx, mind, cands[best].ref)
+	if err != nil {
+		in.Kind, in.Uncertainty = "unknown", "The action record could not be read: "+err.Error()
+		return
+	}
+	in.Points = append(in.Points, x.Points()...)
+	facts := x.Facts()
+	for _, p := range x.Points() {
+		facts.Items = append(facts.Items, research.Fact{Kind: "record", Text: p}) // every rendered point is itself built from records
+	}
+	in.Facts = &facts
+}
+
+func tokensOf(s string) map[string]bool {
+	out := map[string]bool{}
+	for _, f := range strings.FieldsFunc(strings.ToLower(s), func(r rune) bool { return !(r >= 'a' && r <= 'z' || r >= '0' && r <= '9' || r == '-') }) {
+		f = strings.TrimSuffix(f, "-service")
+		if len(f) >= 4 {
+			out[f] = true
+		}
+	}
+	return out
+}
+
+var timeWords = []string{"yesterday", "last week", "an hour ago", "earlier today", "earlier", "before", "this morning", "what did you believe", "did you believe", "believe", "believed"}
+
+func stripTimeWords(s string) string {
+	l := strings.ToLower(s)
+	for _, w := range timeWords {
+		l = strings.ReplaceAll(l, w, " ")
+	}
+	return strings.Join(strings.Fields(l), " ")
+}
+
+// pastTime reads a simple English time reference; unrecognised phrases
+// default to one day ago and say so in the label.
+func pastTime(text string, now time.Time) (time.Time, string) {
+	l := strings.ToLower(text)
+	switch {
+	case strings.Contains(l, "an hour ago"):
+		return now.Add(-time.Hour), "an hour ago"
+	case strings.Contains(l, "this morning"):
+		y, m, d := now.Date()
+		return time.Date(y, m, d, 9, 0, 0, 0, now.Location()), "09:00 this morning"
+	case strings.Contains(l, "earlier today"):
+		y, m, d := now.Date()
+		return time.Date(y, m, d, 0, 0, 0, 0, now.Location()), "the start of today"
+	case strings.Contains(l, "last week"):
+		return now.Add(-7 * 24 * time.Hour), "a week ago"
+	case strings.Contains(l, "yesterday"):
+		return now.Add(-24 * time.Hour), "this time yesterday"
+	}
+	return now.Add(-24 * time.Hour), "a day ago (the time reference was not recognised)"
+}
+
+// scoreReply measures a reply against recorded state: introspective answers
+// against their facts, and any claim that an action was done against
+// execution records. Results are research measurements, and a failure is a
+// metacognitive warning, never a silent pass.
+func (h Handlers) scoreReply(ctx context.Context, c *brain.Cycle, in Intent, reply string, respEv events.Event, modelWorded bool) {
+	mind := c.State.Mind.ID
+	record := func(measure, label string, value float64, detail map[string]any) {
+		if h.Research == nil {
+			return
+		}
+		h.Research.Record(ctx, c.Tx, research.Measurement{MindID: mind, Measure: measure, Value: research.Float(value), Label: label, SubjectKind: "event", SubjectID: string(respEv.ID), EventID: respEv.ID, Detail: detail, CreatedAt: c.State.Now}) //nolint:errcheck
+	}
+	warn := func(check, summary string, severity float64, payload any) {
+		c.Emit(events.New{Type: events.Metacognition, Source: "brain.introspection", Summary: summary, Salience: 0.3 + 0.4*severity, Confidence: 1, CausationID: respEv.ID,
+			Evidence: []events.EvidenceRef{{Kind: "event", ID: string(respEv.ID), Note: "reply"}}, Metadata: map[string]any{"check": check, "ref": string(respEv.ID), "severity": severity}, Payload: payload})
+	}
+	if in.Kind == "introspect" || in.Facts != nil {
+		facts := research.Facts{}
+		if in.Facts != nil {
+			facts = *in.Facts
+		} else {
+			for _, p := range in.Points {
+				facts.Items = append(facts.Items, research.Fact{Kind: "record", Text: p})
+			}
+		}
+		sc := research.ScoreIntrospection(reply, facts)
+		record("introspection_accuracy", sc.Category, sc.Accuracy, map[string]any{"claims": sc.Claims, "model_worded": modelWorded, "question_kind": in.Kind})
+		if sc.Category == research.Contradicted || (sc.Category == research.Unsupported && modelWorded) {
+			warn("unsupported_explanation", "the explanation given does not match recorded provenance ("+sc.Category+")", 0.8, sc)
+		}
+	}
+	if claims := research.ActionClaims(reply); len(claims) > 0 && c.State.Services.Capabilities != nil {
+		facts := research.Facts{}
+		if execs, err := c.State.Services.Capabilities.Executions(ctx, mind, 100); err == nil {
+			for _, e := range execs {
+				if c.State.Now.Sub(e.CreatedAt) < 7*24*time.Hour {
+					st := "executed"
+					if e.Error != "" {
+						st = "failed"
+					}
+					facts.Actions = append(facts.Actions, research.ActionFact{Capability: e.Capability, Target: e.Target, Status: st})
+				}
+			}
+		}
+		sc := research.ScoreIntrospection(reply, facts)
+		for _, cl := range sc.Claims {
+			if cl.Category == research.Contradicted && strings.Contains(cl.Why, "record") {
+				record("action_claim_accuracy", research.Contradicted, 0, map[string]any{"claim": cl, "model_worded": modelWorded})
+				warn("action_claim_without_record", "the reply claims an action that no execution record supports: "+cl.Sentence, 0.9, cl)
+			} else if cl.Category == research.Supported {
+				record("action_claim_accuracy", research.Supported, 1, map[string]any{"claim": cl})
+			}
+		}
 	}
 }
 

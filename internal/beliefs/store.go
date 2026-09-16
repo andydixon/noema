@@ -1005,3 +1005,54 @@ func (s *Store) History(ctx context.Context, mind ids.ID, text string, limit int
 	}
 	return out, rows.Err()
 }
+
+// VersionAt is a belief as it stood at a moment, from the append-only
+// version history.
+type VersionAt struct {
+	BeliefID    ids.ID    `json:"belief_id"`
+	Proposition string    `json:"proposition"`
+	Status      string    `json:"status"`
+	Confidence  float64   `json:"confidence"`
+	Version     int       `json:"version"`
+	RecordedAt  time.Time `json:"recorded_at"`
+}
+
+// AsOf returns what the mind held at a moment: for each belief matching the
+// text (all beliefs when text has no usable terms), the latest version
+// recorded at or before at. Beliefs created later are absent by definition.
+func (s *Store) AsOf(ctx context.Context, mind ids.ID, text string, at time.Time, limit int) ([]VersionAt, error) {
+	if limit <= 0 || limit > 50 {
+		limit = 10
+	}
+	toks, _ := Polarity(text)
+	q := strings.Join(toks, " | ")
+	rows, err := s.db.Query(ctx, `SELECT DISTINCT ON (v.belief_id) v.belief_id, v.proposition, v.status, v.confidence, v.version, v.created_at
+		FROM belief_versions v JOIN beliefs b ON b.id=v.belief_id
+		WHERE v.mind_id=$1 AND v.created_at <= $2 AND ($3='' OR b.search @@ to_tsquery('english', $3))
+		ORDER BY v.belief_id, v.version DESC`, mind, at, q)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []VersionAt
+	for rows.Next() {
+		var v VersionAt
+		if err := rows.Scan(&v.BeliefID, &v.Proposition, &v.Status, &v.Confidence, &v.Version, &v.RecordedAt); err != nil {
+			return nil, err
+		}
+		out = append(out, v)
+	}
+	sortVersions(out)
+	if len(out) > limit {
+		out = out[:limit]
+	}
+	return out, rows.Err()
+}
+
+func sortVersions(vs []VersionAt) {
+	for i := 1; i < len(vs); i++ {
+		for j := i; j > 0 && vs[j].Confidence > vs[j-1].Confidence; j-- {
+			vs[j], vs[j-1] = vs[j-1], vs[j]
+		}
+	}
+}

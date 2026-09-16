@@ -42,3 +42,20 @@ func TestAnalyseEntitiesClaimsAndUrgency(t *testing.T) {
 		t.Fatalf("topic wrong: %q", b.Topic)
 	}
 }
+
+func TestAnalyseVolitionAndContinuityIntrospection(t *testing.T) {
+	for text, want := range map[string]string{
+		"Why did you restart atlas-worker?":               "why_action",
+		"What did you believe yesterday about atlas?":     "believed_then",
+		"Which previous state is yours?":                  "lineage",
+		"What would have happened had you not seen that?": "counterfactual",
+		"How have you changed this month?":                "changed_self",
+		"What do you want right now?":                     "wants",
+		"What are your intentions?":                       "intentions",
+		"What have you committed to?":                     "commitments",
+	} {
+		if a := Analyse(text); a.Intent != "introspection" || a.Introspection != want {
+			t.Errorf("%q → %s/%s, want %s", text, a.Intent, a.Introspection, want)
+		}
+	}
+}

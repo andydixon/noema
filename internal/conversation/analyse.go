@@ -11,7 +11,7 @@ import (
 // the system works without a model and never depends on one for routing.
 type Analysis struct {
 	Intent        string   `json:"intent"`        // question | statement | request | correction | greeting | introspection | other
-	Introspection string   `json:"introspection"` // thinking | beliefs | why | uncertain | contradictions | learned | changed | curious | predictions | surprised | patterns | ""
+	Introspection string   `json:"introspection"` // why_action | believed_then | lineage | counterfactual | changed_self | wants | intentions | commitments | thinking | beliefs | why | uncertain | contradictions | learned | changed | curious | predictions | surprised | patterns | ""
 	Topic         string   `json:"topic,omitempty"`
 	Entities      []string `json:"entities"`
 	Tokens        []string `json:"tokens"`
@@ -42,6 +42,14 @@ var (
 		kind string
 		pats []string
 	}{
+		{"why_action", []string{"why did you restart", "why did you run", "why did you fetch", "why did you request", "why did you ask for", "why did you do that", "why did you do this", "why did you act", "why did you stop", "why did you not", "why didn't you", "why did you send", "why did you read", "why did you query", "why did you check"}},
+		{"believed_then", []string{"believe yesterday", "believed yesterday", "believe last week", "believed last week", "believe earlier", "believed earlier", "believe before", "believed before", "believe an hour ago", "believed an hour ago", "did you believe"}},
+		{"lineage", []string{"which previous state is yours", "which earlier state is yours", "are you a fork", "where did you come from", "which state is yours", "were you forked", "your lineage"}},
+		{"counterfactual", []string{"what would have happened", "what would you have", "had you not", "if you had not", "if that had not happened", "had that not happened"}},
+		{"changed_self", []string{"how have you changed", "how did you change", "what changed in you"}},
+		{"wants", []string{"what do you want", "what did you want", "what are your wants", "what would you like to do"}},
+		{"intentions", []string{"what do you intend", "what are you planning", "what are your intentions", "what are you trying to do", "what did you intend"}},
+		{"commitments", []string{"what have you committed", "what are your commitments", "what did you promise", "what are you committed"}},
 		{"thinking", []string{"what are you thinking", "thinking about", "on your mind", "what are you doing", "what are you working on", "current focus"}},
 		{"why", []string{"why do you believe", "why do you think", "what evidence", "how do you know", "what makes you think", "would change your mind"}},
 		{"uncertain", []string{"uncertain about", "unsure about", "not sure about", "what don't you know", "what do you not know", "confidence in"}},
