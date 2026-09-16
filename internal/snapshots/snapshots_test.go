@@ -121,8 +121,18 @@ func TestSnapshotForkImportCompare(t *testing.T) {
 	var forkPolicies, importPolicies int
 	pool.QueryRow(ctx, `SELECT count(*) FROM policies WHERE mind_id=$1`, fork.ID).Scan(&forkPolicies)  //nolint:errcheck
 	pool.QueryRow(ctx, `SELECT count(*) FROM policies WHERE mind_id=$1`, imp.ID).Scan(&importPolicies) //nolint:errcheck
-	if forkPolicies != 1 || importPolicies != 0 || omitted["policies"] != 1 {
+	if forkPolicies != 0 || importPolicies != 0 || omitted["policies"] != 1 {
 		t.Fatalf("policy handling: fork=%d import=%d omitted=%v", forkPolicies, importPolicies, omitted)
+	}
+	// Inheriting policies is an explicit choice.
+	heir, err := st.Fork(ctx, sn.ID, ForkOptions{Slug: "heir", By: "andy", InheritPolicies: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var heirPolicies int
+	pool.QueryRow(ctx, `SELECT count(*) FROM policies WHERE mind_id=$1`, heir.ID).Scan(&heirPolicies) //nolint:errcheck
+	if heirPolicies != 1 {
+		t.Fatalf("explicit inheritance: %d", heirPolicies)
 	}
 	if im, _ := mem.List(ctx, imp.ID, memory.Filter{Limit: 10}); len(im) != 2 {
 		t.Fatalf("import memories: %d", len(im))

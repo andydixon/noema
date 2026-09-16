@@ -113,7 +113,7 @@ func StartWith(t *testing.T, o Options) *Harness {
 	capReg.Freeze()
 	deps.Capabilities = &capabilities.Service{Registry: capReg, DB: pool, Events: deps.Events, Log: log}
 	deps.Integrations = &integrations.Manager{Store: integrations.NewStore(pool), Events: deps.Events, Graph: deps.Graph, Log: log, Pollers: map[integrations.Kind]integrations.Poller{}}
-	deps.Dreaming = &dreaming.Service{DB: pool, Memory: deps.Memory, Beliefs: deps.Beliefs, Events: deps.Events, Log: log}
+	deps.Dreaming = &dreaming.Service{DB: pool, Memory: deps.Memory, Beliefs: deps.Beliefs, Events: deps.Events, Log: log, Volition: volition.NewStore(pool)}
 	deps.Snapshots = &snapshots.Store{DB: pool, Events: deps.Events, Minds: deps.Minds}
 	deps.Assertions = epistemics.NewStore(pool)
 	deps.Privacy = &privacy.Service{DB: pool, Events: deps.Events, Audit: deps.Audit, Snapshots: deps.Snapshots, Log: log}

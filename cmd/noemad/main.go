@@ -183,7 +183,7 @@ func run() error {
 	deps.Narrative = narrative.NewStore(db)
 	deps.Notifications = notifications.NewStore(db)
 	deps.Consolidation = &consolidation.Service{DB: db, Memory: deps.Memory, Beliefs: deps.Beliefs, Events: deps.Events, LLM: deps.LLM, Prompts: deps.Prompts, Minds: deps.Minds, Log: log}
-	deps.Dreaming = &dreaming.Service{DB: db, Memory: deps.Memory, Beliefs: deps.Beliefs, Events: deps.Events, LLM: deps.LLM, Prompts: deps.Prompts, Log: log}
+	deps.Dreaming = &dreaming.Service{DB: db, Memory: deps.Memory, Beliefs: deps.Beliefs, Events: deps.Events, LLM: deps.LLM, Prompts: deps.Prompts, Log: log, Volition: volition.NewStore(db)}
 	deps.Reflection = &reflection.Service{DB: db, Events: deps.Events, Beliefs: deps.Beliefs, Goals: deps.Goals, Memory: deps.Memory, Predictions: deps.Predictions, LLM: deps.LLM, Prompts: deps.Prompts, Log: log}
 	deps.Volition = volition.NewStore(db)
 	deps.Plans = planning.NewStore(db)

@@ -33,6 +33,7 @@ import (
 	"github.com/andydixon/noema/internal/memory"
 	"github.com/andydixon/noema/internal/minds"
 	"github.com/andydixon/noema/internal/storage"
+	"github.com/andydixon/noema/internal/volition"
 	"github.com/andydixon/noema/internal/workspace"
 	"github.com/andydixon/noema/pkg/concepts"
 	"github.com/andydixon/noema/pkg/events"
@@ -91,6 +92,9 @@ type Service struct {
 	LLM     *router.Router
 	Prompts *prompts.Store
 	Log     *slog.Logger
+	// Volition, when set, lets a dream leave a want to test what it
+	// proposed. Dreams may want; they never intend, plan or act.
+	Volition *volition.Store
 }
 
 // ErrReviewed is returned when a hypothesis has already been promoted or rejected.
@@ -404,7 +408,20 @@ func (s *Service) hypothesise(ctx context.Context, m minds.Mind, dream ids.ID, p
 			ids.New(), dream, m.ID, res.Belief.ID, []ids.ID{p.A.ID, p.B.ID}, w.Proposition, res.Belief.Confidence, w.Rationale, w.Wording); err != nil {
 			return err
 		}
-		s.Events.Publish(res.Events...)
+		published := append([]events.Event{}, res.Events...)
+		if s.Volition != nil {
+			rec := volition.Recorder{Q: tx, Source: "dreaming", Emit: func(ctx context.Context, q storage.Querier, n events.New) (events.Event, error) {
+				ev, err := emit(ctx, q, n)
+				published = append(published, ev)
+				return ev, err
+			}}
+			if _, _, err := s.Volition.UpsertWant(ctx, rec, m.ID, volition.Candidate{Subject: "test:belief:" + string(res.Belief.ID), Description: "find out whether " + excerpt(w.Proposition, 200) + " (proposed in a dream)",
+				Origin: volition.OriginDream, OriginRef: "belief:" + string(res.Belief.ID), Strength: 0.4, Urgency: 0.1, Values: []string{"curiosity"}, Drives: []string{"curiosity"},
+				Proposal: &volition.Proposal{Kind: "investigate", Subject: w.Proposition}, Terms: map[string]float64{"base": 0.4}}); err != nil {
+				return err
+			}
+		}
+		s.Events.Publish(published...)
 		return nil
 	})
 }

@@ -89,7 +89,7 @@ func (u *UI) snapshotFork(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	src, _ := u.deps.Minds.Get(r.Context(), sn.MindID)
-	m, err := u.studyF().ForkSnapshot(r.Context(), sn, r.PostFormValue("slug"), strings.TrimSpace(r.PostFormValue("display_name")), username(r))
+	m, err := u.studyF().ForkSnapshot(r.Context(), sn, r.PostFormValue("slug"), strings.TrimSpace(r.PostFormValue("display_name")), username(r), r.PostFormValue("inherit_policies") == "on")
 	if err != nil {
 		u.flash(w, r, "error", err.Error(), "/minds/"+src.Slug+"/snapshots")
 		return

@@ -52,6 +52,7 @@ var Tables = []string{
 	"memories", "memory_relationships", "predictions", "prediction_results",
 	"entities", "entity_relationships", "entity_links", "corrections", "policies",
 	"conversations", "messages",
+	"wants", "want_conflicts", "commitments", "intentions", "plans", "plan_steps", "volition_decisions",
 }
 
 // keyedByMind are tables whose primary key includes mind_id; a fresh mind may
@@ -226,7 +227,7 @@ func Capture(ctx context.Context, db *pgxpool.Pool, es *evstore.Store, m minds.M
 
 // columns returns insertable (non-generated) columns for every archive table.
 func columns(ctx context.Context, db *pgxpool.Pool) (map[string][]string, error) {
-	rows, err := db.Query(ctx, `SELECT table_name, column_name FROM information_schema.columns WHERE table_schema='public' AND is_generated='NEVER' AND table_name = ANY($1) ORDER BY table_name, ordinal_position`, Tables)
+	rows, err := db.Query(ctx, `SELECT table_name, column_name FROM information_schema.columns WHERE table_schema=current_schema() AND is_generated='NEVER' AND table_name = ANY($1) ORDER BY table_name, ordinal_position`, Tables)
 	if err != nil {
 		return nil, err
 	}
@@ -254,9 +255,10 @@ func contains(xs []string, x string) bool {
 var uuidRe = regexp.MustCompile(`^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$`)
 
 // AuthorityTables hold rows that grant or shape authority rather than
-// describe cognitive state. They are copied by Fork (same operator, same
-// instance) but never by Import: an archive from elsewhere must not be able
-// to arrive carrying ALLOW rules for a mind (THREAT_MODEL T16).
+// describe cognitive state. Import never restores them: an archive from
+// elsewhere must not arrive carrying ALLOW rules (THREAT_MODEL T16). Fork
+// restores them only when the operator asks explicitly (InheritPolicies), so
+// a fork never inherits broad operational authority by accident.
 var AuthorityTables = map[string]bool{"policies": true}
 
 // Restore writes an archive's rows into mind `into`. Every row id found in
@@ -441,8 +443,12 @@ type ForkOptions struct {
 	Config                   *minds.CognitiveConfig
 	Personality              *minds.Personality
 	By                       string
-	// OmitAuthority skips AuthorityTables (policies). Import sets it; Fork does not.
+	// OmitAuthority skips AuthorityTables (policies). Import always sets it;
+	// Fork sets it unless InheritPolicies.
 	OmitAuthority bool
+	// InheritPolicies copies the source mind's policies into a fork. It is an
+	// explicit, audited operator choice; experiments and replays never set it.
+	InheritPolicies bool
 	// Omitted is filled by the restore with the rows skipped per table.
 	Omitted map[string]int
 }
@@ -455,6 +461,7 @@ func (s *Store) Fork(ctx context.Context, snapshotID ids.ID, o ForkOptions) (min
 	if err != nil {
 		return minds.Mind{}, err
 	}
+	o.OmitAuthority = !o.InheritPolicies
 	m, err := s.restoreNew(ctx, a, &o)
 	if err != nil {
 		return m, err
@@ -524,6 +531,9 @@ func (s *Store) restoreNew(ctx context.Context, a Archive, o *ForkOptions) (mind
 		if err != nil {
 			return err
 		}
+		if err := quiesceInherited(ctx, tx, m.ID, a.Source.Slug); err != nil {
+			return err
+		}
 		if o.Status != "" && o.Status != minds.StatusActive {
 			if _, err := tx.Exec(ctx, `UPDATE minds SET status=$2 WHERE id=$1`, m.ID, string(o.Status)); err != nil {
 				return err
@@ -537,6 +547,25 @@ func (s *Store) restoreNew(ctx context.Context, a Archive, o *ForkOptions) (mind
 		return m, err
 	}
 	return s.Minds.Get(ctx, m.ID)
+}
+
+// quiesceInherited stops work a new mind inherited mid-flight. Intentions
+// and plans are cognitive state and are kept, but approvals, grants and
+// executions belong to the source mind, so nothing inherited may continue
+// acting: open steps are blocked, open plans blocked and live intentions
+// suspended, each with the reason recorded. The new mind's own cognition
+// or an operator can take them up again under its own policy.
+func quiesceInherited(ctx context.Context, tx pgx.Tx, mind ids.ID, source string) error {
+	reason := "inherited from " + source + " mid-flight; approvals, grants and executions are not inherited"
+	if _, err := tx.Exec(ctx, `UPDATE plan_steps SET status='blocked', status_reason=$2, lease_until=NULL, approval_id=NULL, request_id=NULL
+		WHERE mind_id=$1 AND status IN ('ready','executing','awaiting_approval','awaiting_grant','waiting')`, mind, reason); err != nil {
+		return err
+	}
+	if _, err := tx.Exec(ctx, `UPDATE plans SET status='blocked', status_reason=$2 WHERE mind_id=$1 AND status IN ('validated','waiting','executing','awaiting_approval','replanning')`, mind, reason); err != nil {
+		return err
+	}
+	_, err := tx.Exec(ctx, `UPDATE intentions SET status='suspended', status_reason=$2 WHERE mind_id=$1 AND status IN ('proposed','active','blocked')`, mind, reason)
+	return err
 }
 
 // SortedTables returns table names present in an archive, for display.

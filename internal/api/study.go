@@ -117,13 +117,17 @@ func (s *Server) snapshotArchive(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(a) //nolint:errcheck
 }
 
-// ForkSnapshot creates a mind from a snapshot; shared with the UI.
-func (s *Server) ForkSnapshot(ctx context.Context, sn snapshots.Snapshot, slug, display, by string) (minds.Mind, error) {
-	m, err := s.deps.Snapshots.Fork(ctx, sn.ID, snapshots.ForkOptions{Slug: slug, DisplayName: display, By: by})
+// ForkSnapshot creates a mind from a snapshot; shared with the UI. The fork
+// receives no policies unless inheritPolicies is set explicitly.
+func (s *Server) ForkSnapshot(ctx context.Context, sn snapshots.Snapshot, slug, display, by string, inheritPolicies bool) (minds.Mind, error) {
+	m, err := s.deps.Snapshots.Fork(ctx, sn.ID, snapshots.ForkOptions{Slug: slug, DisplayName: display, By: by, InheritPolicies: inheritPolicies})
 	if err != nil {
 		return m, mindErr(err)
 	}
-	s.deps.Audit.Log(ctx, "mind.fork", "mind", m.ID.String(), map[string]any{"snapshot": sn.ID, "source": sn.MindID, "slug": m.Slug})
+	s.deps.Audit.Log(ctx, "mind.fork", "mind", m.ID.String(), map[string]any{"snapshot": sn.ID, "source": sn.MindID, "slug": m.Slug, "inherit_policies": inheritPolicies})
+	if !inheritPolicies {
+		s.deps.Events.OperatorAction(ctx, m.ID, by, "mind.fork.policies", "Capability policies were not inherited from the source mind; this mind has only global policy until an operator adds rules", map[string]any{"inherit_policies": false})
+	}
 	s.deps.Events.OperatorAction(ctx, m.ID, by, "mind.fork", "Mind forked from snapshot "+sn.Name+" (history before event "+strconv.FormatInt(sn.EventSeq, 10)+" is shared with the source)", map[string]any{"snapshot_id": sn.ID, "source_mind": sn.MindID, "event_seq": sn.EventSeq})
 	s.deps.Events.OperatorAction(ctx, sn.MindID, by, "mind.fork", "Operator "+by+" forked this mind into "+m.Slug+" from snapshot "+sn.Name, map[string]any{"snapshot_id": sn.ID, "fork_mind": m.ID})
 	s.deps.Brain.Reconcile(ctx) //nolint:errcheck
@@ -136,14 +140,15 @@ func (s *Server) snapshotFork(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var in struct {
-		Slug        string `json:"slug"`
-		DisplayName string `json:"display_name"`
+		Slug            string `json:"slug"`
+		DisplayName     string `json:"display_name"`
+		InheritPolicies bool   `json:"inherit_policies"`
 	}
 	if err := decode(r, &in); err != nil {
 		fail(w, r, err)
 		return
 	}
-	m, err := s.ForkSnapshot(r.Context(), sn, in.Slug, in.DisplayName, actor(r))
+	m, err := s.ForkSnapshot(r.Context(), sn, in.Slug, in.DisplayName, actor(r), in.InheritPolicies)
 	if err != nil {
 		fail(w, r, err)
 		return

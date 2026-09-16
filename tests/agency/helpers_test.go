@@ -50,7 +50,6 @@ func (f *fakeHost) Run(_ context.Context, name string, args ...string) ([]byte, 
 
 func (f *fakeHost) count() int { f.mu.Lock(); defer f.mu.Unlock(); return f.restarts }
 
-
 // waitFor drives cycles and the executor until cond holds or the timeout passes.
 func waitFor(t *testing.T, h *harness.Harness, m minds.Mind, timeout time.Duration, what string, cond func() bool) {
 	t.Helper()
