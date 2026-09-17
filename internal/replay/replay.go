@@ -270,6 +270,10 @@ func (s *Service) Execute(ctx context.Context, r Replay) (Replay, error) {
 // perceptions (messages, integrations, observations) and operator actions.
 var StimulusCategories = []events.Category{events.CatPerception, events.CatOperator}
 
+// IsStimulus reports whether an event reached the mind from outside and so
+// is replayed as input (experiments reuse the same selection).
+func IsStimulus(e events.Event) bool { return isStimulus(e) }
+
 func isStimulus(e events.Event) bool {
 	if strings.HasPrefix(e.Source, "brain") {
 		return false

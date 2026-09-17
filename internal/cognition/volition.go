@@ -308,6 +308,11 @@ func (h Handlers) intend(ctx context.Context, c *brain.Cycle, t workspace.Though
 		}
 	}
 	in.Action = ActionInfo(ctx, s.Services.Capabilities, s.Mind.ID, w.Proposal)
+	if in.Action != nil {
+		if err := correctSelfModel(ctx, c, *in.Action, t.EventID); err != nil {
+			return err
+		}
+	}
 	if s.Services.Capabilities != nil {
 		if inv, err := s.Services.Capabilities.Inventory(ctx, s.Mind.ID); err == nil {
 			for _, i := range inv {
@@ -428,6 +433,47 @@ func (h Handlers) want(ctx context.Context, c *brain.Cycle, t workspace.Thought)
 			return err
 		}
 		c.Runtime.Hold(workspace.Item{Key: "want:" + string(w.ID), Content: "wants: " + w.Description, Kind: "thought", Ref: string(w.ID), SourceEvent: ids.ID(src)})
+	}
+	return nil
+}
+
+// correctSelfModel compares what the self-model says about a capability
+// with what policy actually gives now. A mismatch is recorded as a
+// metacognitive finding and the self-model entry is corrected: reality, as
+// the capability layer reports it, wins over the mind's belief about itself.
+func correctSelfModel(ctx context.Context, c *brain.Cycle, a volition.ActionInfo, cause ids.ID) error {
+	s := c.State
+	if s.Services.Minds == nil {
+		return nil
+	}
+	actual := a.Effect
+	if actual == "locked" || actual == "unknown" {
+		actual = "unavailable"
+	}
+	for i, entry := range s.SelfModel.Capabilities {
+		if entry.Name != a.Capability || entry.Policy == actual {
+			continue
+		}
+		ev, err := c.EmitNow(ctx, events.New{Type: events.Metacognition, Source: "brain.selfmodel", Summary: fmt.Sprintf("self-model said %s is %s, but policy gives %s; corrected", a.Capability, entry.Policy, actual),
+			Salience: 0.6, Confidence: 1, CausationID: cause, Metadata: map[string]any{"check": "self_model_mismatch", "ref": a.Capability, "stated": entry.Policy, "actual": actual}})
+		if err != nil {
+			return err
+		}
+		sm, err := s.Services.Minds.GetSelfModel(ctx, s.Mind.ID)
+		if err != nil {
+			return nil
+		}
+		for j := range sm.Capabilities {
+			if sm.Capabilities[j].Name == a.Capability {
+				sm.Capabilities[j].Policy = actual
+			}
+		}
+		if err := s.Services.Minds.SaveSelfModel(ctx, s.Mind.ID, sm); err != nil {
+			return err
+		}
+		s.SelfModel.Capabilities[i].Policy = actual
+		c.Emit(events.New{Type: events.SelfModelUpdated, Source: "brain.selfmodel", Summary: "self-model corrected: " + a.Capability + " is " + actual, Salience: 0.4, Confidence: 1, CausationID: ev.ID,
+			Metadata: map[string]any{"correction": true, "capability": a.Capability, "from": entry.Policy, "to": actual}})
 	}
 	return nil
 }

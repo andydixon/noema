@@ -513,7 +513,7 @@ func (s *Store) restoreNew(ctx context.Context, a Archive, o *ForkOptions) (mind
 	if notes == "" {
 		notes = "restored from archive of " + a.Source.Slug + " at event " + fmt.Sprint(a.Source.EventSeq)
 	}
-	m, err := s.Minds.Create(ctx, minds.CreateParams{Slug: o.Slug, DisplayName: o.DisplayName, Personality: &p, Config: &cfg, Notes: notes, CreatedBy: o.By})
+	m, err := s.Minds.Create(ctx, minds.CreateParams{Slug: o.Slug, DisplayName: o.DisplayName, Personality: &p, Config: &cfg, Notes: notes, CreatedBy: o.By, Research: true})
 	if err != nil {
 		return minds.Mind{}, err
 	}

@@ -107,6 +107,7 @@ type Services struct {
 	Predictions  *predictions.Store
 	Capabilities *capabilities.Service
 	Volition     *volition.Store
+	Minds        *minds.Store // self-model corrections
 	Plans        *planning.Store
 	// Executor plans formed intentions inside the cycle transaction. It never
 	// acts from inside a cycle: acting happens after commit, in its own loop.

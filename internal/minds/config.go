@@ -2,6 +2,7 @@ package minds
 
 import (
 	"fmt"
+	"strings"
 	"time"
 )
 
@@ -51,6 +52,53 @@ type CognitiveConfig struct {
 	// Ablations disable named cognitive components in a research fork
 	// (docs/cognitive-research.md). Only forks may carry them.
 	Ablations []string `json:"ablations,omitempty"`
+	// WorkspaceOverrides force candidates matching a text into or out of the
+	// global workspace in a research fork, for broadcast experiments.
+	WorkspaceOverrides []WorkspaceOverride `json:"workspace_overrides,omitempty"`
+}
+
+// WorkspaceOverride is one experimental manipulation of admission.
+type WorkspaceOverride struct {
+	Match string `json:"match"` // case-insensitive text in the candidate summary or its triggering event
+	Fate  string `json:"fate"`  // admit | exclude
+}
+
+// Ablations is the closed vocabulary of components a research fork may
+// disable, with what disabling means operationally.
+var Ablations = map[string]string{
+	"attention":        "every attention feature weight is 1 and drives do not modulate weights: admission no longer prioritises by learned weighting",
+	"memory_retrieval": "the retrieval process proposes no recalled memories",
+	"affect":           "drives and affect are neither updated by events nor used to modulate attention",
+	"metacognition":    "no self-checks are proposed",
+	"commitments":      "commitments do not shape formation, reconsideration or metacognition",
+	"volition":         "no wants are derived and no intentions are formed",
+	"global_workspace": "nothing persists in the workspace or working memory between cycles and nothing is broadcast; each admitted thought is handled in isolation",
+	"curiosity":        "the curiosity process proposes no questions",
+	"association":      "the association process proposes no hypotheses",
+	"goals":            "the goal monitor raises no stalled or relevant goals",
+	"narrative":        "the narrative is not updated",
+	"notifications":    "no notifications are raised",
+}
+
+// ResearchSettings reports whether the configuration carries research
+// manipulations that only forks may have.
+func (c CognitiveConfig) ResearchSettings() bool {
+	return len(c.Ablations) > 0 || len(c.WorkspaceOverrides) > 0
+}
+
+// ValidateResearch checks ablation names and override fates.
+func (c CognitiveConfig) ValidateResearch() error {
+	for _, a := range c.Ablations {
+		if _, ok := Ablations[a]; !ok {
+			return fmt.Errorf("unknown ablation %q", a)
+		}
+	}
+	for _, o := range c.WorkspaceOverrides {
+		if strings.TrimSpace(o.Match) == "" || len(o.Match) > 200 || (o.Fate != "admit" && o.Fate != "exclude") {
+			return fmt.Errorf("workspace override needs a match (≤200 chars) and fate admit or exclude")
+		}
+	}
+	return nil
 }
 
 // Ablated reports whether a component is disabled in this configuration.

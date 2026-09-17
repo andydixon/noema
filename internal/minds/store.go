@@ -89,6 +89,9 @@ type CreateParams struct {
 	Config      *CognitiveConfig
 	Notes       string
 	CreatedBy   string
+	// Research allows ablations and workspace overrides; only snapshot
+	// restores (forks, imports of research forks) set it.
+	Research bool
 }
 
 // Create inserts a mind with personality version 1 and an initial self-model.
@@ -127,6 +130,12 @@ func (s *Store) Create(ctx context.Context, p CreateParams) (Mind, error) {
 		cfg = *p.Config
 	}
 	cfg.Normalise()
+	if cfg.ResearchSettings() && !p.Research {
+		return Mind{}, fmt.Errorf("%w: ablations and workspace overrides are only allowed on research forks, never on an original mind", ErrInvalid)
+	}
+	if err := cfg.ValidateResearch(); err != nil {
+		return Mind{}, fmt.Errorf("%w: %v", ErrInvalid, err)
+	}
 	m := Mind{ID: ids.New(), Slug: p.Slug, DisplayName: p.DisplayName, Status: StatusActive, Config: cfg, Notes: p.Notes,
 		PersonalityVersion: 1, Personality: pers, TemplateID: p.TemplateID, CreatedAt: time.Now(), UpdatedAt: time.Now()}
 	err := storage.Tx(ctx, s.db, func(tx pgx.Tx) error {
@@ -237,6 +246,12 @@ func (s *Store) Update(ctx context.Context, id ids.ID, p UpdateParams) (Mind, er
 	if p.Config != nil {
 		c := *p.Config
 		c.Normalise()
+		if c.ResearchSettings() && m.ForkedFromSnapshot == nil {
+			return Mind{}, fmt.Errorf("%w: ablations and workspace overrides are only allowed on forks, never on an original mind", ErrInvalid)
+		}
+		if err := c.ValidateResearch(); err != nil {
+			return Mind{}, fmt.Errorf("%w: %v", ErrInvalid, err)
+		}
 		m.Config = c
 	}
 	cfgJSON, _ := json.Marshal(m.Config)

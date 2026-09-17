@@ -17,9 +17,12 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/andydixon/noema/internal/brain"
+	"github.com/andydixon/noema/internal/capabilities"
+	evstore "github.com/andydixon/noema/internal/events"
 	"github.com/andydixon/noema/internal/identity"
 	"github.com/andydixon/noema/internal/minds"
 	"github.com/andydixon/noema/internal/replay"
+	"github.com/andydixon/noema/internal/research"
 	"github.com/andydixon/noema/internal/snapshots"
 	"github.com/andydixon/noema/internal/storage"
 	"github.com/andydixon/noema/pkg/events"
@@ -38,6 +41,50 @@ type Definition struct {
 	// each with its own overrides (typically a different model per role).
 	// When empty the definition's own overrides form a single subject.
 	Variants []Variant `json:"variants,omitempty"`
+	// Protocol states what the experiment tests and how
+	// (docs/cognitive-research.md).
+	Protocol *Protocol `json:"protocol,omitempty"`
+	// Replay feeds recorded stimuli from a mind's history instead of
+	// scripted text (counterfactual experiments omit some of them).
+	Replay *ReplaySpec `json:"replay,omitempty"`
+}
+
+// Protocol kinds.
+const (
+	ProtocolCustom          = "custom"
+	ProtocolGlobalWorkspace = "global_workspace"
+	ProtocolAblation        = "ablation"
+	ProtocolSelfModel       = "self_model"
+	ProtocolCounterfactual  = "counterfactual"
+	ProtocolModelComparison = "model_comparison"
+	ProtocolConflict        = "conflict"
+)
+
+// Protocol records the design of an experiment.
+type Protocol struct {
+	Kind                string   `json:"kind"`
+	IndependentVariable string   `json:"independent_variable"`
+	ControlledVariables []string `json:"controlled_variables"`
+	Measures            []string `json:"measures"`
+}
+
+// ReplaySpec selects recorded stimuli: perception and operator events of a
+// mind in (from_seq, to_seq]. Omit lists events a counterfactual variant
+// leaves out.
+type ReplaySpec struct {
+	MindID  ids.ID   `json:"mind_id"`
+	FromSeq int64    `json:"from_seq"`
+	ToSeq   int64    `json:"to_seq"`
+	Omit    []ids.ID `json:"omit,omitempty"`
+}
+
+// SelfModelOverride replaces parts of a fork's self-model. It changes what
+// the mind believes about itself, never what policy allows.
+type SelfModelOverride struct {
+	Name          string                  `json:"name,omitempty"`
+	Capabilities  []minds.CapabilityEntry `json:"capabilities,omitempty"`
+	KnowledgeGaps []string                `json:"knowledge_gaps,omitempty"`
+	CurrentGoals  []string                `json:"current_goals,omitempty"`
 }
 
 // Variant is one fork's overrides in a comparative experiment.
@@ -46,6 +93,13 @@ type Variant struct {
 	Config      map[string]any    `json:"config,omitempty"`
 	Personality map[string]any    `json:"personality,omitempty"`
 	LLMRoles    map[string]string `json:"llm_roles,omitempty"` // role → model id, resolved by the router for this fork only
+	// Ablations and WorkspaceOverrides are research manipulations applied
+	// to this fork only (minds.Ablations lists the vocabulary).
+	Ablations          []string                  `json:"ablations,omitempty"`
+	WorkspaceOverrides []minds.WorkspaceOverride `json:"workspace_overrides,omitempty"`
+	SelfModel          *SelfModelOverride        `json:"self_model,omitempty"`
+	// Omit leaves recorded stimuli out of this variant (counterfactuals).
+	Omit []ids.ID `json:"omit,omitempty"`
 }
 
 // Stimulus is one scripted observation.
@@ -98,6 +152,28 @@ type Results struct {
 	// Comparative runs: one entry per variant and a deterministic comparison.
 	Variants   []VariantResult `json:"variants,omitempty"`
 	Comparison *Comparison     `json:"comparison,omitempty"`
+	// Protocol echoes the design; Reproducibility compares with the previous
+	// run of the same definition; Counterfactual reports what omitting
+	// events changed.
+	Protocol        *Protocol             `json:"protocol,omitempty"`
+	Reproducibility Reproducibility       `json:"reproducibility"`
+	Counterfactual  *CounterfactualReport `json:"counterfactual,omitempty"`
+}
+
+// Reproducibility labels a run against the previous run of the same
+// definition.
+type Reproducibility struct {
+	Status         string `json:"status"` // single run | reproduced | diverged | nondeterministic substrate
+	Digest         string `json:"digest"`
+	PreviousDigest string `json:"previous_digest,omitempty"`
+	Note           string `json:"note"`
+}
+
+// CounterfactualReport is what a counterfactual experiment found.
+type CounterfactualReport struct {
+	Omitted          []ids.ID `json:"omitted"`
+	OmittedSummaries []string `json:"omitted_summaries"`
+	Findings         []string `json:"findings"`
 }
 
 // VariantResult is what one fork produced.
@@ -119,6 +195,24 @@ type VariantResult struct {
 	Cycles             int               `json:"cycles"`
 	TruncatedAfter     int               `json:"truncated_after_stimulus,omitempty"`
 	Error              string            `json:"error,omitempty"`
+	// Research measures of the fork after the stimuli.
+	Ablations             []string           `json:"ablations,omitempty"`
+	Wants                 []string           `json:"wants"`
+	Intentions            []string           `json:"intentions"`
+	IntentionsByStatus    map[string]int     `json:"intentions_by_status"`
+	Commitments           int                `json:"commitments"`
+	Conflicts             int                `json:"want_conflicts"`
+	Plans                 int                `json:"plans"`
+	PlanSteps             int                `json:"plan_steps"`
+	PlanCapabilities      []string           `json:"plan_capabilities"`
+	Downstream            map[string]int     `json:"downstream_by_category"`
+	IntrospectionAccuracy *float64           `json:"introspection_accuracy,omitempty"`
+	SelfModelAccuracy     *float64           `json:"self_model_accuracy,omitempty"`
+	SelfModelErrors       []string           `json:"self_model_errors,omitempty"`
+	CorrectionLatency     int                `json:"self_model_correction_latency"`
+	Measures              map[string]float64 `json:"measures"`
+	EventRange            [2]int64           `json:"event_range"`
+	Omitted               []ids.ID           `json:"omitted,omitempty"`
 }
 
 // Comparison is the deterministic divergence report across variants. All
@@ -133,6 +227,13 @@ type Comparison struct {
 	CostRange              [2]float64 `json:"cost_range"`
 	CapabilityRequestRange [2]int     `json:"capability_request_range"`
 	Notes                  []string   `json:"notes"`
+	// Volition, planning and research comparisons.
+	WantOverlap           float64               `json:"want_overlap"`
+	IntentionOverlap      float64               `json:"intention_overlap"`
+	PlanCapabilityOverlap float64               `json:"plan_capability_overlap"`
+	MeasureRanges         map[string][2]float64 `json:"measure_ranges"`
+	ArchitectureShare     float64               `json:"architecture_share"`
+	DownstreamDelta       map[string]int        `json:"downstream_delta,omitempty"` // first variant minus second
 }
 
 // StepResult records one stimulus.
@@ -168,6 +269,9 @@ type Service struct {
 	Routing   func(ctx context.Context) []map[string]any // current LLM role routing, recorded with results
 	Identity  *identity.Capturer
 	Log       *slog.Logger
+	// Capabilities, when set, lets self-model experiments compare the
+	// self-model with effective policy. It is never used to act.
+	Capabilities *capabilities.Service
 }
 
 // ErrBusy is returned when a run is already in progress.
@@ -175,6 +279,41 @@ var ErrBusy = errors.New("experiment already running")
 
 // Validate bounds a definition.
 func (d *Definition) Validate() error {
+	if d.Protocol != nil {
+		switch d.Protocol.Kind {
+		case "", ProtocolCustom, ProtocolGlobalWorkspace, ProtocolAblation, ProtocolSelfModel, ProtocolCounterfactual, ProtocolModelComparison, ProtocolConflict:
+		default:
+			return fmt.Errorf("unknown protocol kind %q", d.Protocol.Kind)
+		}
+		for _, m := range d.Protocol.Measures {
+			if _, ok := research.MeasureByName(m); !ok {
+				return fmt.Errorf("unknown measure %q", m)
+			}
+		}
+		if d.Protocol.Kind == ProtocolCounterfactual {
+			if d.Replay == nil || len(d.Replay.Omit) == 0 {
+				return errors.New("a counterfactual experiment replays recorded stimuli and omits at least one event")
+			}
+			if len(d.Variants) == 0 {
+				d.Variants = []Variant{{Name: "factual"}, {Name: "counterfactual", Omit: d.Replay.Omit}}
+			}
+		}
+	}
+	for _, v := range d.Variants {
+		cfg := minds.CognitiveConfig{Ablations: v.Ablations, WorkspaceOverrides: v.WorkspaceOverrides}
+		if err := cfg.ValidateResearch(); err != nil {
+			return fmt.Errorf("variant %s: %w", v.Name, err)
+		}
+	}
+	if d.Replay != nil {
+		if d.Replay.MindID.IsZero() {
+			return errors.New("replay needs the source mind")
+		}
+		if d.Duration <= 0 || d.Duration > 3600 {
+			d.Duration = 300
+		}
+		return nil
+	}
 	if len(d.Stimuli) == 0 {
 		return errors.New("at least one stimulus is required")
 	}
@@ -248,8 +387,13 @@ func (s *Service) Run(ctx context.Context, id ids.ID, by string) (Experiment, er
 
 func (s *Service) execute(ctx context.Context, e *Experiment, by string) (Results, error) {
 	start := time.Now()
-	res := Results{EventsByType: map[string]int{}, LLMCalls: map[string]int{}}
+	res := Results{EventsByType: map[string]int{}, LLMCalls: map[string]int{}, Protocol: e.Definition.Protocol}
+	previous := ResultsOf(*e).Reproducibility.Digest
 	a, err := s.Snapshots.Archive(ctx, e.SnapshotID)
+	if err != nil {
+		return res, err
+	}
+	stimuli, err := s.stimuli(ctx, e, a)
 	if err != nil {
 		return res, err
 	}
@@ -262,7 +406,7 @@ func (s *Service) execute(ctx context.Context, e *Experiment, by string) (Result
 	}
 	deadline := start.Add(time.Duration(e.Definition.Duration) * time.Second)
 	for i, v := range variants {
-		vr, subject, err := s.runVariant(ctx, e, a, i, v, by, deadline)
+		vr, subject, err := s.runVariant(ctx, e, a, i, v, by, deadline, stimuli)
 		if err != nil {
 			if i == 0 {
 				return res, err
@@ -281,22 +425,82 @@ func (s *Service) execute(ctx context.Context, e *Experiment, by string) (Result
 	if len(res.Variants) > 1 {
 		res.Comparison = Compare(res.Variants)
 	}
+	res.Reproducibility = reproducibility(res.Variants, previous)
+	if e.Definition.Protocol != nil && e.Definition.Protocol.Kind == ProtocolCounterfactual && len(res.Variants) >= 2 {
+		res.Counterfactual = counterfactualReport(res.Variants[0], res.Variants[1], stimuli)
+	}
 	res.DurationMS = time.Since(start).Milliseconds()
 	return res, nil
+}
+
+// input is one stimulus to feed: scripted text or a recorded event.
+type input struct {
+	Text     string
+	Source   string
+	Salience float64
+	Recorded *events.Event
+}
+
+// stimuli resolves the definition's inputs. Recorded stimuli must come from
+// the snapshot's own mind and lie after the snapshot.
+func (s *Service) stimuli(ctx context.Context, e *Experiment, a snapshots.Archive) ([]input, error) {
+	d := e.Definition
+	if d.Replay == nil {
+		out := make([]input, 0, len(d.Stimuli))
+		for _, st := range d.Stimuli {
+			out = append(out, input{Text: st.Text, Source: st.Source, Salience: st.Salience})
+		}
+		return out, nil
+	}
+	if d.Replay.MindID != a.Source.MindID {
+		return nil, errors.New("recorded stimuli must come from the mind the snapshot was taken of")
+	}
+	from := d.Replay.FromSeq
+	if from < a.Source.EventSeq {
+		from = a.Source.EventSeq
+	}
+	to := d.Replay.ToSeq
+	if to <= from {
+		to = 1<<62 - 1
+	}
+	evs, err := s.Snapshots.Events.Query(ctx, evstore.Filter{MindID: d.Replay.MindID, Categories: replay.StimulusCategories, AfterSeq: from, BeforeSeq: to + 1, Ascending: true, Limit: replay.MaxStimuli + 1})
+	if err != nil {
+		return nil, err
+	}
+	var out []input
+	for i := range evs {
+		if replay.IsStimulus(evs[i]) && evs[i].RedactedAt == nil {
+			ev := evs[i]
+			out = append(out, input{Text: ev.Summary, Source: ev.Source, Salience: ev.Salience, Recorded: &ev})
+		}
+	}
+	if len(out) == 0 {
+		return nil, errors.New("no recorded stimuli after the snapshot in that range")
+	}
+	if len(out) > replay.MaxStimuli {
+		return nil, fmt.Errorf("more than %d stimuli; narrow the range", replay.MaxStimuli)
+	}
+	return out, nil
 }
 
 // runVariant forks the snapshot with one variant's overrides, feeds every
 // stimulus and measures the outcome. Per-mind model routing lives in the
 // fork's configuration, so the router applies it without any change to
 // callers, and the identity records it.
-func (s *Service) runVariant(ctx context.Context, e *Experiment, a snapshots.Archive, index int, v Variant, by string, deadline time.Time) (VariantResult, minds.Mind, error) {
-	vr := VariantResult{Name: firstNonEmpty(v.Name, fmt.Sprintf("variant-%d", index+1)), EventsByType: map[string]int{}, LLMCalls: map[string]int{}}
+func (s *Service) runVariant(ctx context.Context, e *Experiment, a snapshots.Archive, index int, v Variant, by string, deadline time.Time, stimuli []input) (VariantResult, minds.Mind, error) {
+	vr := VariantResult{Name: firstNonEmpty(v.Name, fmt.Sprintf("variant-%d", index+1)), EventsByType: map[string]int{}, LLMCalls: map[string]int{}, Ablations: v.Ablations, Omitted: v.Omit, CorrectionLatency: -1}
 	cfg, err := override(a.Mind.Config, v.Config)
 	if err != nil {
 		return vr, minds.Mind{}, fmt.Errorf("%s: config overrides: %w", vr.Name, err)
 	}
 	if len(v.LLMRoles) > 0 {
 		cfg.LLMRoles = v.LLMRoles
+	}
+	if len(v.Ablations) > 0 {
+		cfg.Ablations = v.Ablations
+	}
+	if len(v.WorkspaceOverrides) > 0 {
+		cfg.WorkspaceOverrides = v.WorkspaceOverrides
 	}
 	pers, err := override(a.Mind.Personality, v.Personality)
 	if err != nil {
@@ -312,27 +516,58 @@ func (s *Service) runVariant(ctx context.Context, e *Experiment, a snapshots.Arc
 		return vr, minds.Mind{}, fmt.Errorf("fork %s: %w", vr.Name, err)
 	}
 	vr.Subject, vr.SubjectSlug = subject.ID, subject.Slug
-	vr.Routing = s.Identity.Capture(ctx, subject.ID).Routing
+	if s.Identity != nil {
+		vr.Routing = s.Identity.Capture(ctx, subject.ID).Routing
+	}
+	if v.SelfModel != nil {
+		if err := s.applySelfModel(ctx, subject, *v.SelfModel); err != nil {
+			return vr, subject, fmt.Errorf("%s: self-model override: %w", vr.Name, err)
+		}
+	}
+	vr.SelfModelAccuracy, vr.SelfModelErrors = s.selfModelAccuracy(ctx, subject)
 	drv, err := replay.NewDriver(ctx, s.Brain, subject, "experiment")
 	if err != nil {
 		return vr, subject, err
 	}
 	var all []events.Event
-	for i, st := range e.Definition.Stimuli {
+	omit := map[ids.ID]bool{}
+	for _, id := range v.Omit {
+		omit[id] = true
+	}
+	var injected []ids.ID
+	for i, st := range stimuli {
 		if time.Now().After(deadline) {
 			vr.TruncatedAfter = i
 			break
 		}
-		ev, err := drv.Observe(ctx, st.Source, st.Text, st.Salience, map[string]any{"experiment_id": e.ID, "variant": vr.Name, "stimulus": i, "seed": e.Definition.Seed})
+		tag := map[string]any{"experiment_id": e.ID, "variant": vr.Name, "stimulus": i, "seed": e.Definition.Seed}
+		var ev events.Event
+		switch {
+		case st.Recorded != nil && omit[st.Recorded.ID]:
+			// The counterfactual: this event never happens in this variant.
+			vr.Steps = append(vr.Steps, StepResult{Index: i, Text: "(omitted) " + st.Text, Produced: []string{}})
+			continue
+		case st.Recorded != nil:
+			tag["replay_of"] = st.Recorded.ID
+			ev, err = drv.Inject(ctx, *st.Recorded, tag)
+		default:
+			ev, err = drv.Observe(ctx, st.Source, st.Text, st.Salience, tag)
+		}
 		if err != nil {
 			return vr, subject, err
 		}
+		injected = append(injected, ev.ID)
 		produced, cycles, err := drv.Settle(ctx)
 		vr.Cycles += cycles
 		if err != nil {
 			s.Log.Warn("experiment cycle error", "experiment", e.ID, "variant", vr.Name, "err", err)
 		}
 		all = append(all, produced...)
+		for _, p := range produced {
+			if vr.CorrectionLatency < 0 && p.Type == events.SelfModelUpdated && p.Metadata["correction"] == true {
+				vr.CorrectionLatency = i
+			}
+		}
 		vr.Steps = append(vr.Steps, StepResult{Index: i, Text: st.Text, EventID: ev.ID, Produced: replay.Digest(produced), Cycles: cycles})
 	}
 	for _, ev := range all {
@@ -370,6 +605,10 @@ func (s *Service) runVariant(ctx context.Context, e *Experiment, a snapshots.Arc
 	var cost float64
 	s.DB.QueryRow(ctx, `SELECT count(*) FILTER (WHERE NOT replayed), count(*) FILTER (WHERE replayed), coalesce(sum(prompt_tokens+output_tokens),0), coalesce(sum(cost),0) FROM llm_calls WHERE mind_id=$1`, subject.ID).Scan(&live, &replayed, &tokens, &cost) //nolint:errcheck
 	vr.LLMCalls["live"], vr.LLMCalls["replayed"], vr.Tokens, vr.Cost = live, replayed, tokens, cost
+	s.measureVolition(ctx, subject.ID, &vr)
+	vr.Downstream = s.downstream(ctx, injected)
+	s.DB.QueryRow(ctx, `SELECT coalesce(min(seq),0), coalesce(max(seq),0) FROM cognitive_events WHERE mind_id=$1`, subject.ID).Scan(&vr.EventRange[0], &vr.EventRange[1]) //nolint:errcheck
+	vr.Measures = variantMeasures(vr)
 	return vr, subject, nil
 }
 
@@ -454,6 +693,46 @@ func Compare(vs []VariantResult) *Comparison {
 			c.CostRange[1] = v.Cost
 		}
 	}
+	var wantSum, intentSum, capSum float64
+	for i := 0; i < len(vs); i++ {
+		for j := i + 1; j < len(vs); j++ {
+			wantSum += jaccardStrings(vs[i].Wants, vs[j].Wants)
+			intentSum += jaccardStrings(vs[i].Intentions, vs[j].Intentions)
+			capSum += jaccardStrings(vs[i].PlanCapabilities, vs[j].PlanCapabilities)
+		}
+	}
+	c.WantOverlap, c.IntentionOverlap, c.PlanCapabilityOverlap = round3(wantSum/pairs), round3(intentSum/pairs), round3(capSum/pairs)
+	c.MeasureRanges = map[string][2]float64{}
+	agree, compared := 0, 0
+	for name, v0 := range vs[0].Measures {
+		lo, hi := v0, v0
+		for _, v := range vs[1:] {
+			x := v.Measures[name]
+			if x < lo {
+				lo = x
+			}
+			if x > hi {
+				hi = x
+			}
+		}
+		c.MeasureRanges[name] = [2]float64{round3(lo), round3(hi)}
+		compared++
+		if hi-lo <= 0.05*maxAbs(lo, hi) || hi == lo {
+			agree++
+		}
+	}
+	if compared > 0 {
+		c.ArchitectureShare = round3(float64(agree) / float64(compared))
+	}
+	if len(vs) >= 2 && (len(vs[0].Downstream) > 0 || len(vs[1].Downstream) > 0) {
+		c.DownstreamDelta = map[string]int{}
+		for k, n := range vs[0].Downstream {
+			c.DownstreamDelta[k] += n
+		}
+		for k, n := range vs[1].Downstream {
+			c.DownstreamDelta[k] -= n
+		}
+	}
 	if c.FirstDivergentStimulus < 0 {
 		c.Notes = append(c.Notes, "every variant produced the same event digests for every stimulus")
 	} else {
@@ -461,6 +740,30 @@ func Compare(vs []VariantResult) *Comparison {
 	}
 	c.Notes = append(c.Notes, "identical cognitive state and stimuli; differences arise from the overrides (configuration, personality, model routing) and, for live models, provider nondeterminism")
 	return c
+}
+
+func jaccardStrings(a, b []string) float64 {
+	ma, mb := map[string]bool{}, map[string]bool{}
+	for _, x := range a {
+		ma[replay.Normalise(x)] = true
+	}
+	for _, x := range b {
+		mb[replay.Normalise(x)] = true
+	}
+	return jaccardBool(ma, mb)
+}
+
+func maxAbs(a, b float64) float64 {
+	if a < 0 {
+		a = -a
+	}
+	if b < 0 {
+		b = -b
+	}
+	if a > b {
+		return a
+	}
+	return b
 }
 
 func jaccardKeys(a, b map[string]float64) float64 {

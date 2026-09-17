@@ -197,7 +197,7 @@ func run() error {
 		Motivation: deps.Motivation, Narrative: deps.Narrative, Notifications: deps.Notifications})
 	brainCfg := brain.Config{DB: db, Events: deps.Events, Minds: deps.Minds, Registry: registry, Pool: scheduler.NewPool(cfg.MaxWorkers),
 		Log: log, Metrics: metrics, Services: brain.Services{Events: deps.Events, Memory: deps.Memory, Beliefs: deps.Beliefs, LLM: deps.LLM, Prompts: deps.Prompts,
-			Goals: deps.Goals, Motivation: deps.Motivation, Predictions: deps.Predictions, Capabilities: deps.Capabilities, Volition: deps.Volition, Plans: deps.Plans, Executor: deps.Executor},
+			Goals: deps.Goals, Motivation: deps.Motivation, Predictions: deps.Predictions, Capabilities: deps.Capabilities, Volition: deps.Volition, Plans: deps.Plans, Executor: deps.Executor, Minds: deps.Minds},
 		AfterCommit: deps.Executor.WakeOn()}
 	deps.Brain = brain.NewManager(brainCfg, group)
 	// Sandbox runtimes (replay, experiments) share the registry but use a
@@ -214,7 +214,7 @@ func run() error {
 	deps.Snapshots = &snapshots.Store{DB: db, Events: deps.Events, Minds: deps.Minds, Identity: ident}
 	deps.Privacy = &privacy.Service{DB: db, Events: deps.Events, Audit: auditLog, Snapshots: deps.Snapshots, Log: log}
 	deps.Replay = &replay.Service{DB: db, Events: deps.Events, Minds: deps.Minds, Snapshots: deps.Snapshots, Brain: sandboxCfg, Identity: ident, Log: log}
-	deps.Experiments = &experiments.Service{DB: db, Minds: deps.Minds, Snapshots: deps.Snapshots, Brain: sandboxCfg, Identity: ident, Log: log, Routing: func(ctx context.Context) []map[string]any {
+	deps.Experiments = &experiments.Service{DB: db, Minds: deps.Minds, Snapshots: deps.Snapshots, Brain: sandboxCfg, Identity: ident, Log: log, Capabilities: deps.Capabilities, Routing: func(ctx context.Context) []map[string]any {
 		roles, _ := deps.LLMStore.ListRoles(ctx)
 		b, _ := json.Marshal(roles)
 		var out []map[string]any

@@ -137,7 +137,7 @@ func StartWith(t *testing.T, o Options) *Harness {
 	registry := cognition.NewRegistry(cognition.Stores{Agency: deps.Agency, Research: deps.Research, Memory: deps.Memory, Beliefs: deps.Beliefs, Conversations: deps.Conversations, Graph: deps.Graph, Assertions: deps.Assertions})
 	deps.Brain = brain.NewManager(brain.Config{DB: pool, Events: deps.Events, Minds: deps.Minds, Registry: registry, Pool: scheduler.NewPool(2), Log: log, Metrics: deps.Metrics,
 		Services: brain.Services{Events: deps.Events, Memory: deps.Memory, Beliefs: deps.Beliefs, LLM: deps.LLM, Prompts: deps.Prompts, Goals: deps.Goals, Motivation: deps.Motivation, Predictions: deps.Predictions, Capabilities: deps.Capabilities,
-			Volition: deps.Volition, Plans: deps.Plans, Executor: deps.Executor}, AfterCommit: deps.Executor.WakeOn()}, group)
+			Volition: deps.Volition, Plans: deps.Plans, Executor: deps.Executor, Minds: deps.Minds}, AfterCommit: deps.Executor.WakeOn()}, group)
 	group.Go("planning.executor", func(ctx context.Context) error { return deps.Executor.Run(ctx, time.Second) })
 	if planEvents, err := deps.Events.Bus().Subscribe(group.Context(), ids.Nil, 512); err == nil {
 		group.Go("planning.react", func(ctx context.Context) error { return deps.Executor.Listen(ctx, planEvents) })

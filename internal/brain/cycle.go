@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"strconv"
 	"strings"
 	"time"
 
@@ -451,8 +452,17 @@ func (r *Runtime) cycle(ctx context.Context, tx pgx.Tx, trigger string, start ti
 		if ms, err := r.services.Motivation.Load(ctx, tx, r.mind); err == nil {
 			motivation.Decay(&ms, motivation.Baselines(r.mind.Personality), start.Sub(ms.Affect.UpdatedAt))
 			st.Motiv = ms
-			st.Weights = motivation.Modulate(r.mind.Config.AttentionWeights, ms)
+			if !r.mind.Config.Ablated("affect") {
+				st.Weights = motivation.Modulate(r.mind.Config.AttentionWeights, ms)
+			}
 		}
+	}
+	if r.mind.Config.Ablated("attention") {
+		uniform := map[string]float64{}
+		for k := range r.mind.Config.AttentionWeights {
+			uniform[k] = 1
+		}
+		st.Weights = uniform
 	}
 	c := &Cycle{Runtime: r, State: st, Tx: tx}
 
@@ -481,8 +491,13 @@ func (r *Runtime) cycle(ctx context.Context, tx pgx.Tx, trigger string, start ti
 		byID[cand.ID] = cand
 		b := attention.Score(cand.Features, weights)
 		fp := fingerprint(*cand)
-		if r.loops.looping(fp) {
-			suppressed[cand.ID] = fp
+		if fate, match := r.override(ctx, *cand); fate == "exclude" {
+			suppressed[cand.ID] = "experimental workspace override (excluded, matched " + strconv.Quote(match) + ")"
+			b.Total = 0
+		} else if fate == "admit" {
+			b.Total = 1000 // forced to the top of admission; the breakdown terms stay visible
+		} else if r.loops.looping(fp) {
+			suppressed[cand.ID] = "loop detector: " + fp
 			b.Total = 0
 			if r.loops.shouldWarn(fp) {
 				c.Emit(events.New{Type: events.Metacognition, Source: "brain.loop-detector", Summary: "suppressed recurring thought without progress: " + cand.Summary,
@@ -526,8 +541,11 @@ func (r *Runtime) cycle(ctx context.Context, tx pgx.Tx, trigger string, start ti
 		o, has := outcomeByID[cand.ID]
 		fate := "rejected"
 		reason := o.Reason
-		if fp, s := suppressed[cand.ID]; s {
-			fate, reason = "suppressed", "loop detector: "+fp
+		if why, s := suppressed[cand.ID]; s {
+			fate, reason = "suppressed", why
+			if strings.HasPrefix(why, "experimental") {
+				fate = "excluded"
+			}
 		} else if has && o.Admitted {
 			fate = "admitted"
 		}
@@ -606,18 +624,26 @@ func (r *Runtime) cycle(ctx context.Context, tx pgx.Tx, trigger string, start ti
 		r.loops.record(fingerprint(Candidate{Process: t.Process, Kind: t.Kind, Subject: t.Subject}))
 	}
 	for _, h := range r.registry.hooks {
+		if r.ablatedHook(h.Name()) {
+			continue
+		}
 		if err := h.AfterCycle(ctx, c, c.emitted); err != nil {
 			r.log.Warn("hook failed", "hook", h.Name(), "err", err)
 		}
 	}
 	pruned := r.state.Prune(0.05)
+	isolated := r.mind.Config.Ablated("global_workspace")
+	if isolated {
+		// Ablation: nothing persists or is broadcast between cycles.
+		r.state.Workspace, r.state.WorkingMemory = nil, nil
+	}
 
 	// 7. Broadcast the resulting workspace and note attention shifts.
-	if newTop, ok := r.state.Top(); ok && (prevTop.ID == ids.Nil || prevTop.Subject != newTop.Subject || prevTop.Kind != newTop.Kind) {
+	if newTop, ok := r.state.Top(); ok && !isolated && (prevTop.ID == ids.Nil || prevTop.Subject != newTop.Subject || prevTop.Kind != newTop.Kind) {
 		c.Emit(events.New{Type: events.AttentionShift, Source: "brain.workspace", Summary: "attention now on: " + newTop.Summary, Salience: newTop.Score, Confidence: newTop.Confidence,
 			CausationID: newTop.EventID, Metadata: map[string]any{"from": prevTop.Subject, "to": newTop.Subject}, Payload: map[string]any{"from": prevTop.Summary, "to": newTop.Summary}})
 	}
-	if len(scored) > 0 || len(displaced) > 0 || pruned > 0 {
+	if (len(scored) > 0 || len(displaced) > 0 || pruned > 0) && !isolated {
 		c.Emit(events.New{Type: events.WorkspaceBroadcast, Source: "brain.workspace", Summary: fmt.Sprintf("workspace: %d thoughts, %d in working memory", len(r.state.Workspace), len(r.state.WorkingMemory)),
 			Salience: 0.2, Confidence: 1, Metadata: map[string]any{"thoughts": len(r.state.Workspace), "working_memory": len(r.state.WorkingMemory)},
 			Payload: map[string]any{"workspace": r.state.Workspace, "working_memory": r.state.WorkingMemory, "displaced": displaced, "pruned": pruned}})
@@ -661,7 +687,12 @@ func firstOr(xs []ids.ID, d ids.ID) ids.ID {
 // observe runs all processes through the bounded pool with per-process
 // timeouts and isolation. A failing process yields no candidates.
 func (r *Runtime) observe(ctx context.Context, st *State) []Candidate {
-	procs := r.registry.Processes()
+	var procs []Process
+	for _, p := range r.registry.Processes() {
+		if !r.ablatedProcess(p.Name()) {
+			procs = append(procs, p)
+		}
+	}
 	results := make([][]Candidate, len(procs))
 	tasks := make([]func(context.Context) error, len(procs))
 	for i, p := range procs {
@@ -743,4 +774,50 @@ func (b *cycleBudget) allow(now time.Time) bool {
 	}
 	b.tokens--
 	return true
+}
+
+// ablationProcesses and ablationHooks map ablation names to the components
+// they switch off (minds.Ablations documents each).
+var (
+	ablationProcesses = map[string][]string{"memory_retrieval": {"retrieve"}, "metacognition": {"metacognition"}, "volition": {"intend", "act"}, "curiosity": {"curiosity"}, "association": {"associate"}, "goals": {"goal-monitor"}}
+	ablationHooks     = map[string][]string{"affect": {"motivation"}, "volition": {"volition"}, "narrative": {"narrative"}, "notifications": {"notify"}}
+)
+
+func (r *Runtime) ablatedProcess(name string) bool { return r.ablated(ablationProcesses, name) }
+
+func (r *Runtime) ablatedHook(name string) bool { return r.ablated(ablationHooks, name) }
+
+func (r *Runtime) ablated(table map[string][]string, name string) bool {
+	for _, a := range r.mind.Config.Ablations {
+		for _, n := range table[a] {
+			if n == name {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// override applies an experimental workspace override to a candidate: it
+// matches the candidate's summary or the summary of the event that
+// triggered it. It returns the fate and the matching text.
+func (r *Runtime) override(ctx context.Context, cand Candidate) (string, string) {
+	if len(r.mind.Config.WorkspaceOverrides) == 0 {
+		return "", ""
+	}
+	texts := []string{strings.ToLower(cand.Summary)}
+	for _, id := range cand.SourceEvents {
+		if ev, err := r.events.Get(ctx, id); err == nil {
+			texts = append(texts, strings.ToLower(ev.Summary))
+		}
+	}
+	for _, o := range r.mind.Config.WorkspaceOverrides {
+		m := strings.ToLower(o.Match)
+		for _, t := range texts {
+			if strings.Contains(t, m) {
+				return o.Fate, o.Match
+			}
+		}
+	}
+	return "", ""
 }
