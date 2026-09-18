@@ -8830,6 +8830,1079 @@
      }
     ]
    }
+  },
+  "/api/v1/minds/{mind}/wants": {
+   "get": {
+    "operationId": "wantsList",
+    "summary": "wants list",
+    "x-required-role": "observer",
+    "tags": [
+     "wants"
+    ],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "type": "object"
+        }
+       }
+      }
+     },
+     "401": {
+      "$ref": "#/components/responses/Error"
+     },
+     "403": {
+      "$ref": "#/components/responses/Error"
+     },
+     "404": {
+      "$ref": "#/components/responses/Error"
+     },
+     "422": {
+      "$ref": "#/components/responses/Error"
+     }
+    },
+    "parameters": [
+     {
+      "name": "mind",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string"
+      },
+      "description": "mind"
+     }
+    ]
+   }
+  },
+  "/api/v1/minds/{mind}/wants/{id}": {
+   "get": {
+    "operationId": "wantGet",
+    "summary": "want get",
+    "x-required-role": "observer",
+    "tags": [
+     "wants"
+    ],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "type": "object"
+        }
+       }
+      }
+     },
+     "401": {
+      "$ref": "#/components/responses/Error"
+     },
+     "403": {
+      "$ref": "#/components/responses/Error"
+     },
+     "404": {
+      "$ref": "#/components/responses/Error"
+     },
+     "422": {
+      "$ref": "#/components/responses/Error"
+     }
+    },
+    "parameters": [
+     {
+      "name": "mind",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string"
+      },
+      "description": "mind"
+     },
+     {
+      "name": "id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string"
+      },
+      "description": "identifier"
+     }
+    ]
+   }
+  },
+  "/api/v1/minds/{mind}/want-conflicts": {
+   "get": {
+    "operationId": "wantConflictsList",
+    "summary": "want conflicts list",
+    "x-required-role": "observer",
+    "tags": [
+     "want-conflicts"
+    ],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "type": "object"
+        }
+       }
+      }
+     },
+     "401": {
+      "$ref": "#/components/responses/Error"
+     },
+     "403": {
+      "$ref": "#/components/responses/Error"
+     },
+     "404": {
+      "$ref": "#/components/responses/Error"
+     },
+     "422": {
+      "$ref": "#/components/responses/Error"
+     }
+    },
+    "parameters": [
+     {
+      "name": "mind",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string"
+      },
+      "description": "mind"
+     }
+    ]
+   }
+  },
+  "/api/v1/minds/{mind}/commitments": {
+   "get": {
+    "operationId": "commitmentsList",
+    "summary": "commitments list",
+    "x-required-role": "observer",
+    "tags": [
+     "commitments"
+    ],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "type": "object"
+        }
+       }
+      }
+     },
+     "401": {
+      "$ref": "#/components/responses/Error"
+     },
+     "403": {
+      "$ref": "#/components/responses/Error"
+     },
+     "404": {
+      "$ref": "#/components/responses/Error"
+     },
+     "422": {
+      "$ref": "#/components/responses/Error"
+     }
+    },
+    "parameters": [
+     {
+      "name": "mind",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string"
+      },
+      "description": "mind"
+     }
+    ]
+   },
+   "post": {
+    "operationId": "commitmentCreate",
+    "summary": "commitment create",
+    "x-required-role": "operator",
+    "tags": [
+     "commitments"
+    ],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "type": "object"
+        }
+       }
+      }
+     },
+     "401": {
+      "$ref": "#/components/responses/Error"
+     },
+     "403": {
+      "$ref": "#/components/responses/Error"
+     },
+     "404": {
+      "$ref": "#/components/responses/Error"
+     },
+     "422": {
+      "$ref": "#/components/responses/Error"
+     },
+     "201": {
+      "description": "Created"
+     }
+    },
+    "parameters": [
+     {
+      "name": "mind",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string"
+      },
+      "description": "mind"
+     }
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "type": "object"
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/v1/minds/{mind}/commitments/{id}/close": {
+   "post": {
+    "operationId": "commitmentClose",
+    "summary": "commitment close",
+    "x-required-role": "operator",
+    "tags": [
+     "close"
+    ],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "type": "object"
+        }
+       }
+      }
+     },
+     "401": {
+      "$ref": "#/components/responses/Error"
+     },
+     "403": {
+      "$ref": "#/components/responses/Error"
+     },
+     "404": {
+      "$ref": "#/components/responses/Error"
+     },
+     "422": {
+      "$ref": "#/components/responses/Error"
+     },
+     "201": {
+      "description": "Created"
+     }
+    },
+    "parameters": [
+     {
+      "name": "mind",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string"
+      },
+      "description": "mind"
+     },
+     {
+      "name": "id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string"
+      },
+      "description": "identifier"
+     }
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "type": "object"
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/v1/minds/{mind}/intentions": {
+   "get": {
+    "operationId": "intentionsList",
+    "summary": "intentions list",
+    "x-required-role": "observer",
+    "tags": [
+     "intentions"
+    ],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "type": "object"
+        }
+       }
+      }
+     },
+     "401": {
+      "$ref": "#/components/responses/Error"
+     },
+     "403": {
+      "$ref": "#/components/responses/Error"
+     },
+     "404": {
+      "$ref": "#/components/responses/Error"
+     },
+     "422": {
+      "$ref": "#/components/responses/Error"
+     }
+    },
+    "parameters": [
+     {
+      "name": "mind",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string"
+      },
+      "description": "mind"
+     }
+    ]
+   }
+  },
+  "/api/v1/minds/{mind}/intentions/{id}": {
+   "get": {
+    "operationId": "intentionGet",
+    "summary": "intention get",
+    "x-required-role": "observer",
+    "tags": [
+     "intentions"
+    ],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "type": "object"
+        }
+       }
+      }
+     },
+     "401": {
+      "$ref": "#/components/responses/Error"
+     },
+     "403": {
+      "$ref": "#/components/responses/Error"
+     },
+     "404": {
+      "$ref": "#/components/responses/Error"
+     },
+     "422": {
+      "$ref": "#/components/responses/Error"
+     }
+    },
+    "parameters": [
+     {
+      "name": "mind",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string"
+      },
+      "description": "mind"
+     },
+     {
+      "name": "id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string"
+      },
+      "description": "identifier"
+     }
+    ]
+   }
+  },
+  "/api/v1/minds/{mind}/intentions/{id}/abandon": {
+   "post": {
+    "operationId": "intentionAbandon",
+    "summary": "intention abandon",
+    "x-required-role": "operator",
+    "tags": [
+     "abandon"
+    ],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "type": "object"
+        }
+       }
+      }
+     },
+     "401": {
+      "$ref": "#/components/responses/Error"
+     },
+     "403": {
+      "$ref": "#/components/responses/Error"
+     },
+     "404": {
+      "$ref": "#/components/responses/Error"
+     },
+     "422": {
+      "$ref": "#/components/responses/Error"
+     },
+     "201": {
+      "description": "Created"
+     }
+    },
+    "parameters": [
+     {
+      "name": "mind",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string"
+      },
+      "description": "mind"
+     },
+     {
+      "name": "id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string"
+      },
+      "description": "identifier"
+     }
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "type": "object"
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/v1/minds/{mind}/decisions": {
+   "get": {
+    "operationId": "decisionsList",
+    "summary": "decisions list",
+    "x-required-role": "observer",
+    "tags": [
+     "decisions"
+    ],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "type": "object"
+        }
+       }
+      }
+     },
+     "401": {
+      "$ref": "#/components/responses/Error"
+     },
+     "403": {
+      "$ref": "#/components/responses/Error"
+     },
+     "404": {
+      "$ref": "#/components/responses/Error"
+     },
+     "422": {
+      "$ref": "#/components/responses/Error"
+     }
+    },
+    "parameters": [
+     {
+      "name": "mind",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string"
+      },
+      "description": "mind"
+     }
+    ]
+   }
+  },
+  "/api/v1/minds/{mind}/plans": {
+   "get": {
+    "operationId": "plansList",
+    "summary": "plans list",
+    "x-required-role": "observer",
+    "tags": [
+     "plans"
+    ],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "type": "object"
+        }
+       }
+      }
+     },
+     "401": {
+      "$ref": "#/components/responses/Error"
+     },
+     "403": {
+      "$ref": "#/components/responses/Error"
+     },
+     "404": {
+      "$ref": "#/components/responses/Error"
+     },
+     "422": {
+      "$ref": "#/components/responses/Error"
+     }
+    },
+    "parameters": [
+     {
+      "name": "mind",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string"
+      },
+      "description": "mind"
+     }
+    ]
+   }
+  },
+  "/api/v1/minds/{mind}/plans/{id}": {
+   "get": {
+    "operationId": "planGet",
+    "summary": "plan get",
+    "x-required-role": "observer",
+    "tags": [
+     "plans"
+    ],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "type": "object"
+        }
+       }
+      }
+     },
+     "401": {
+      "$ref": "#/components/responses/Error"
+     },
+     "403": {
+      "$ref": "#/components/responses/Error"
+     },
+     "404": {
+      "$ref": "#/components/responses/Error"
+     },
+     "422": {
+      "$ref": "#/components/responses/Error"
+     }
+    },
+    "parameters": [
+     {
+      "name": "mind",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string"
+      },
+      "description": "mind"
+     },
+     {
+      "name": "id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string"
+      },
+      "description": "identifier"
+     }
+    ]
+   }
+  },
+  "/api/v1/minds/{mind}/plans/{id}/cancel": {
+   "post": {
+    "operationId": "planCancel",
+    "summary": "plan cancel",
+    "x-required-role": "operator",
+    "tags": [
+     "cancel"
+    ],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "type": "object"
+        }
+       }
+      }
+     },
+     "401": {
+      "$ref": "#/components/responses/Error"
+     },
+     "403": {
+      "$ref": "#/components/responses/Error"
+     },
+     "404": {
+      "$ref": "#/components/responses/Error"
+     },
+     "422": {
+      "$ref": "#/components/responses/Error"
+     },
+     "201": {
+      "description": "Created"
+     }
+    },
+    "parameters": [
+     {
+      "name": "mind",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string"
+      },
+      "description": "mind"
+     },
+     {
+      "name": "id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string"
+      },
+      "description": "identifier"
+     }
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "type": "object"
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/v1/minds/{mind}/plans/{id}/steps/{step}/retry": {
+   "post": {
+    "operationId": "planStepRetry",
+    "summary": "plan step retry",
+    "x-required-role": "operator",
+    "tags": [
+     "retry"
+    ],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "type": "object"
+        }
+       }
+      }
+     },
+     "401": {
+      "$ref": "#/components/responses/Error"
+     },
+     "403": {
+      "$ref": "#/components/responses/Error"
+     },
+     "404": {
+      "$ref": "#/components/responses/Error"
+     },
+     "422": {
+      "$ref": "#/components/responses/Error"
+     },
+     "201": {
+      "description": "Created"
+     }
+    },
+    "parameters": [
+     {
+      "name": "mind",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string"
+      },
+      "description": "mind"
+     },
+     {
+      "name": "id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string"
+      },
+      "description": "identifier"
+     },
+     {
+      "name": "step",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string"
+      },
+      "description": "step"
+     }
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "type": "object"
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/v1/minds/{mind}/why": {
+   "get": {
+    "operationId": "why",
+    "summary": "why",
+    "x-required-role": "observer",
+    "tags": [
+     "why"
+    ],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "type": "object"
+        }
+       }
+      }
+     },
+     "401": {
+      "$ref": "#/components/responses/Error"
+     },
+     "403": {
+      "$ref": "#/components/responses/Error"
+     },
+     "404": {
+      "$ref": "#/components/responses/Error"
+     },
+     "422": {
+      "$ref": "#/components/responses/Error"
+     }
+    },
+    "parameters": [
+     {
+      "name": "mind",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string"
+      },
+      "description": "mind"
+     }
+    ]
+   }
+  },
+  "/api/v1/minds/{mind}/events/{id}/attribution": {
+   "get": {
+    "operationId": "attribution",
+    "summary": "attribution",
+    "x-required-role": "observer",
+    "tags": [
+     "attribution"
+    ],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "type": "object"
+        }
+       }
+      }
+     },
+     "401": {
+      "$ref": "#/components/responses/Error"
+     },
+     "403": {
+      "$ref": "#/components/responses/Error"
+     },
+     "404": {
+      "$ref": "#/components/responses/Error"
+     },
+     "422": {
+      "$ref": "#/components/responses/Error"
+     }
+    },
+    "parameters": [
+     {
+      "name": "mind",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string"
+      },
+      "description": "mind"
+     },
+     {
+      "name": "id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string"
+      },
+      "description": "identifier"
+     }
+    ]
+   }
+  },
+  "/api/v1/minds/{mind}/agency/timeline": {
+   "get": {
+    "operationId": "agencyTimeline",
+    "summary": "agency timeline",
+    "x-required-role": "observer",
+    "tags": [
+     "agency"
+    ],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "type": "object"
+        }
+       }
+      }
+     },
+     "401": {
+      "$ref": "#/components/responses/Error"
+     },
+     "403": {
+      "$ref": "#/components/responses/Error"
+     },
+     "404": {
+      "$ref": "#/components/responses/Error"
+     },
+     "422": {
+      "$ref": "#/components/responses/Error"
+     }
+    },
+    "parameters": [
+     {
+      "name": "mind",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string"
+      },
+      "description": "mind"
+     }
+    ]
+   }
+  },
+  "/api/v1/research/measures": {
+   "get": {
+    "operationId": "researchMeasures",
+    "summary": "research measures",
+    "x-required-role": "observer",
+    "tags": [
+     "measures"
+    ],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "type": "object"
+        }
+       }
+      }
+     },
+     "401": {
+      "$ref": "#/components/responses/Error"
+     },
+     "403": {
+      "$ref": "#/components/responses/Error"
+     },
+     "404": {
+      "$ref": "#/components/responses/Error"
+     },
+     "422": {
+      "$ref": "#/components/responses/Error"
+     }
+    }
+   }
+  },
+  "/api/v1/minds/{mind}/research/agency": {
+   "get": {
+    "operationId": "researchAgency",
+    "summary": "research agency",
+    "x-required-role": "observer",
+    "tags": [
+     "agency"
+    ],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "type": "object"
+        }
+       }
+      }
+     },
+     "401": {
+      "$ref": "#/components/responses/Error"
+     },
+     "403": {
+      "$ref": "#/components/responses/Error"
+     },
+     "404": {
+      "$ref": "#/components/responses/Error"
+     },
+     "422": {
+      "$ref": "#/components/responses/Error"
+     }
+    },
+    "parameters": [
+     {
+      "name": "mind",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string"
+      },
+      "description": "mind"
+     }
+    ]
+   }
+  },
+  "/api/v1/minds/{mind}/research/calibration": {
+   "get": {
+    "operationId": "researchCalibration",
+    "summary": "research calibration",
+    "x-required-role": "observer",
+    "tags": [
+     "calibration"
+    ],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "type": "object"
+        }
+       }
+      }
+     },
+     "401": {
+      "$ref": "#/components/responses/Error"
+     },
+     "403": {
+      "$ref": "#/components/responses/Error"
+     },
+     "404": {
+      "$ref": "#/components/responses/Error"
+     },
+     "422": {
+      "$ref": "#/components/responses/Error"
+     }
+    },
+    "parameters": [
+     {
+      "name": "mind",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string"
+      },
+      "description": "mind"
+     }
+    ]
+   }
+  },
+  "/api/v1/minds/{mind}/research/measurements": {
+   "get": {
+    "operationId": "researchMeasurements",
+    "summary": "research measurements",
+    "x-required-role": "observer",
+    "tags": [
+     "measurements"
+    ],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "type": "object"
+        }
+       }
+      }
+     },
+     "401": {
+      "$ref": "#/components/responses/Error"
+     },
+     "403": {
+      "$ref": "#/components/responses/Error"
+     },
+     "404": {
+      "$ref": "#/components/responses/Error"
+     },
+     "422": {
+      "$ref": "#/components/responses/Error"
+     }
+    },
+    "parameters": [
+     {
+      "name": "mind",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string"
+      },
+      "description": "mind"
+     }
+    ]
+   }
   }
  }
 }

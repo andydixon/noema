@@ -77,6 +77,7 @@ func (s *Server) routes() {
 	s.graphRoutes()
 	s.capabilityRoutes()
 	s.negotiationRoutes()
+	s.volitionRoutes()
 	s.integrationRoutes()
 	s.dreamRoutes()
 	s.studyRoutes()
