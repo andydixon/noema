@@ -247,14 +247,14 @@ func (e *Executor) advanceStep(ctx context.Context, p *Plan, it volition.Intenti
 			}
 			if dep.Status == StepFailed || dep.Status == StepCancelled {
 				st.Status, st.StatusReason = StepCancelled, "dependency "+d+" did not complete"
-				return true, e.Plans.Save(ctx, nil, *st)
+				return e.Plans.SaveIf(ctx, *st, StepPending)
 			}
 			if !StepDone(dep.Status) {
 				return false, nil
 			}
 		}
 		st.Status = StepReady
-		return true, e.Plans.Save(ctx, nil, *st)
+		return e.Plans.SaveIf(ctx, *st, StepPending)
 	case StepReady:
 		if !due || it.Status != volition.IntentionActive {
 			return false, nil
@@ -857,8 +857,9 @@ func (e *Executor) cancelOpenSteps(ctx context.Context, p Plan, reason string) {
 			e.Caps.WithdrawCapabilityRequest(ctx, p.MindID, s.RequestID, reason) //nolint:errcheck
 		}
 		e.dropSubordinate(ctx, &p, &s, reason)
+		from := s.Status
 		s.Status, s.StatusReason = StepCancelled, reason
-		e.Plans.Save(ctx, nil, s) //nolint:errcheck
+		e.Plans.SaveIf(ctx, s, from) //nolint:errcheck // a step that moved on meanwhile keeps its newer state
 	}
 }
 

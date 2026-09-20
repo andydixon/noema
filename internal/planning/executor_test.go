@@ -415,13 +415,17 @@ func TestConcurrentExecutorsRunAStepOnce(t *testing.T) {
 	f.host.fixOnRestart = true
 	it := f.intention(false)
 	p := f.start(it)
-	other := f.newExecutor(f.exec.Predictions, f.exec.Planner, f.exec.Log)
+	// Many executors race over the same plan from its first transition, each
+	// ticking repeatedly, as duplicate schedulers or several daemons would.
 	var wg sync.WaitGroup
-	for _, e := range []*Executor{f.exec, other, f.newExecutor(f.exec.Predictions, f.exec.Planner, f.exec.Log)} {
+	for i := 0; i < 8; i++ {
+		e := f.newExecutor(f.exec.Predictions, f.exec.Planner, f.exec.Log)
 		wg.Add(1)
 		go func(e *Executor) {
 			defer wg.Done()
-			e.TickMind(f.ctx, f.mind.ID) //nolint:errcheck
+			for j := 0; j < 3; j++ {
+				e.TickMind(f.ctx, f.mind.ID) //nolint:errcheck
+			}
 		}(e)
 	}
 	wg.Wait()
@@ -503,5 +507,34 @@ func TestInvalidModelPlanNeverRuns(t *testing.T) {
 	f.tick()
 	if execs, _ := f.caps.Executions(f.ctx, f.mind.ID, 10); len(execs) != 0 {
 		t.Fatal("invalid plan executed")
+	}
+}
+
+// Regression: an executor holding a stale "pending" copy of a step must not
+// move it back to "ready" after another executor has claimed it, or the
+// step can be claimed and run a second time.
+func TestStaleStepCopyCannotMoveStepBackwards(t *testing.T) {
+	f := newFixture(t)
+	f.allow("service.restart")
+	it := f.intention(false)
+	p := f.start(it)
+	stale := f.step(p, "P1") // pending
+	fresh := stale
+	fresh.Status = StepReady
+	if ok, err := f.plans.SaveIf(f.ctx, fresh, StepPending); err != nil || !ok {
+		t.Fatalf("pending → ready: %v %v", ok, err)
+	}
+	if ok, err := f.plans.Claim(f.ctx, &fresh, StepReady, StepExecuting, time.Minute); err != nil || !ok {
+		t.Fatalf("claim: %v %v", ok, err)
+	}
+	byKey := map[string]*Step{}
+	for i := range p.Steps {
+		byKey[p.Steps[i].Key] = &p.Steps[i]
+	}
+	if _, err := f.exec.advanceStep(f.ctx, &p, it, &stale, byKey); err != nil {
+		t.Fatal(err)
+	}
+	if got := f.step(p, "P1"); got.Status != StepExecuting {
+		t.Fatalf("stale copy overwrote a claimed step: %s", got.Status)
 	}
 }

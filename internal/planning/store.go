@@ -367,6 +367,24 @@ func (s *Store) Save(ctx context.Context, q storage.Querier, st Step) error {
 	return err
 }
 
+// SaveIf writes a step only if its stored status is still expected, so a
+// caller holding a stale copy can never move a step backwards (for example
+// resetting a step another executor is running to "ready"). It reports
+// whether the write happened.
+func (s *Store) SaveIf(ctx context.Context, st Step, expected string) (bool, error) {
+	now := time.Now()
+	var finished *time.Time
+	if StepTerminal(st.Status) {
+		finished = &now
+	}
+	tag, err := s.db.Exec(ctx, `UPDATE plan_steps SET status=$2, status_reason=$3, finished_at=coalesce($4, finished_at), updated_at=$5 WHERE id=$1 AND status=$6`,
+		st.ID, st.Status, trunc(st.StatusReason, 500), finished, now, expected)
+	if err != nil {
+		return false, err
+	}
+	return tag.RowsAffected() == 1, nil
+}
+
 // SetStatus writes a plan's status and reason.
 func (s *Store) SetStatus(ctx context.Context, q storage.Querier, id ids.ID, status, reason string) error {
 	if q == nil {
