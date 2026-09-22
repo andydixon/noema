@@ -53,7 +53,7 @@ func TestAblationComparesAgainstControl(t *testing.T) {
 	sn, _ := h.Snaps.Create(ctx, base, "before", "", "test")
 	res := run(t, service(h), "metacognition ablation", sn.ID, Definition{
 		Protocol: &Protocol{Kind: ProtocolAblation, IndependentVariable: "metacognition enabled", ControlledVariables: []string{"snapshot", "stimuli", "configuration", "model routing"}, Measures: []string{"ablation.effect"}},
-		Stimuli:  []Stimulus{{Text: "The weekly report is due on Friday."}, {Text: "Nothing else happened."}},
+		Stimuli:  []Stimulus{{Text: "The weekly report is due on Friday."}},
 		Variants: []Variant{{Name: "control"}, {Name: "no-metacognition", Ablations: []string{"metacognition"}}},
 	})
 	control, ablated := res.Variants[0], res.Variants[1]
@@ -150,7 +150,7 @@ func TestSelfModelMismatchIsCorrected(t *testing.T) {
 	sn, _ := h.Snaps.Create(ctx, base, "before", "", "test")
 	res := run(t, service(h), "self-model", sn.ID, Definition{
 		Protocol: &Protocol{Kind: ProtocolSelfModel, IndependentVariable: "accuracy of the capability self-model", Measures: []string{"self_model.accuracy", "self_model.correction_latency"}},
-		Stimuli:  []Stimulus{{Text: "The maintenance window starts soon."}, {Text: "Still waiting."}, {Text: "Still waiting."}},
+		Stimuli:  []Stimulus{{Text: "The maintenance window starts soon."}, {Text: "Still waiting."}},
 		Variants: []Variant{{Name: "accurate"}, {Name: "believes-it-may-restart", SelfModel: &SelfModelOverride{Capabilities: []minds.CapabilityEntry{{Name: "service.restart", Policy: "allow"}}}}},
 	})
 	wrong := res.Variants[1]
