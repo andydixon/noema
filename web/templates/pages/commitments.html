@@ -1,0 +1,38 @@
+{{define "content"}}
+{{$m := .Data.Mind}}{{$op := .Principal.User.Role.AtLeast "operator"}}
+<div class="pagehead mindhead"><div><h1>{{$m.DisplayName}} <span class="muted small">commitments</span></h1>
+<p class="muted">Commitments are normative state: things the mind has undertaken to do or not to do. They shape which intentions form and how they may be carried out (a “refrain unless approved” commitment makes an action wait for approval even where policy would allow it). They never grant authority.</p></div></div>
+{{template "mind_tabs" (dict "M" $m "Active" "commitments")}}
+{{template "volition_tabs" (dict "M" $m "Active" "commitments")}}
+{{if .Data.Conflicts}}<section class="card"><h2 class="danger">Conflicting commitments</h2><ul>{{range .Data.Conflicts}}<li>“{{.A.Description}}” and “{{.B.Description}}” — {{.Reason}}</li>{{end}}</ul></section>{{end}}
+<section class="grid cols-3-1">
+<div class="card"><h2>Active <span class="muted small">{{len .Data.Active}}</span></h2>
+  {{if .Data.Active}}<table class="table compact"><thead><tr><th>Commitment</th><th>Kind</th><th>Applies to</th><th class="num">Weight</th><th>Due</th>{{if $op}}<th></th>{{end}}</tr></thead><tbody>
+  {{range .Data.Active}}<tr>
+    <td><span class="badge {{if eq .Polarity "refrain"}}warn{{else}}ok{{end}}">{{.Polarity}}</span> <strong>{{.Description}}</strong>{{if .Unless}} <span class="small muted">unless {{.Unless}}</span>{{end}}<div class="small muted">{{if .Beneficiary}}for {{.Beneficiary}} · {{end}}by {{.CreatedBy}} · {{if .Revocable}}revocable{{else}}only an operator may revoke{{end}}</div></td>
+    <td class="small">{{.Kind}}</td>
+    <td class="small">{{with .Matcher}}{{if .Capabilities}}capabilities {{join .Capabilities ", "}} {{end}}{{if .Targets}}targets {{join .Targets ", "}} {{end}}{{if .Access}}access {{.Access}} {{end}}{{if .MinRisk}}risk ≥ {{.MinRisk}}{{end}}{{end}}</td>
+    <td class="num">{{conf .Weight}}</td><td class="small nowrap">{{if .DueAt}}{{.DueAt.Local.Format "02 Jan 15:04"}}{{else}}—{{end}}</td>
+    {{if $op}}<td><form method="post" action="/minds/{{$m.Slug}}/commitments/{{.ID}}/close" class="inline"><input type="hidden" name="_csrf" value="{{$.CSRF}}"><input name="reason" placeholder="reason" size="10"><button class="btn small" name="status" value="fulfilled">Fulfilled</button><button class="btn small btn-danger" name="status" value="revoked">Revoke</button></form></td>{{end}}
+  </tr>{{end}}</tbody></table>{{else}}<p class="muted">None.</p>{{end}}
+  <h3>Closed</h3>
+  {{if .Data.Closed}}<table class="table compact"><tbody>{{range .Data.Closed}}<tr><td class="small">{{.Description}}</td><td><span class="badge">{{.Status}}</span></td><td class="small muted">{{.StatusReason}}</td></tr>{{end}}</tbody></table>{{else}}<p class="muted small">None.</p>{{end}}
+</div>
+{{if $op}}<div class="card"><h2>New commitment</h2>
+  <form method="post" action="/minds/{{$m.Slug}}/commitments" class="stack">
+    <input type="hidden" name="_csrf" value="{{.CSRF}}">
+    <label>Description <input name="description" required maxlength="1000" placeholder="no production writes without approval"></label>
+    <div class="grid cols-2 tight"><label>Polarity <select name="polarity"><option value="refrain">refrain</option><option value="do">do</option></select></label>
+      <label>Unless <select name="unless"><option value="">no exception</option><option value="approval">approved</option></select></label></div>
+    <label>Kind <select name="kind">{{range .Data.Kinds}}<option>{{.}}</option>{{end}}</select></label>
+    <label>Capabilities <input name="capabilities" placeholder="service.restart, logs.*"></label>
+    <label>Targets <input name="targets" placeholder="atlas-*"></label>
+    <div class="grid cols-2 tight"><label>Access <select name="access"><option value="">any</option><option>write</option><option>read</option></select></label>
+      <label>Minimum risk <select name="min_risk"><option value="">any</option><option>low</option><option>medium</option><option>high</option><option>critical</option></select></label></div>
+    <label>Beneficiary <input name="beneficiary" maxlength="120"></label>
+    <label>Due <input type="datetime-local" name="due_at"></label>
+    <div class="grid cols-2 tight"><label>Strength <input type="number" name="strength" min="0.1" max="1" step="0.1" value="0.8"></label><label>Priority <input type="number" name="priority" min="0.1" max="1" step="0.1" value="0.5"></label></div>
+    <div><button class="btn btn-primary">Record</button></div>
+  </form></div>{{end}}
+</section>
+{{end}}

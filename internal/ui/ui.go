@@ -396,6 +396,7 @@ func (u *UI) Register(m *http.ServeMux) {
 	u.dreamRoutes(m)
 	u.studyRoutes(m)
 	u.privacyRoutes(m)
+	u.volitionRoutes(m)
 
 	for _, p := range []struct{ path, title, note string }{} {
 		m.Handle("GET "+p.path, u.require(auth.RoleObserver, func(w http.ResponseWriter, r *http.Request) { u.render(w, r, "placeholder", p.title, p.note) }))

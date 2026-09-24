@@ -1,0 +1,40 @@
+{{define "content"}}
+{{$m := .Data.Mind}}{{$a := .Data.Metrics}}{{$c := .Data.Calibration}}
+<div class="pagehead mindhead"><div><h1>{{$m.DisplayName}} <span class="muted small">cognitive research</span></h1>
+<p class="disclaimer">{{.Data.Disclaimer}} Every figure below has an operational definition, shown beside it.</p></div></div>
+{{template "mind_tabs" (dict "M" $m "Active" "research")}}
+{{template "volition_tabs" (dict "M" $m "Active" "research")}}
+<section class="grid cols-2">
+<div class="card"><h2>Volition and agency <span class="muted small">last 30 days</span></h2>
+  <table class="kv-table small">
+  <tr><th>Want → intention</th><td>{{pct $a.WantToIntention}} <span class="muted">of {{$a.WantsCreated}} wants</span></td></tr>
+  <tr><th>Intention → action</th><td>{{pct $a.IntentionToAction}} <span class="muted">of {{$a.IntentionsFormed}} intentions</span></td></tr>
+  <tr><th>Intention abandonment</th><td>{{pct $a.IntentionAbandonment}}</td></tr>
+  <tr><th>Blocked intentions</th><td>{{pct $a.BlockedIntentions}}</td></tr>
+  <tr><th>Commitment fulfilment</th><td>{{pct $a.CommitmentFulfilment}} <span class="muted">{{$a.CommitmentsFulfilled}} fulfilled, {{$a.CommitmentsBroken}} broken</span></td></tr>
+  <tr><th>Commitment conflicts</th><td>{{printf "%.2f" $a.CommitmentConflictPerItem}} per commitment</td></tr>
+  <tr><th>Replanning</th><td>{{pct $a.Replanning}} <span class="muted">of {{$a.PlansCreated}} plans</span></td></tr>
+  <tr><th>Outcome success</th><td>{{pct $a.OutcomeSuccess}}</td></tr>
+  <tr><th>Attribution of resolved expectations</th><td>{{range $k, $v := $a.Attribution}}{{$k}} {{$v}} · {{else}}none{{end}}</td></tr>
+  </table></div>
+<div class="card"><h2>Introspection <span class="muted small">last 30 days</span></h2>
+  <p>Mean accuracy <strong>{{printf "%.2f" $a.IntrospectionAccuracy}}</strong> over {{$a.IntrospectionReplies}} replies · {{range $k, $v := .Data.IntrospectionLabels}}{{$k}} {{$v}} · {{end}}</p>
+  {{if .Data.Introspection}}<table class="table compact"><tbody>{{range .Data.Introspection}}<tr><td><span class="badge">{{.Label}}</span></td><td class="num">{{if .Value}}{{conf .Value}}{{end}}</td><td class="small">{{if .EventID}}<a href="/events/{{.EventID}}">reply</a>{{end}}</td><td class="small muted">{{ago .CreatedAt}}</td></tr>{{end}}</tbody></table>{{end}}
+  <h3>Action claims</h3>{{if .Data.Claims}}<ul class="plain small">{{range .Data.Claims}}<li><span class="badge">{{.Label}}</span> {{index .Detail "claim"}} <span class="muted">{{ago .CreatedAt}}</span></li>{{end}}</ul>{{else}}<p class="muted small">No first-person action claims recorded.</p>{{end}}
+  <h3>Self-model</h3>{{if .Data.SelfAccuracy}}<p>Capability self-model accuracy {{pct (deref .Data.SelfAccuracy)}}{{if .Data.SelfErrors}}: {{join .Data.SelfErrors "; "}}{{end}}</p>{{else}}<p class="muted small">The self-model lists no capabilities to compare.</p>{{end}}
+</div>
+</section>
+<section class="card"><h2>Metacognitive calibration <span class="muted small">last 90 days, {{$c.Samples}} cited beliefs, revision window {{$c.RevisionWindowHours}} h</span></h2>
+  {{if $c.Samples}}<div class="bars">{{range $c.Buckets}}<span>{{printf "%.1f" .From}}–{{printf "%.1f" .To}}</span><span class="bar"><i style="width:{{pct .RevisedRate}}"></i></span><span>{{pct .RevisedRate}} revised of {{.Cited}}</span>{{end}}</div>
+  <p class="small">Brier score {{printf "%.3f" $c.Brier}} · after expressing uncertainty: {{pct $c.UncertainRevised}} revised ({{$c.UncertainSamples}}) · without: {{pct $c.ConfidentRevised}} ({{$c.ConfidentSamples}}){{if $c.ImprovedOverTime}} · first half {{printf "%.3f" $c.BrierFirstHalf}}, second half {{printf "%.3f" $c.BrierSecondHalf}} ({{if deref $c.ImprovedOverTime}}improved{{else}}not improved{{end}}){{end}}</p>
+  {{else}}<p class="muted">No replies cited beliefs in the period.</p>{{end}}
+</section>
+<section class="card"><h2>Experiments on this mind</h2>
+  {{if .Data.Experiments}}<table class="table compact"><thead><tr><th>Experiment</th><th>Protocol</th><th>Status</th><th class="num">Variants</th><th class="num">First divergence</th><th class="num">Architecture share</th><th>Reproducibility</th></tr></thead><tbody>
+  {{range .Data.Experiments}}<tr><td><a href="/experiments/{{.E.ID}}">{{.E.Name}}</a></td><td class="small">{{.Protocol}}</td><td><span class="badge">{{.E.Status}}</span></td><td class="num">{{.Variants}}</td><td class="num">{{if lt .First 0}}—{{else}}{{.First}}{{end}}</td><td class="num">{{printf "%.2f" .Share}}</td><td class="small">{{.Repro}}</td></tr>{{end}}</tbody></table>
+  {{else}}<p class="muted">None. Create one from a snapshot on the <a href="/experiments">experiments page</a>.</p>{{end}}
+</section>
+<section class="card"><h2>Operational definitions</h2>
+  {{range $s := .Data.Sections}}<h3>{{$s}}</h3><dl class="kv">{{range index $.Data.Measures $s}}<dt>{{.Title}} <span class="mono small">{{.Name}}</span></dt><dd class="small">{{.Definition}} <span class="muted">Not evidence of {{.NotEvidence}}.</span></dd>{{end}}</dl>{{end}}
+</section>
+{{end}}

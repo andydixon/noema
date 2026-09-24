@@ -1,0 +1,11 @@
+{{define "content"}}
+{{$m := .Data.Mind}}
+<div class="pagehead mindhead"><div><h1>{{$m.DisplayName}} <span class="muted small">agency timeline</span></h1>
+<p class="muted">What the mind wanted, intended, committed to, planned, requested, was allowed, did, observed and reconsidered, newest first, from recorded events.{{if .Data.Intention}} Filtered to one intention: <a href="/minds/{{$m.Slug}}/agency">show all</a>.{{end}}</p></div></div>
+{{template "mind_tabs" (dict "M" $m "Active" "agency")}}
+{{template "volition_tabs" (dict "M" $m "Active" "agency")}}
+<section class="card">
+{{range .Data.Rows}}<div class="small" style="margin:.2rem 0"><span class="stage">{{.Stage}}</span><span class="etype cat-{{.Event.Category}}">{{.Event.Type}}</span> <a href="/events/{{.Event.ID}}">{{trunc .Event.Summary 180}}</a>{{if .Why}} · <a href="{{.Why}}">why?</a>{{end}} <span class="muted">{{ago .Event.OccurredAt}}</span></div>
+{{else}}<p class="muted">Nothing recorded yet.</p>{{end}}
+</section>
+{{end}}

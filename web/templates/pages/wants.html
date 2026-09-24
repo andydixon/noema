@@ -1,0 +1,25 @@
+{{define "content"}}
+{{$m := .Data.Mind}}
+<div class="pagehead mindhead"><div><h1>{{$m.DisplayName}} <span class="muted small">wants</span></h1>
+<p class="muted">A want is a motivational preference with an origin and a strength that fades (half-life {{.Data.HalfLife}}). It is not a decision and never implies action; candidates below {{.Data.Threshold}} are not stored. Suppressed wants stay represented.</p></div></div>
+{{template "mind_tabs" (dict "M" $m "Active" "wants")}}
+{{template "volition_tabs" (dict "M" $m "Active" "wants")}}
+<section class="card">
+  <h2>Active <span class="muted small">{{len .Data.Active}}</span></h2>
+  {{if .Data.Active}}<table class="table compact"><thead><tr><th>Want</th><th>Origin</th><th>Strength now</th><th class="num">Urgency</th><th class="num">Reinforced</th><th class="num">Set aside</th><th>Conflicts</th></tr></thead><tbody>
+  {{range .Data.Active}}<tr>
+    <td>{{if eq .Valence "avoid"}}<span class="badge warn">avoid</span> {{end}}<strong>{{.Description}}</strong>
+      <div class="small muted">{{with .Proposal}}{{if .Capability}}means: <code>{{.Capability}}</code> {{.Target}}{{else}}means: investigate {{.Subject}}{{end}} · {{end}}{{if .GoalID}}goal: <a href="/minds/{{$m.Slug}}/goals">{{index $.Data.Goals .GoalID}}</a> · {{end}}{{if .Drives}}drives {{join .Drives ", "}} · {{end}}{{if .Values}}values {{join .Values ", "}} · {{end}}{{if .OriginEvent}}<a href="/events/{{.OriginEvent}}">origin event</a>{{end}}</div></td>
+    <td class="small">{{.Origin}}</td>
+    <td><span class="conf"><span class="conf-bar"><i style="width:{{pct .Eff}}"></i></span> {{conf .Eff}}</span><div class="small muted">stored {{conf .Strength}}</div></td>
+    <td class="num">{{conf .Urgency}}</td><td class="num">{{.Reinforcements}}</td><td class="num">{{if .Suppressions}}<span class="danger">{{.Suppressions}}</span>{{else}}0{{end}}</td>
+    <td class="small">{{range .Conflicts}}<div>{{if .Preferred}}<span class="badge ok">preferred</span>{{else}}<span class="badge">other preferred</span>{{end}} vs “{{trunc .Other 60}}” <span class="muted">({{.Kind}}, {{.Outcome}})</span><div class="muted">{{.Rule}}</div></div>{{else}}<span class="muted">none</span>{{end}}</td>
+  </tr>{{end}}</tbody></table>
+  {{else}}<p class="muted">No active wants. Wants come from failed predictions, contradictions, operator goals, stalled goals, questions and requests, and due commitments.</p>{{end}}
+</section>
+<section class="card">
+  <h2>Closed <span class="muted small">{{len .Data.Closed}}</span></h2>
+  {{if .Data.Closed}}<table class="table compact"><thead><tr><th>Want</th><th>Status</th><th>Resolution</th><th>When</th></tr></thead><tbody>
+  {{range .Data.Closed}}<tr><td>{{.Description}}</td><td><span class="badge">{{.Status}}</span></td><td class="small">{{.Resolution}}</td><td class="small muted nowrap">{{if .ResolvedAt}}{{ago .ResolvedAt}}{{end}}</td></tr>{{end}}</tbody></table>{{else}}<p class="muted">None.</p>{{end}}
+</section>
+{{end}}

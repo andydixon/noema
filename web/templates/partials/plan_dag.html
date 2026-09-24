@@ -1,0 +1,13 @@
+{{define "plan_dag"}}{{/* .Levels []dagLevel, .M mind */}}
+<div class="dag" role="list" aria-label="Plan dependency graph">
+{{range .Levels}}<div class="dag-level"><h4>{{if eq .Level 0}}first{{else}}after {{.Level}} step(s){{end}}</h4>
+  {{range .Steps}}<div class="dag-step st-{{.Status}}" role="listitem">
+    <span class="key">{{.Key}}</span> <span class="badge small">{{.Status}}</span><br>{{.Title}}
+    <div class="small muted">{{.Kind}}{{if .Capability}} · <code>{{.Capability}}</code>{{end}}{{if .DependsOn}} · after {{join .DependsOn ", "}}{{end}}</div>
+    {{with .Expectation}}<div class="small">expects: {{.Description}}</div>{{end}}
+    {{with .StatusReason}}<div class="small muted">{{trunc . 140}}</div>{{end}}
+    {{with .Error}}<div class="small danger">{{trunc . 140}}</div>{{end}}
+  </div>{{end}}
+</div>{{end}}
+</div>
+{{end}}

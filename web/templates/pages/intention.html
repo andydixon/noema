@@ -1,0 +1,30 @@
+{{define "content"}}
+{{$m := .Data.Mind}}{{$d := .Data.D}}{{$it := $d.Intention}}
+<div class="pagehead mindhead"><div><p class="muted small"><a href="/minds/{{$m.Slug}}/intentions">intentions</a></p>
+<h1>{{$it.Description}} <span class="badge">{{$it.Status}}</span></h1>
+<p class="muted">{{$it.Kind}} · priority {{conf $it.Priority}} · confidence {{conf $it.Confidence}}{{if $it.RequireApproval}} · <span class="warn">approval required</span>{{end}}{{if $it.FormedEvent}} · <a href="/events/{{$it.FormedEvent}}">formed</a>{{end}} · <a href="/minds/{{$m.Slug}}/why?kind=intention&id={{$it.ID}}">why?</a> · <a href="/minds/{{$m.Slug}}/agency?intention={{$it.ID}}">timeline</a></p>
+{{if $it.BlockedReason}}<p><strong>Blocked ({{$it.BlockedKind}}):</strong> {{$it.BlockedReason}}</p>{{end}}{{with $it.StatusReason}}<p class="small muted">{{.}}</p>{{end}}</div>
+{{if and (.Principal.User.Role.AtLeast "operator") ($it.Status.Open)}}<form method="post" action="/minds/{{$m.Slug}}/intentions/{{$it.ID}}/abandon" class="row"><input type="hidden" name="_csrf" value="{{.CSRF}}"><input name="reason" placeholder="reason (recorded)" maxlength="300"><button class="btn btn-danger" data-confirm="Abandon this intention? Its plan is cancelled and open requests withdrawn.">Abandon</button></form>{{end}}</div>
+{{template "mind_tabs" (dict "M" $m "Active" "intentions")}}
+<section class="grid cols-2">
+  <div class="card"><h2>Sources</h2>
+    {{range $d.Wants}}<p><span class="badge">want</span> {{.Description}} <span class="small muted">({{.Origin}}, {{conf .Strength}}, {{.Status}})</span></p>{{else}}<p class="muted">No source want recorded.</p>{{end}}
+    {{if $it.GoalID}}<p><span class="badge">goal</span> <a href="/minds/{{$m.Slug}}/goals">{{$it.GoalID}}</a></p>{{end}}
+    {{if $it.CommitmentID}}<p><span class="badge">commitment</span> <a href="/minds/{{$m.Slug}}/commitments">{{$it.CommitmentID}}</a></p>{{end}}
+    {{if $it.ParentID}}<p><span class="badge">serves</span> <a href="/minds/{{$m.Slug}}/intentions/{{$it.ParentID}}">parent intention</a></p>{{end}}
+    {{if $d.Subordinates}}<h3>Subordinate intentions</h3><ul class="plain small">{{range $d.Subordinates}}<li><a href="/minds/{{$m.Slug}}/intentions/{{.ID}}">{{.Description}}</a> <span class="badge small">{{.Status}}</span></li>{{end}}</ul>{{end}}
+    <h3>Expected result</h3><p class="small">{{$it.ExpectedResult}}</p>
+  </div>
+  <div class="card"><h2>Formation</h2><p class="small muted">The deterministic terms that produced this intention.</p><pre class="json">{{.Data.Formation}}</pre></div>
+</section>
+<section class="card"><h2>Plans <span class="muted small">{{len $d.Plans}} revision(s); earlier revisions are kept as history</span></h2>
+  {{range $i, $p := $d.Plans}}<div class="stack"><h3><a href="/minds/{{$m.Slug}}/plans/{{$p.ID}}">revision {{$p.Revision}}</a> · {{$p.Strategy}} · <span class="badge">{{$p.Status}}</span> <span class="small muted">{{$p.StatusReason}}</span></h3>
+  {{template "plan_dag" (dict "Levels" (index $.Data.Levels $i) "M" $m)}}</div>{{else}}<p class="muted">No plan.</p>{{end}}
+</section>
+<section class="card"><h2>Decisions</h2>
+  {{if $d.Decisions}}<table class="table compact"><thead><tr><th>Kind</th><th>Outcome</th><th>Rationale</th><th>When</th></tr></thead><tbody>{{range $d.Decisions}}<tr><td class="small">{{.Kind}}</td><td><span class="badge">{{.Outcome}}</span> <span class="small muted">{{.Reason}}</span></td><td class="small">{{.Rationale}}{{if .EventID}} <a href="/events/{{.EventID}}">event</a>{{end}}</td><td class="small muted nowrap">{{ago .CreatedAt}}</td></tr>{{end}}</tbody></table>{{else}}<p class="muted">None.</p>{{end}}
+</section>
+<section class="card"><h2>Agency timeline</h2>
+  {{range .Data.Timeline}}<div class="small"><span class="etype cat-{{.Category}}">{{.Type}}</span> <a href="/events/{{.ID}}">{{trunc .Summary 160}}</a> <span class="muted">{{ago .OccurredAt}}</span></div>{{else}}<p class="muted">No correlated events.</p>{{end}}
+</section>
+{{end}}

@@ -1,0 +1,26 @@
+{{define "content"}}
+{{$m := .Data.Mind}}
+<div class="pagehead mindhead"><div><h1>{{$m.DisplayName}} <span class="muted small">intentions</span></h1>
+<p class="muted">An intention is a recorded decision to pursue an outcome. It names its wants, goal and commitments, carries an expected result and a priority, and changes status only through recorded reconsideration. It grants no authority: acting still goes through policy.</p></div></div>
+{{template "mind_tabs" (dict "M" $m "Active" "intentions")}}
+{{template "volition_tabs" (dict "M" $m "Active" "intentions")}}
+{{range $st := .Data.Order}}{{with index $.Data.Groups $st}}
+<section class="card">
+  <h2><span class="badge">{{$st}}</span> <span class="muted small">{{len .}}</span></h2>
+  <table class="table compact"><thead><tr><th>Intention</th><th>Kind</th><th class="num">Priority</th><th>Why blocked or closed</th><th>Plan</th><th>When</th></tr></thead><tbody>
+  {{range .}}<tr>
+    <td>{{if .ParentID}}<span class="muted">↳ </span>{{end}}<a href="/minds/{{$m.Slug}}/intentions/{{.ID}}"><strong>{{.Description}}</strong></a>{{if .RequireApproval}} <span class="badge warn small">approval required</span>{{end}}
+      {{if .RequiredCapabilities}}<div class="small muted">needs {{join .RequiredCapabilities ", "}}</div>{{end}}</td>
+    <td class="small">{{.Kind}}</td><td class="num">{{conf .Priority}}</td>
+    <td class="small">{{if .BlockedReason}}<strong>{{.BlockedKind}}</strong>: {{.BlockedReason}}{{else}}{{.StatusReason}}{{end}}</td>
+    <td class="small">{{if .PlanID}}<a href="/minds/{{$m.Slug}}/plans/{{.PlanID}}">plan</a>{{else}}<span class="muted">none</span>{{end}}</td>
+    <td class="small muted nowrap">{{ago .UpdatedAt}}</td>
+  </tr>{{end}}</tbody></table>
+</section>{{end}}{{end}}
+<section class="card">
+  <h2>Wants that did not become intentions <span class="muted small">recent</span></h2>
+  {{if .Data.NotFormed}}<table class="table compact"><thead><tr><th>Reason</th><th>Rationale</th><th>Want</th><th>When</th></tr></thead><tbody>
+  {{range .Data.NotFormed}}<tr><td><span class="badge">{{.Reason}}</span></td><td class="small">{{.Rationale}}</td><td class="small">{{index .Inputs "want"}}</td><td class="small muted nowrap">{{ago .CreatedAt}}</td></tr>{{end}}</tbody></table>
+  {{else}}<p class="muted">None recorded.</p>{{end}}
+</section>
+{{end}}

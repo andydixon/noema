@@ -1,0 +1,23 @@
+{{define "content"}}
+{{$m := .Data.Mind}}{{$x := .Data.X}}
+<div class="pagehead"><p class="muted small"><a href="/minds/{{$m.Slug}}/agency">agency</a></p><h1>Why did this happen?</h1>
+<p class="muted">Constructed only from recorded state: rows and events. Nothing here is generated, and hidden model reasoning is not shown because it is not stored. Anything missing is listed as not recorded.</p></div>
+{{template "mind_tabs" (dict "M" $m "Active" "agency")}}
+<section class="card">
+{{with $x.Action}}<div class="why-section"><h3>Action</h3><p><code>{{.Capability}}</code> on <span class="mono">{{.Target}}</span> — <span class="badge">{{.Status}}</span>{{if .DecidedBy}} · decided by {{.DecidedBy}}{{end}}{{with .Note}} (“{{.}}”){{end}}{{with .Result}}<br><span class="small muted">{{.}}</span>{{end}}</p></div>{{end}}
+{{with $x.Step}}<div class="why-section"><h3>Immediate cause</h3><p>plan step <span class="mono">{{.Key}}</span> {{.Title}} ({{.Status}}){{with $x.Plan}} of <a href="/minds/{{$m.Slug}}/plans/{{.ID}}">{{.Text}}</a> <span class="small muted">{{.Detail}}</span>{{end}}</p></div>{{end}}
+{{with $x.Intention}}<div class="why-section"><h3>Intention</h3><p><a href="/minds/{{$m.Slug}}/intentions/{{.ID}}">{{.Description}}</a> <span class="badge">{{.Status}}</span> <span class="small muted">{{.Kind}}, priority {{conf .Priority}}</span></p></div>{{end}}
+{{with $x.Subordinate}}<div class="why-section"><h3>While waiting</h3><p>{{.Description}} <span class="badge small">{{.Status}}</span></p></div>{{end}}
+{{if $x.Wants}}<div class="why-section"><h3>Originating wants</h3>{{range $x.Wants}}<p>{{.Description}} <span class="small muted">({{.Origin}}, strength {{conf .Strength}})</span></p>{{end}}</div>{{end}}
+{{with $x.Goal}}<div class="why-section"><h3>Goal</h3><p>{{.Text}} <span class="small muted">{{.Detail}}</span></p></div>{{end}}
+{{if $x.Beliefs}}<div class="why-section"><h3>Supporting beliefs</h3>{{range $x.Beliefs}}<p><a href="/minds/{{$m.Slug}}/beliefs/{{.ID}}">{{.Text}}</a> <span class="small muted">{{.Detail}}</span></p>{{end}}</div>{{end}}
+{{if $x.Evidence}}<div class="why-section"><h3>Evidence</h3><ul class="plain small">{{range $x.Evidence}}<li>{{.Text}} <span class="muted">{{.Detail}}</span></li>{{end}}</ul></div>{{end}}
+{{if $x.ConflictingWants}}<div class="why-section"><h3>Conflicting wants</h3>{{range $x.ConflictingWants}}<p>{{.Text}}<br><span class="small muted">{{.Detail}}</span></p>{{end}}</div>{{end}}
+{{if $x.Commitments}}<div class="why-section"><h3>Commitments</h3>{{range $x.Commitments}}<p>{{.Polarity}}: {{.Description}}{{if .Unless}} unless {{.Unless}}{{end}} <span class="small muted">({{.Kind}})</span></p>{{end}}</div>{{end}}
+{{if $x.Resolution}}<div class="why-section"><h3>Resolution</h3><ul class="small">{{range $x.Resolution}}<li>{{.}}</li>{{end}}</ul></div>{{end}}
+{{with $x.Expectation}}<div class="why-section"><h3>Expected outcome</h3><p>{{.Text}} — <span class="badge">{{.Detail}}</span></p></div>{{end}}
+{{with .Data.Attribution}}<div class="why-section"><h3>Attribution</h3><p><span class="badge">{{.Class}}</span> {{.Reason}}</p></div>{{end}}
+{{if $x.Confidence}}<div class="why-section"><h3>Confidence</h3><p>{{conf $x.Confidence}} <span class="small muted">the intention's expected chance of achieving its outcome, as recorded when it formed</span></p></div>{{end}}
+{{if $x.Gaps}}<div class="why-section"><h3>Not recorded</h3><ul class="small">{{range $x.Gaps}}<li>{{.}}</li>{{end}}</ul></div>{{end}}
+</section>
+{{end}}

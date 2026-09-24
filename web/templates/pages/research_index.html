@@ -1,0 +1,12 @@
+{{define "content"}}
+<div class="pagehead"><h1>Cognitive research</h1>
+<p class="disclaimer">{{.Data.Disclaimer}}</p>
+<p class="muted">Experiments fork a snapshot, feed identical stimuli to variants that differ in one respect, and measure the difference: whether entering the workspace changes downstream processing, what ablating a component does, whether the mind notices an inaccurate self-model, what would have happened without an event, and how much behaviour stays the same when the language model changes.</p></div>
+<section class="card"><h2>Minds</h2><p>{{range .Data.Minds}}<a class="btn small" href="/minds/{{.Slug}}/research">{{.DisplayName}}</a> {{end}}</p></section>
+{{range $p := .Data.Protocols}}{{with index $.Data.ByProtocol $p}}<section class="card"><h2>{{title $p}}</h2>
+<table class="table compact"><thead><tr><th>Experiment</th><th>Hypothesis</th><th>Status</th><th class="num">Variants</th><th class="num">First divergence</th><th class="num">Architecture share</th><th>Reproducibility</th></tr></thead><tbody>
+{{range .}}<tr><td><a href="/experiments/{{.E.ID}}">{{.E.Name}}</a></td><td class="small">{{trunc .E.Hypothesis 120}}</td><td><span class="badge">{{.E.Status}}</span></td><td class="num">{{.Variants}}</td><td class="num">{{if lt .First 0}}—{{else}}{{.First}}{{end}}</td><td class="num">{{printf "%.2f" .Share}}</td><td class="small">{{.Repro}}</td></tr>{{end}}</tbody></table></section>{{end}}{{end}}
+<section class="card"><h2>Operational definitions</h2>
+  {{range $s := .Data.Sections}}<h3>{{$s}}</h3><dl class="kv">{{range index $.Data.Measures $s}}<dt>{{.Title}} <span class="mono small">{{.Name}}</span></dt><dd class="small">{{.Definition}} <span class="muted">Not evidence of {{.NotEvidence}}.</span></dd>{{end}}</dl>{{end}}
+</section>
+{{end}}

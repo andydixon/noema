@@ -8,7 +8,7 @@
 <section class="grid cols-3-1">
   <div class="stack">
     <div class="card">
-      <h2>Causal chain <a class="small" href="/events/{{$e.ID}}/timeline">full timeline →</a>{{if .Principal.User.Role.AtLeast "administrator"}} · <a class="small danger" href="/minds/{{.Data.Mind.Slug}}/redactions?kind=event&id={{$e.ID}}">redact…</a>{{end}}</h2>
+      <h2>Causal chain <a class="small" href="/events/{{$e.ID}}/timeline">full timeline →</a>{{if or (index $e.Metadata "execution_id") (index $e.Metadata "approval_id") (index $e.Metadata "request_id") (index $e.Metadata "intention_id") (index $e.Metadata "step_id")}} · <a class="small" href="/minds/{{.Data.Mind.Slug}}/why?kind=event&id={{$e.ID}}">why did this happen?</a>{{end}}{{if .Principal.User.Role.AtLeast "administrator"}} · <a class="small danger" href="/minds/{{.Data.Mind.Slug}}/redactions?kind=event&id={{$e.ID}}">redact…</a>{{end}}</h2>
       <div class="chain">
         {{if $c.Cause}}<div class="chain-node"><span class="muted small">caused by</span><br><span class="etype cat-{{$c.Cause.Category}}">{{$c.Cause.Type}}</span> <a href="/events/{{$c.Cause.ID}}">{{$c.Cause.Summary}}</a></div><div class="chain-arrow">↓</div>{{end}}
         <div class="chain-node current"><span class="etype cat-{{$e.Category}}">{{$e.Type}}</span> {{$e.Summary}}</div>

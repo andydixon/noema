@@ -1,0 +1,10 @@
+{{define "volition_tabs"}}{{$m := .M}}{{$a := .Active}}
+<nav class="tabs subtabs" aria-label="Volition and agency">
+  <a href="/minds/{{$m.Slug}}/wants" {{if eq $a "wants"}}aria-current="page"{{end}}>Wants</a>
+  <a href="/minds/{{$m.Slug}}/intentions" {{if eq $a "intentions"}}aria-current="page"{{end}}>Intentions</a>
+  <a href="/minds/{{$m.Slug}}/commitments" {{if eq $a "commitments"}}aria-current="page"{{end}}>Commitments</a>
+  <a href="/minds/{{$m.Slug}}/plans" {{if eq $a "plans"}}aria-current="page"{{end}}>Plans</a>
+  <a href="/minds/{{$m.Slug}}/agency" {{if eq $a "agency"}}aria-current="page"{{end}}>Agency timeline</a>
+  <a href="/minds/{{$m.Slug}}/research" {{if eq $a "research"}}aria-current="page"{{end}}>Research</a>
+</nav>
+{{end}}

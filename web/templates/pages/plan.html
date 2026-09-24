@@ -1,0 +1,35 @@
+{{define "content"}}
+{{$m := .Data.Mind}}{{$p := .Data.Plan}}{{$op := .Principal.User.Role.AtLeast "operator"}}
+<div class="pagehead mindhead"><div><p class="muted small"><a href="/minds/{{$m.Slug}}/plans">plans</a> · intention <a href="/minds/{{$m.Slug}}/intentions/{{$p.IntentionID}}">{{.Data.Intention.Description}}</a></p>
+<h1>{{$p.Objective}} <span class="badge">{{$p.Status}}</span></h1>
+<p class="muted">revision {{$p.Revision}} · {{$p.Strategy}} strategy · {{$p.Origin}}{{if $p.RequireApproval}} · approval required{{end}}{{with $p.StatusReason}} · {{.}}{{end}}</p></div>
+{{if and $op (or (eq $p.Status "validated") (eq $p.Status "executing") (eq $p.Status "waiting") (eq $p.Status "blocked") (eq $p.Status "awaiting_approval"))}}<form method="post" action="/minds/{{$m.Slug}}/plans/{{$p.ID}}/cancel" class="row"><input type="hidden" name="_csrf" value="{{.CSRF}}"><input name="reason" placeholder="reason"><button class="btn btn-danger" data-confirm="Cancel this plan?">Cancel plan</button></form>{{end}}</div>
+{{template "mind_tabs" (dict "M" $m "Active" "plans")}}
+<section class="card"><h2>Dependency graph</h2>{{template "plan_dag" (dict "Levels" .Data.Levels "M" $m)}}</section>
+<section class="card"><h2>Steps</h2>
+<table class="table compact"><thead><tr><th>Step</th><th>Status</th><th>Expected</th><th>Observed</th><th>Records</th>{{if $op}}<th></th>{{end}}</tr></thead><tbody>
+{{range $p.Steps}}<tr>
+  <td><span class="mono">{{.Key}}</span> {{.Title}}<div class="small muted">{{.Kind}}{{if .Capability}} · <code>{{.Capability}}</code> {{.Target}}{{end}}{{if .DependsOn}} · after {{join .DependsOn ", "}}{{end}} · attempts {{.Attempts}}/{{.MaxAttempts}}</div></td>
+  <td><span class="badge">{{.Status}}</span>{{with .StatusReason}}<div class="small muted">{{trunc . 200}}</div>{{end}}{{with .Error}}<div class="small danger">{{trunc . 200}}</div>{{end}}</td>
+  <td class="small">{{with .Expectation}}{{.Description}} <span class="muted">({{conf .Confidence}}, within {{.WithinSeconds}}s)</span>{{end}}{{with .Precondition}}<div>precondition: {{.Check.Description}}</div>{{end}}</td>
+  <td class="small">{{with .Observation}}{{index . "path"}} = {{index . "observed"}} ({{if index . "holds"}}holds{{else}}does not hold{{end}}){{end}}</td>
+  <td class="small">{{if .ApprovalID}}<a href="/approvals">approval</a> · <a href="/minds/{{$m.Slug}}/why?kind=approval&id={{.ApprovalID}}">why</a> {{end}}{{if .RequestID}}<a href="/approvals">request</a> {{end}}{{if .ExecutionID}}<a href="/minds/{{$m.Slug}}/why?kind=execution&id={{.ExecutionID}}">execution</a> {{end}}{{if .PredictionID}}<a href="/minds/{{$m.Slug}}/predictions">expectation</a> {{end}}{{if .IntentionID}}<a href="/minds/{{$m.Slug}}/intentions/{{.IntentionID}}">subordinate intention</a>{{end}}</td>
+  {{if $op}}<td>{{if eq .Status "blocked"}}<form method="post" action="/minds/{{$m.Slug}}/plans/{{$p.ID}}/steps/{{.Key}}/retry" class="inline"><input type="hidden" name="_csrf" value="{{$.CSRF}}"><button class="btn small" data-confirm="Release this step? Check first that an interrupted action did not already run.">Release</button></form>{{end}}</td>{{end}}
+</tr>{{end}}</tbody></table></section>
+<section class="grid cols-2">
+<div class="card"><h2>Resources</h2><table class="kv-table small"><thead><tr><th></th><th>Estimated</th><th>Used</th></tr></thead>
+  <tr><th>Capability invocations</th><td>{{$p.Estimate.Invocations}}</td><td>{{$p.Actual.Invocations}} of at most {{$p.Budget.MaxInvocations}}</td></tr>
+  <tr><th>Operator approvals</th><td>{{$p.Estimate.Approvals}}</td><td>{{$p.Actual.Approvals}}</td></tr>
+  <tr><th>Wall time (s)</th><td>{{printf "%.0f" $p.Estimate.WallSeconds}}</td><td>—</td></tr>
+  <tr><th>Network operations</th><td>{{$p.Estimate.Network}}</td><td>—</td></tr>
+  <tr><th>Money</th><td>{{printf "%.2f" $p.Estimate.Money}}</td><td>{{printf "%.2f" $p.Actual.Money}}</td></tr></table>
+  <h3>Completion criteria</h3><p class="small">{{$p.CompletionCriteria}}</p>
+  {{if $p.AbortConditions}}<h3>Abort conditions</h3><ul class="small">{{range $p.AbortConditions}}<li>{{.}}</li>{{end}}</ul>{{end}}
+  {{if $p.Assumptions}}<h3>Assumptions</h3><ul class="small">{{range $p.Assumptions}}<li>{{.Proposition}}{{if .BeliefID}} (<a href="/minds/{{$m.Slug}}/beliefs/{{.BeliefID}}">belief</a>, at least {{conf .MinConfidence}}){{end}}</li>{{end}}</ul>{{end}}
+  <h3>Risk</h3><p class="small">{{$p.Risk}}</p></div>
+<div class="card"><h2>Alternatives considered</h2>
+  {{if $p.Alternatives}}<table class="table compact"><thead><tr><th>Strategy</th><th class="num">Expected confidence</th><th class="num">Approvals</th><th class="num">Score</th><th></th></tr></thead><tbody>{{range $p.Alternatives}}<tr><td>{{.Strategy}}<div class="small muted">{{trunc .Description 120}}</div></td><td class="num">{{conf .ExpectedConfidence}}</td><td class="num">{{.Estimate.Approvals}}</td><td class="num">{{printf "%.3f" .Score}}</td><td class="small">{{if .Selected}}<span class="badge ok">selected</span>{{end}} {{.Why}}</td></tr>{{end}}</tbody></table>{{else}}<p class="muted">None recorded.</p>{{end}}
+  <h3>Revisions</h3><ul class="plain small">{{range .Data.Revisions}}<li><a href="/minds/{{$m.Slug}}/plans/{{.ID}}">revision {{.Revision}}</a> · {{.Strategy}} · <span class="badge small">{{.Status}}</span> {{trunc .StatusReason 100}}</li>{{end}}</ul>
+  <h3>Validation</h3><pre class="json">{{.Data.Validation}}</pre></div>
+</section>
+{{end}}

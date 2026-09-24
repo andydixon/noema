@@ -235,3 +235,20 @@ canvas.graph { width: 100%; height: 560px; display: block; border-radius: 8px; b
 
 /* Causal timeline */
 .tl-cycle { border-left: 2px solid var(--border); margin: .6rem 0 .6rem .4rem; padding: .2rem 0 .2rem .9rem; } .tl-node { padding: .35rem 0 .35rem .6rem; border-left: 2px solid transparent; } .tl-node.current { border-left-color: var(--accent); background: var(--surface-2); border-radius: 4px; } .tl-when { font-family: var(--mono); }
+
+/* Volition, plans and research */
+.tabs.subtabs { margin-top: -.5rem; font-size: .85rem; }
+.dag { display: flex; gap: .75rem; overflow-x: auto; padding-bottom: .5rem; align-items: flex-start; }
+.dag-level { display: flex; flex-direction: column; gap: .5rem; min-width: 12rem; }
+.dag-level h4 { margin: 0; font-size: .7rem; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
+.dag-step { border: 1px solid var(--border); border-left-width: 4px; border-radius: 6px; padding: .45rem .6rem; background: var(--surface); font-size: .82rem; }
+.dag-step .key { font-family: var(--mono); font-weight: 600; }
+.dag-step.st-completed { border-left-color: #16a34a; } .dag-step.st-failed, .dag-step.st-cancelled { border-left-color: #dc2626; }
+.dag-step.st-executing, .dag-step.st-ready { border-left-color: var(--accent); } .dag-step.st-awaiting_approval, .dag-step.st-awaiting_grant, .dag-step.st-blocked { border-left-color: #d97706; }
+.dag-step.st-waiting { border-left-color: #0ea5a4; } .dag-step.st-skipped { border-left-color: var(--muted); } .dag-step.st-pending { border-left-color: var(--border); }
+.stage { display: inline-block; min-width: 6.5rem; font-size: .72rem; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); }
+.why-section { border-left: 3px solid var(--border); padding-left: .8rem; margin: .6rem 0; }
+.why-section h3 { margin: 0 0 .2rem; font-size: .85rem; color: var(--muted); }
+.disclaimer { border: 1px solid var(--border); background: var(--surface-2); padding: .6rem .8rem; border-radius: 6px; font-size: .85rem; }
+.bars { display: grid; grid-template-columns: max-content 1fr max-content; gap: .25rem .6rem; align-items: center; font-size: .82rem; }
+.bars .bar { height: 8px; background: var(--surface-2); border-radius: 4px; overflow: hidden; } .bars .bar i { display: block; height: 100%; background: var(--accent); }

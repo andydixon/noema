@@ -1,0 +1,12 @@
+{{define "content"}}
+{{$m := .Data.Mind}}
+<div class="pagehead mindhead"><div><h1>{{$m.DisplayName}} <span class="muted small">plans</span></h1>
+<p class="muted">Plans are revisable dependency graphs serving one intention. Go validates structure, the capability vocabulary and parameters; every action goes through policy; replans are new revisions and old plans stay as history.</p></div></div>
+{{template "mind_tabs" (dict "M" $m "Active" "plans")}}
+{{template "volition_tabs" (dict "M" $m "Active" "plans")}}
+<section class="card">
+{{if .Data.Plans}}<table class="table compact"><thead><tr><th>Objective</th><th>Revision</th><th>Strategy</th><th>Origin</th><th>Status</th><th class="num">Invocations used</th><th class="num">Approvals</th><th>Updated</th></tr></thead><tbody>
+{{range .Data.Plans}}<tr><td><a href="/minds/{{$m.Slug}}/plans/{{.ID}}">{{.Objective}}</a>{{with .StatusReason}}<div class="small muted">{{trunc . 140}}</div>{{end}}</td><td class="num">{{.Revision}}</td><td class="small">{{.Strategy}}</td><td class="small">{{.Origin}}</td><td><span class="badge">{{.Status}}</span></td><td class="num">{{.Actual.Invocations}} / {{.Budget.MaxInvocations}}</td><td class="num">{{.Actual.Approvals}}</td><td class="small muted nowrap">{{ago .UpdatedAt}}</td></tr>{{end}}</tbody></table>
+{{else}}<p class="muted">No plans yet.</p>{{end}}
+</section>
+{{end}}

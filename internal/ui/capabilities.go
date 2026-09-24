@@ -116,7 +116,13 @@ func (u *UI) approvalsPage(w http.ResponseWriter, r *http.Request) {
 	for _, c := range u.deps.Capabilities.Registry.List() {
 		caps[c.Name] = c
 	}
-	u.render(w, r, "approvals", "Approval centre", map[string]any{"Pending": pending, "Decided": decided, "Executions": execs, "MindNames": names, "Batches": batches, "Grants": grants, "Caps": caps})
+	slugs := map[ids.ID]string{}
+	if all, err := u.deps.Minds.List(r.Context(), true); err == nil {
+		for _, m := range all {
+			slugs[m.ID] = m.Slug
+		}
+	}
+	u.render(w, r, "approvals", "Approval centre", map[string]any{"Pending": pending, "Decided": decided, "Executions": execs, "MindNames": names, "Batches": batches, "Grants": grants, "Caps": caps, "MindSlugs": slugs})
 }
 
 // requestBatch groups requests raised for one intention (or one mind in one
