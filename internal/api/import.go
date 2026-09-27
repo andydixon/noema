@@ -86,7 +86,7 @@ func (s *Server) mindImport(w http.ResponseWriter, r *http.Request) {
 		if weight <= 0 {
 			weight = 0.5
 		}
-		_, err := s.deps.Beliefs.Create(r.Context(), s.deps.DB, s.Emitter(), beliefs.New{MindID: m.ID, Proposition: sb.Proposition, Subject: sb.Subject, Epistemic: sb.Epistemic, Source: "seed",
+		res, err := s.deps.Beliefs.Create(r.Context(), s.deps.DB, s.Emitter(), beliefs.New{MindID: m.ID, Proposition: sb.Proposition, Subject: sb.Subject, Epistemic: sb.Epistemic, Source: "seed",
 			Evidence: []beliefs.EvidenceInput{{Direction: "for", Kind: "operator", Source: "seed:" + actor(r), Weight: weight, Credibility: events.TrustOperator.Credibility(), Note: firstNonEmpty(sb.Note, "seeded by "+actor(r)), Derivation: beliefs.DerivationOperator, Family: "seed:" + actor(r)}}})
 		if err != nil {
 			if errors.Is(err, beliefs.ErrInvalid) || errors.Is(err, beliefs.ErrBlocked) {
@@ -96,6 +96,7 @@ func (s *Server) mindImport(w http.ResponseWriter, r *http.Request) {
 			fail(w, r, err)
 			return
 		}
+		s.deps.Events.Publish(res.Events...)
 		beliefCount++
 	}
 	s.deps.Brain.Reconcile(r.Context()) //nolint:errcheck

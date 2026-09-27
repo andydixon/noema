@@ -31,13 +31,16 @@ func (s *Server) beliefRoutes() {
 
 // Emitter returns a beliefs.Emitter that appends through the event store and
 // publishes after the surrounding transaction (or immediately on the pool).
+//
+// It does not publish: belief operations may run inside their own
+// transaction, and subscribers must never see uncommitted events. Callers
+// publish the returned Result's events after the operation succeeds.
 func (s *Server) Emitter() beliefs.Emitter {
 	return func(ctx context.Context, q storage.Querier, n events.New) (events.Event, error) {
 		out, err := s.deps.Events.AppendIn(ctx, q, n)
 		if err != nil {
 			return events.Event{}, err
 		}
-		s.deps.Events.Publish(out...)
 		return out[0], nil
 	}
 }
@@ -117,6 +120,7 @@ func (s *Server) beliefsCreate(w http.ResponseWriter, r *http.Request) {
 		fail(w, r, beliefErr(err))
 		return
 	}
+	s.deps.Events.Publish(res.Events...)
 	s.deps.Audit.Log(r.Context(), "belief.create", "belief", res.Belief.ID.String(), map[string]any{"mind": m.Slug, "proposition": res.Belief.Proposition})
 	writeJSON(w, http.StatusCreated, res)
 }
@@ -263,6 +267,7 @@ func (s *Server) beliefEvidence(w http.ResponseWriter, r *http.Request) {
 		fail(w, r, beliefErr(err))
 		return
 	}
+	s.deps.Events.Publish(res.Events...)
 	s.deps.Audit.Log(r.Context(), "belief.evidence", "belief", id.String(), map[string]any{"direction": in.Direction, "note": in.Note})
 	writeJSON(w, http.StatusOK, res)
 }
@@ -319,6 +324,7 @@ func (s *Server) beliefRetract(w http.ResponseWriter, r *http.Request) {
 		fail(w, r, beliefErr(err))
 		return
 	}
+	s.deps.Events.Publish(res.Events...)
 	s.deps.Audit.Log(r.Context(), "belief.retract", "belief", id.String(), map[string]any{"reason": in.Reason, "do_not_infer": in.DoNotInfer})
 	writeJSON(w, http.StatusOK, res)
 }

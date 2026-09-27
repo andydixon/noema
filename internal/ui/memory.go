@@ -122,7 +122,9 @@ func (u *UI) memoryRetract(w http.ResponseWriter, r *http.Request) {
 	u.deps.Audit.Log(r.Context(), "memory.retract", "memory", id.String(), map[string]any{"reason": reason})
 	if affected, err := u.deps.Beliefs.RetractEvidence(r.Context(), u.deps.DB, m.ID, "memory", string(id)); err == nil {
 		for _, bid := range affected {
-			u.deps.Beliefs.Reevaluate(r.Context(), u.deps.DB, u.emitF(), m.ID, bid, "supporting memory retracted by operator") //nolint:errcheck
+			if res, err := u.deps.Beliefs.Reevaluate(r.Context(), u.deps.DB, u.emitF(), m.ID, bid, "supporting memory retracted by operator"); err == nil {
+				u.deps.Events.Publish(res.Events...)
+			}
 		}
 	}
 	u.flash(w, r, "ok", "Memory marked inaccurate. It remains in history.", "/minds/"+m.Slug+"/memory/"+id.String())

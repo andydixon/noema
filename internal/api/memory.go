@@ -283,8 +283,11 @@ func (s *Server) propagateMemoryRetraction(r *http.Request, mind, memoryID ids.I
 		return
 	}
 	for _, bid := range affected {
-		if _, err := s.deps.Beliefs.Reevaluate(r.Context(), s.deps.DB, s.Emitter(), mind, bid, "supporting memory retracted by operator"); err != nil {
+		res, err := s.deps.Beliefs.Reevaluate(r.Context(), s.deps.DB, s.Emitter(), mind, bid, "supporting memory retracted by operator")
+		if err != nil {
 			logger(r).Warn("re-evaluate failed", "belief", bid, "err", err)
+			continue
 		}
+		s.deps.Events.Publish(res.Events...)
 	}
 }

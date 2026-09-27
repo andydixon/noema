@@ -58,6 +58,7 @@ func (u *UI) beliefAssert(w http.ResponseWriter, r *http.Request) {
 		u.flash(w, r, "error", err.Error(), "/minds/"+m.Slug+"/beliefs")
 		return
 	}
+	u.deps.Events.Publish(res.Events...)
 	u.deps.Audit.Log(r.Context(), "belief.create", "belief", res.Belief.ID.String(), map[string]any{"mind": m.Slug, "proposition": res.Belief.Proposition})
 	u.flash(w, r, "ok", "Belief recorded with confidence "+strconv.FormatFloat(res.Belief.Confidence, 'f', 2, 64)+".", "/minds/"+m.Slug+"/beliefs/"+res.Belief.ID.String())
 }
@@ -93,10 +94,12 @@ func (u *UI) beliefEvidence(w http.ResponseWriter, r *http.Request) {
 	r.ParseForm() //nolint:errcheck
 	weight, _ := strconv.ParseFloat(r.PostFormValue("weight"), 64)
 	note := r.PostFormValue("note")
-	if _, err := u.deps.Beliefs.AddEvidence(r.Context(), u.deps.DB, u.emitF(), m.ID, id, beliefs.EvidenceInput{Direction: r.PostFormValue("direction"), Kind: "operator", Source: "operator:" + username(r), Weight: weight, Credibility: events.TrustOperator.Credibility(), Note: note}, "operator evidence: "+note, ids.Nil, ids.Nil); err != nil {
+	res, err := u.deps.Beliefs.AddEvidence(r.Context(), u.deps.DB, u.emitF(), m.ID, id, beliefs.EvidenceInput{Direction: r.PostFormValue("direction"), Kind: "operator", Source: "operator:" + username(r), Weight: weight, Credibility: events.TrustOperator.Credibility(), Note: note}, "operator evidence: "+note, ids.Nil, ids.Nil)
+	if err != nil {
 		u.flash(w, r, "error", err.Error(), "/minds/"+m.Slug+"/beliefs/"+id.String())
 		return
 	}
+	u.deps.Events.Publish(res.Events...)
 	u.deps.Audit.Log(r.Context(), "belief.evidence", "belief", id.String(), map[string]any{"direction": r.PostFormValue("direction"), "note": note})
 	u.flash(w, r, "ok", "Evidence added and confidence re-evaluated.", "/minds/"+m.Slug+"/beliefs/"+id.String())
 }
@@ -130,10 +133,12 @@ func (u *UI) beliefRetract(w http.ResponseWriter, r *http.Request) {
 	}
 	reason := r.PostFormValue("reason")
 	dni := r.PostFormValue("do_not_infer") == "1"
-	if _, err := u.deps.Beliefs.Retract(r.Context(), u.emitF(), m.ID, id, reason, username(r), dni); err != nil {
+	res, err := u.deps.Beliefs.Retract(r.Context(), u.emitF(), m.ID, id, reason, username(r), dni)
+	if err != nil {
 		u.flash(w, r, "error", err.Error(), "/minds/"+m.Slug+"/beliefs/"+id.String())
 		return
 	}
+	u.deps.Events.Publish(res.Events...)
 	u.deps.Audit.Log(r.Context(), "belief.retract", "belief", id.String(), map[string]any{"reason": reason, "do_not_infer": dni})
 	u.flash(w, r, "ok", "Belief marked wrong. Its history is preserved.", "/minds/"+m.Slug+"/beliefs/"+id.String())
 }
