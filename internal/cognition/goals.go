@@ -44,6 +44,21 @@ func (g GoalMonitor) Observe(ctx context.Context, s *brain.State) ([]brain.Candi
 			Features: attention.Features{Salience: 0.4, GoalRelevance: gl.Priority, Consequence: 0.5 * gl.Priority, Urgency: 0.3, Confidence: 1}, Confidence: 1,
 			Evidence: []events.EvidenceRef{{Kind: "goal", ID: string(gl.ID)}}})
 	}
+	// A goal an operator just set deserves attention of its own.
+	for _, ev := range s.NewEvents {
+		if ev.Type != events.GoalCreated || ev.Source != "operator" {
+			continue
+		}
+		gid, _ := ev.Metadata["goal_id"].(string)
+		for _, gl := range s.Goals {
+			if string(gl.ID) == gid {
+				out = append(out, brain.Candidate{Kind: "goal", Subject: string(gl.ID) + ":new", Summary: "new goal from an operator: " + gl.Title,
+					Content:  map[string]any{"goal_id": gid, "reason": "set by an operator", "ref": gid, "source_event": string(ev.ID)},
+					Features: attention.Features{Salience: 0.7, GoalRelevance: gl.Priority, Consequence: 0.6, Urgency: 0.5, Confidence: 1, OperatorPriority: 1}, Confidence: 1,
+					SourceEvents: []ids.ID{ev.ID}, Evidence: []events.EvidenceRef{{Kind: "goal", ID: gid}, {Kind: "event", ID: string(ev.ID)}}})
+			}
+		}
+	}
 	// New external events touching a goal's subject.
 	for _, ev := range s.NewEvents {
 		if strings.HasPrefix(ev.Source, "brain") || ev.Type != events.Observation {

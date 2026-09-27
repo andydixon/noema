@@ -77,6 +77,8 @@ type Options struct {
 	// Capabilities are extra test capabilities registered before the
 	// registry is frozen.
 	Capabilities []capabilities.Capability
+	// Now replaces the plan executor's clock (verification windows).
+	Now func() time.Time
 }
 
 // Start builds and serves a daemon for one test.
@@ -131,7 +133,7 @@ func StartWith(t *testing.T, o Options) *Harness {
 	deps.Volition = volition.NewStore(pool)
 	deps.Plans = planning.NewStore(pool)
 	deps.Executor = &planning.Executor{Plans: deps.Plans, Volition: deps.Volition, Caps: deps.Capabilities, Predictions: deps.Predictions, Resolver: deps.Resolver, Events: deps.Events, Minds: deps.Minds, Memory: deps.Memory, Log: log,
-		Planner: &planning.Planner{Registry: capReg, Effect: planning.PolicyEffect(deps.Capabilities), Model: planning.ModelPlanner(deps.LLM, deps.Prompts)}}
+		Planner: &planning.Planner{Registry: capReg, Effect: planning.PolicyEffect(deps.Capabilities), Model: planning.ModelPlanner(deps.LLM, deps.Prompts)}, Now: o.Now}
 	deps.Research = research.NewStore(pool)
 	deps.Agency = &agency.Service{DB: pool, Caps: deps.Capabilities, Plans: deps.Plans, Volition: deps.Volition, Goals: deps.Goals, Beliefs: deps.Beliefs, Predictions: deps.Predictions, Events: deps.Events}
 	registry := cognition.NewRegistry(cognition.Stores{Agency: deps.Agency, Research: deps.Research, Memory: deps.Memory, Beliefs: deps.Beliefs, Conversations: deps.Conversations, Graph: deps.Graph, Assertions: deps.Assertions})

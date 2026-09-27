@@ -31,6 +31,9 @@ func (e *Executor) React(ctx context.Context, ev events.Event) error {
 	}
 	meta := func(k string) string { s, _ := ev.Metadata[k].(string); return s }
 	for _, it := range open {
+		if !it.ParentID.IsZero() {
+			continue // a subordinate intention shares its parent's plan; the parent is reconsidered
+		}
 		var t *volition.Trigger
 		switch ev.Type {
 		case events.CommitmentCreated:
@@ -86,7 +89,7 @@ func (e *Executor) React(ctx context.Context, ev events.Event) error {
 
 func (e *Executor) apply(ctx context.Context, it volition.Intention, t volition.Trigger) error {
 	if !it.PlanID.IsZero() {
-		if p, err := e.Plans.Get(ctx, nil, it.PlanID); err == nil && PlanOpen(p.Status) {
+		if p, err := e.Plans.Get(ctx, nil, it.PlanID); err == nil && PlanOpen(p.Status) && p.IntentionID == it.ID {
 			return e.reconsider(ctx, p, it, t)
 		}
 	}

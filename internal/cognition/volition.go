@@ -374,13 +374,14 @@ func (h Handlers) intend(ctx context.Context, c *brain.Cycle, t workspace.Though
 	if w.Proposal != nil && w.Proposal.Capability != "" {
 		required = []string{w.Proposal.Capability}
 	}
+	beliefIDs := supportingBeliefs(ctx, s, w)
 	expected := w.Description
 	if in.Action != nil {
 		expected = "the effect of " + in.Action.Capability + " on " + in.Action.Target + " is observed"
 	}
 	terms := map[string]any{"score": f.Score, "terms": f.Terms, "rationale": f.Rationale, "applied_commitments": f.Applied, "constrained": in.Constrained}
 	it, err := vs.CreateIntention(ctx, r, volition.Intention{MindID: s.Mind.ID, Description: f.Description, DesiredOutcome: f.DesiredOutcome, Kind: f.Kind, SourceWants: []ids.ID{w.ID}, GoalID: w.GoalID, CommitmentID: w.CommitmentID,
-		ExpectedResult: expected, Confidence: in.Confidence, Priority: f.Priority, RequireApproval: f.RequireApproval, Proposal: w.Proposal, RequiredCapabilities: required, Formation: terms})
+		ExpectedResult: expected, Confidence: in.Confidence, Priority: f.Priority, RequireApproval: f.RequireApproval, Proposal: w.Proposal, RequiredCapabilities: required, Formation: terms, BeliefIDs: beliefIDs})
 	if err != nil {
 		return err
 	}
@@ -476,4 +477,32 @@ func correctSelfModel(ctx context.Context, c *brain.Cycle, a volition.ActionInfo
 			Metadata: map[string]any{"correction": true, "capability": a.Capability, "from": entry.Policy, "to": actual}})
 	}
 	return nil
+}
+
+// supportingBeliefs links the beliefs an intention's action rests on: live
+// beliefs that mention the proposal's target and are held with at least
+// moderate confidence. A plan's expectation cites the first, so a failed
+// expectation is recorded as evidence against it.
+func supportingBeliefs(ctx context.Context, s *brain.State, w volition.Want) []ids.ID {
+	if s.Services.Beliefs == nil || w.Proposal == nil {
+		return nil
+	}
+	topic := strings.TrimSuffix(firstNonEmpty(w.Proposal.Target, w.Proposal.Subject), ".service")
+	if topic == "" {
+		return nil
+	}
+	bs, err := s.Services.Beliefs.Search(ctx, s.Mind.ID, topic, 5)
+	if err != nil {
+		return nil
+	}
+	var out []ids.ID
+	for _, b := range bs {
+		if len(out) == 3 {
+			break
+		}
+		if b.Confidence >= 0.4 && b.Status != "rejected" && b.Status != "superseded" && b.Status != "unknown" && strings.Contains(strings.ToLower(b.Proposition), strings.ToLower(topic)) {
+			out = append(out, b.ID)
+		}
+	}
+	return out
 }
