@@ -126,7 +126,7 @@ func (u *UI) intentionRedirect(w http.ResponseWriter, r *http.Request) {
 		u.errorPage(w, r, http.StatusNotFound, "No such mind.")
 		return
 	}
-	http.Redirect(w, r, "/minds/"+m.Slug+"/intentions/"+string(id), http.StatusSeeOther)
+	http.Redirect(w, r, "/minds/"+m.Slug+"/intentions/"+string(id), http.StatusSeeOther) // #nosec G710 -- same-origin path built from a stored slug and a parsed UUID
 }
 
 // dagLevel is one column of a plan's dependency graph.
