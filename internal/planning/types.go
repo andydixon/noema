@@ -142,13 +142,12 @@ type WaitSpec struct {
 
 // InternalSpec is a deterministic internal step.
 type InternalSpec struct {
-	Action string `json:"action"` // summarise_findings | record_procedure
+	Action string `json:"action"` // summarise_findings (procedural memory is recorded automatically when a plan completes)
 }
 
 // InternalActions is the closed vocabulary of internal steps.
 var InternalActions = map[string]string{
 	"summarise_findings": "collect the observations of the steps it depends on into one record for belief formation",
-	"record_procedure":   "record the steps that achieved the outcome as a procedural memory",
 }
 
 // StepSpec is one step of a draft.

@@ -18,6 +18,10 @@ The `metacognition` process audits the mind's own reasoning with explicit checks
 | repeated_failure | three or more hypotheses about one subject rejected in a month | warning |
 | stale_contradiction | a contested belief unresolved for a day | an investigation goal |
 | overconfidence | calibration shows stated confidence running ahead of outcomes | warning, notification |
+| want_suppressed_repeatedly, intention_unsupported, intention_conflicts_commitment, commitment_impossible, intention_churn, repeated_execution_failure, cost_exceeds_value | volition checks ([volition.md](volition.md)) | warning |
+| intention_outlived_goal | an intention is open although its goal is completed or abandoned | the intention is abandoned |
+| self_model_mismatch | the self-model's policy for a capability differs from the effective policy | the self-model entry is corrected |
+| unsupported_explanation, action_claim_without_record | a reply's reasons or action claims do not match records ([agency.md](agency.md)) | warning and a research measurement |
 
 Each warning is a `metacognition` event with `check` and `ref` metadata; the same check on the same target is not repeated within a day. Warnings appear on the mind overview.
 

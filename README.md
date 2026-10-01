@@ -92,7 +92,11 @@ Noema ingests untrusted data (documents, web pages, logs, repositories, model ou
 | Prediction | Explicit expectation with window and criteria; resolution produces prediction-error events that recalibrate confidence |
 | Drives and affect | Configurable scalar state that biases attention and style; inspectable and resettable |
 | Self-model | What the mind can, cannot, and is currently doing; prevents false capability claims |
-| Metacognition | Processes that audit the mind's own reasoning and emit warnings |
+| Metacognition | Processes that audit the mind's own reasoning, wants and intentions and emit warnings |
+| Want, intention, commitment | Distinct recorded states: a decaying preference, a decision to pursue an outcome, and normative state that restricts how it may be pursued ([docs/volition.md](docs/volition.md)) |
+| Plan | Validated dependency graph of steps serving an intention; executed only through the capability layer, verified by observation, replanned as new revisions ([docs/planning.md](docs/planning.md)) |
+| Why? | Forensic explanation of an action from recorded wants, intentions, commitments, beliefs and decisions ([docs/agency.md](docs/agency.md)) |
+| Cognitive research | Forks with ablations, workspace and self-model manipulations, counterfactual replays and measures with operational definitions; no claim of consciousness ([docs/cognitive-research.md](docs/cognitive-research.md)) |
 | Replay | Re-running a recorded cognitive sequence, labelled exact or approximate |
 
 ## CLI examples
@@ -112,6 +116,8 @@ noemactl fork dani --snapshot <id> --name dani-test
 ```
 
 ## Status
+
+Unreleased (after 0.2.0): volition, planning and cognitive research (PLAN.md §8) add wants, intentions and commitments as separate states, validated plans with a restart-safe executor that verifies outcomes and replans, typed host, service, log and read-only browser capabilities, temporary scoped authority requested by minds and decided by operators, forensic "why" explanations, attribution, introspection accuracy, and research experiments with ablations, workspace and self-model manipulations and counterfactual replays.
 
 Version 0.2.0: all sixteen phases of [PLAN.md](PLAN.md) are implemented, and the epistemic honesty review (PLAN.md §7, summarised in [docs/epistemics.md](docs/epistemics.md)) separated assertions from beliefs, recorded evidence provenance, labelled every score as uncalibrated, added explicit unknowns, temporal beliefs, per-subject source reliability, runtime identity for replay, cognitive forks per model, a causal timeline, audited redaction and Amazon Bedrock. Highlights beyond the first milestone: goals and motivation, predictions and calibration, metacognition, reflection and consolidation, the relationship graph, the capability and policy layer, integrations (research folder, git, Prometheus, webhooks), dreaming, snapshots and forks, cognitive replay, experiments, export/import, TOTP. See [CHANGELOG.md](CHANGELOG.md), [docs/RELEASE_NOTES.md](docs/RELEASE_NOTES.md) and the API document at [docs/openapi.json](docs/openapi.json) (also served at `/api/v1/openapi.json`).
 

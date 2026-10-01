@@ -101,7 +101,11 @@ Prompts are named and versioned rows; templates receive structured data. Untrust
 
 ## 9. Capabilities and policy
 
-All external effects go through `capabilities.Invoke(ctx, mind, capability, target, params)`. The policy engine evaluates rules scoped globally, per mind, per capability, per target pattern and per time window; the most specific rule wins and at equal specificity DENY > ASK > ALLOW. Results are `policy_decision` events. `ASK` creates an approval request with reason, parameters, evidence, risk and expiry; operators approve once, approve for a session, deny, deny with explanation, or modify parameters. Execution, denial and failure are all events.
+All external effects go through `capabilities.Service.Invoke`. Capabilities declare access, side effects, idempotency, timeout, resource estimate, a policy target derived from parameters and output trust; the registry is frozen at start-up (ADR-0011). The policy engine evaluates rules scoped globally, per mind, per capability, per target pattern and per time window; the most specific rule wins and at equal specificity DENY > ASK > ALLOW. Results are `policy_decision` events. `ASK` creates an approval request with reason, parameters, evidence, risk and expiry; operators approve once, approve for a session, deny, deny with explanation, or modify parameters. Execution, denial and failure are all events. Temporary authority is a scoped grant (capability, target and parameter globs, access, expiry, operation count) made by an operator, directly or in answer to a structured capability request; grants apply only where policy says ASK. Commitments may require approval but never grant it.
+
+## 9a. Volition, planning and agency
+
+After each cycle a volition hook derives **wants** (preferences with origin, decaying strength, urgency and optional means) from states that call for change. An `intend` process lets the strongest undecided wants compete for the workspace; the handler resolves value tensions, applies commitments and policy preview in deterministic formation, and records the decision in an append-only ledger whether or not an **intention** forms. Formed intentions are planned in the same transaction: a **plan** is a validated dependency graph of capability, request, verify, monitor, wait and internal steps with expectations, assumptions, budget and alternatives. A scheduler-owned **executor** claims steps with conditional updates, invokes only through the capability layer, verifies expectations by observation (resolving predictions), forms subordinate intentions while waiting for approval or access, reconsiders intentions on failures and new commitments or evidence, and replans into new revisions. Forensic explanations and attribution are assembled from these records (`internal/agency`). See [docs/volition.md](docs/volition.md), [docs/planning.md](docs/planning.md) and [docs/agency.md](docs/agency.md).
 
 ## 10. Attention and workspace inspectability
 
@@ -109,7 +113,7 @@ The UI shows every candidate of the latest cycle with its component scores and t
 
 ## 11. Snapshots, forking, replay, experiments
 
-A **snapshot** captures a mind's full state (identity, personality version, configuration, working memory, workspace, drives, affect, goals, beliefs, memories) plus the event `seq` at that point. A **fork** creates a new mind from a snapshot with a `forked_from` link; history before the fork is shared by reference, everything after diverges. **Replay** rebuilds `BrainState` from a snapshot and re-runs the cycle code over the recorded event sequence with LLM calls served from the recorded responses. Each replayed step is labelled *exact* (deterministic, or recorded response used) or *approximate* (live model call). **Experiments** wrap snapshot + stimuli + configuration + seed + expected observations and export results.
+A **snapshot** captures a mind's full state (identity, personality version, configuration, working memory, workspace, drives, affect, goals, beliefs, memories) plus the event `seq` at that point. A **fork** creates a new mind from a snapshot with a `forked_from` link; history before the fork is shared by reference, everything after diverges. **Replay** rebuilds `BrainState` from a snapshot and re-runs the cycle code over the recorded event sequence with LLM calls served from the recorded responses. Each replayed step is labelled *exact* (deterministic, or recorded response used) or *approximate* (live model call). **Experiments** wrap snapshot + stimuli + configuration + seed + expected observations and export results. Research experiments add protocols, ablations and workspace overrides in forks, self-model overrides, counterfactual replays and measures with operational definitions (`internal/research`, [docs/cognitive-research.md](docs/cognitive-research.md)); forks never inherit policy unless an operator asks.
 
 ## 12. Storage
 
@@ -137,5 +141,7 @@ Details in `THREAT_MODEL.md`.
 | prediction resolution against metrics/events | summarisation, narrative, response wording |
 | mode transitions, scheduling, retention | relevance judgment where text matching fails |
 | provenance links, event relationships | consolidation candidates (confidence still computed) |
+| want derivation, conflict resolution, intention formation, reconsideration | plan decomposition proposals (validated before storage) |
+| plan validation, execution state, verification, attribution, introspection scoring | |
 
 The LLM augments the architecture. It is never asked "what should I think about?" with the whole memory attached.

@@ -20,6 +20,10 @@ Second release: every phase of the plan is implemented, tested and documented, a
 
 The review pass recorded in PLAN.md §7 and summarised in [epistemics.md](epistemics.md), plus the Amazon Bedrock provider, are the 0.2.0 section of the changelog. Its remaining limitations are listed at the end of that document.
 
+## After 0.2.0 (unreleased)
+
+Volition, planning and cognitive research are in the [Unreleased] section of the changelog and PLAN.md §8. govulncheck reports one module-level advisory (GO-2026-5932, `golang.org/x/crypto/openpgp`, no fix available) in a package Noema does not import; no reachable vulnerability is reported.
+
 ## Known limits
 
 - Replays diverge honestly when retrieval scoring depends on wall-clock recency; a virtual clock for replay is future work.

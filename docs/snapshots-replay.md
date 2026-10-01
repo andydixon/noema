@@ -5,8 +5,9 @@
 A **snapshot** is a JSON archive of a mind's state at a point in its history:
 identity, personality, configuration, workspace and working memory, drives and
 affect, goals, beliefs (with evidence, versions, alternatives, links), memories
-(with relationships), predictions, entities, corrections, policy rules (kept by forks, never imported from archives) and
-conversations. It records the event sequence number at capture and a SHA-256
+(with relationships), predictions, entities, corrections, policy rules, conversations,
+and wants, want conflicts, commitments, intentions, plans, plan steps and the
+volition decision ledger. It records the event sequence number at capture and a SHA-256
 checksum. Cognitive events are **not** copied.
 
 A **fork** restores a snapshot into a new mind. Every row id is remapped, so
@@ -14,6 +15,13 @@ the fork never shares mutable rows with its source; references to events keep
 pointing at the source's immutable history, which is how the past before the
 fork is shared by reference (`forked_from_mind`, `forked_from_snapshot`,
 snapshot `event_seq`). After the fork the two minds diverge freely.
+
+**Authority is not inherited.** A fork receives no policy rules unless the
+operator asks for them explicitly (`inherit_policies`, audited), and an
+import never restores them. Work inherited mid-flight is stopped in the
+restore transaction: open plan steps are blocked with their approval and
+request ids cleared, open plans blocked and live intentions suspended.
+Approvals, grants and executions stay with the source mind.
 
 **Compare** (`/minds/{a}/compare?with={b}`, `noemactl compare`) is
 deterministic: counts, mean confidence, belief-by-belief differences keyed on
@@ -91,7 +99,14 @@ an archive of the subject). The subject stays for comparison with the
 baseline.
 
 Different models are compared by changing role routing between runs; the
-routing in force is recorded in each result. The seed is recorded with every
+routing in force is recorded in each result.
+
+Research experiments add protocols (global workspace, ablation, self-model,
+counterfactual, model comparison, conflict), ablations and workspace
+overrides in forks, self-model overrides, counterfactual replays that omit
+recorded events, per-variant volition, plan, downstream and introspection
+measures, and reproducibility against the previous run; see
+[cognitive-research.md](cognitive-research.md). The seed is recorded with every
 stimulus for provenance; deterministic code needs no seed, and model
 providers do not honour one reliably.
 

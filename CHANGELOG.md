@@ -4,7 +4,29 @@ All notable changes to Noema are recorded here. Format follows Keep a Changelog;
 
 ## [Unreleased]
 
-Nothing yet.
+Volition, planning and cognitive research (PLAN.md §8; docs/volition.md, docs/planning.md, docs/agency.md, docs/cognitive-research.md).
+
+### Added
+- Wants, want conflicts, commitments, intentions and an append-only volition decision ledger (migration 0026, ADR-0012): deterministic want derivation with thresholds, reinforcement, decay and suppression; explicit conflict resolution without a fixed hierarchy; value-derived tensions (caution, privacy); formation weighing strength, urgency, goals, commitments, values, risk, cost, capability availability and capacity, recording why a want did not become an intention; commitment checks for due, broken, expired, conflicting, impossible and superseded; reconsideration on failures, denials, expiries, capability and commitment changes, weakened assumptions, budgets and goal outcomes; subordinate intentions while waiting for authority.
+- Plans and plan steps (migration 0027, ADR-0013): validation of structure, vocabulary and parameters; deterministic strategies and validated model proposals (a `plan` model role); a scheduler-owned executor with conditional claims, verification by observation through predictions, replanning into revisions with a limit, budgets, preconditions, wait and monitor steps, recovery after interruptions without repeating non-idempotent actions, and procedural memory of what worked.
+- Cognition: a volition hook, an `intend` process competing for attention, explicit requests become wants with proposed means, operator goals are raised for attention, intentions link supporting beliefs, volition checks in metacognition, self-model mismatch correction.
+- Capabilities (migration 0025, ADR-0011): access, side effects, idempotency, timeout, estimates, parameter-derived targets and output trust; a frozen registry; `RequireApproval`; scoped grants with target, parameter, access, expiry and operation limits; structured capability requests with reason, evidence, risk, mitigation, fallback and alternatives, capped and batched per mind, decided only by named people.
+- Typed capabilities: `service.status`, `service.restart`, `logs.query` (PII masked), `host.disk.usage`, `host.memory.status`, `host.process.list` (no command lines) and read-only `browser.navigate`, `browser.read`, `browser.links`.
+- Agency: forensic "why" explanations from records, conservative attribution (caused, followed, independent, unknown), introspection intents for why an action happened, past beliefs, lineage, counterfactuals, wants, intentions and commitments; every reply scored for introspection accuracy and unsupported action claims (migration 0028).
+- Research: ablations and workspace overrides in forks only, self-model overrides, counterfactual replays that omit recorded events, protocol metadata, per-variant volition, plan, downstream and introspection measures, architecture share, reproducibility status, agency metrics and metacognitive calibration, a registry of operational definitions.
+- API routes for wants, conflicts, commitments, intentions, decisions, plans, why, attribution, the agency timeline, research measures and metrics, capability requests and scoped grants; UI pages for each, a research dashboard and approval-centre sections for requests and grants.
+
+### Changed
+- Forks no longer copy policy rules unless `inherit_policies` is set; work inherited mid-flight is quiesced.
+- Conversational requests no longer invoke capabilities directly; they become wants and go through formation and planning.
+- `http.fetch` output is low trust. `service.status` is allowed by default.
+- Usernames that are internal component names are refused.
+- `make test-race` and `make test-db` allow 30 minutes.
+
+### Fixed
+- The approval centre's Approve and Deny and the policy form called unwired UI callbacks and returned 500.
+- API belief events were published before their transaction committed.
+- Snapshot column discovery read the `public` schema instead of the current one.
 
 ## [0.2.0] - 2026-09-15
 

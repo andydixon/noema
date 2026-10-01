@@ -391,3 +391,26 @@ New `docs/volition.md`, `docs/planning.md`, `docs/agency.md`, `docs/cognitive-re
 ### 8.9 Rollback
 
 Each unit is revertible. Migrations only add. Reverting cognition integration leaves inert tables; reverting the fork policy change restores inheritance. Capability grants are deleted with their table on down migration, which removes temporary authority rather than adding any.
+
+### 8.10 Status (2026-09-15)
+
+| Area | Status | Commits |
+|---|---|---|
+| Plan | done | 7fe90e5 |
+| Single registry builder | done | 122914f |
+| Capability metadata, frozen registry, `RequireApproval`, scoped grants, capability requests (B6, B7, B11) | done | fce3dea |
+| Typed host, service, journal and browser capabilities (B7–B9) | done | d74df44 |
+| Volition model (A1–A7, A9, G) | done | 0a6fa84 |
+| Plans, validation, planner, executor (B1–B5, B10, B12) | done | 77b2117, e25d68f |
+| Cognition integration, volition metacognition (A3, A5, A8, A10) | done | 79cee70 |
+| Forks, snapshots, dreams; Part H security tests | done | a3caed7 |
+| Forensic why, attribution, introspection intents and accuracy (C5, C7, C9, E) | done | cce3a79 |
+| Research framework (C1–C4, C6, C8, C10–C13) | done | 8111339, 586790e |
+| API (F, E, C13) | done | 814520a |
+| UI (F, E, C13) | done | 558eae2, 1ec5287 |
+| Part L scenario and failure modes (I, J, L) | done | d59cb1c |
+| Documentation (K) | done | this commit |
+
+Defects found and fixed along the way: unwired UI approval and policy callbacks (aae312a), belief events published before commit (e7ebbf8), snapshot column discovery reading the wrong schema (a3caed7), and a stale step copy able to re-run a claimed step (e25d68f).
+
+Known limits are listed at the end of each of `docs/volition.md`, `docs/planning.md`, `docs/agency.md` and `docs/cognitive-research.md`.
