@@ -2,18 +2,7 @@ The capability layer is the only way a mind can affect anything outside its own 
 
 ## Capabilities
 
-A capability is registered in Go code with a name, description, risk class (low, medium, high, critical), target kind (url, path, host, service, repository, address or none), typed parameters with limits, a default effect and an executor. The built-in set is:
-
-| Capability | Risk | Default | What it does |
-|---|---|---|---|
-| `noema.note` | low | ALLOW | leaves a note for the operator in the mind's own history |
-| `http.fetch` | medium | ASK | fetches a public URL read-only through the hardened HTTP client, bounded in size |
-| `read_metrics` | low | ALLOW | evaluates a PromQL expression against a Prometheus integration connected to the mind |
-| `repository.read` | medium | ASK | reads one file from a git integration connected to the mind |
-| `internet_search` | medium | ASK | stub until a search integration exists; fails closed |
-| `send_email` | high | ASK | stub until a mail integration exists; fails closed |
-| `sudo_shell` | critical | DENY, locked | exists so it can be named; never executes |
-| `delete_database` | critical | DENY, locked | exists so it can be named; never executes |
+A capability is registered in Go code with a name, description, access (read or write), side effects, idempotency, timeout, resource estimate, risk class, policy target derived from its parameters, output trust, typed parameters with limits, a default effect and an executor. The built-in set, including the bounded host and browser capabilities added in 0.3, is tabulated in the reference below.
 
 Nothing at runtime can add a capability, so a mind cannot invent a tool by describing one, and a prompt that names a non-existent capability produces a denied request and nothing else.
 

@@ -40,9 +40,13 @@ CHAPTERS = [
     ("graph", "Relationship graph", "Entities, evidenced edges, merges and the canvas explorer."),
     ("llm-providers", "Language models", "Roles, providers (OpenAI-compatible, Anthropic, Ollama, Amazon Bedrock), per-mind routing, budgets, recorded calls, replay and versioned prompts."),
     ("capabilities", "Capabilities and policy", "The only path to action: ALLOW / ASK / DENY, approvals, locked capabilities and tool output as data."),
+    ("volition", "Volition", "Wants, intentions and commitments as distinct recorded states: generation, conflicts, formation, reconsideration and values."),
+    ("planning", "Planning and execution", "Plans as validated graphs of typed steps, observe-act-verify, replanning, capability negotiation and bounded host operations."),
+    ("agency", "Agency and why", "Authority outside cognition, the causal chain from want to outcome, attribution and forensic explanations."),
     ("integrations", "Integrations", "Research folder, git mirrors, Prometheus and signed webhooks as provenance-tagged observations."),
     ("dreaming", "Dreaming", "The opt-in idle mode: replay, association and speculative hypotheses that can never act."),
     ("snapshots-replay", "Snapshots, forks, replay and experiments", "Capturing state, branching minds, re-running cognition under a recorded runtime identity, and comparing forks that differ in one thing, including the model."),
+    ("cognitive-research", "Cognitive research", "Operational definitions, ablations, introspection accuracy, calibration, agency metrics and the research dashboard, with no claim of consciousness."),
     ("ui-tour", "Interface tour", "Every screen of the web interface, what it shows and what an operator does there."),
     ("api", "HTTP API", "Authentication, roles, the error envelope, streaming and every route."),
     ("cli", "Command line", "What an operator can do from a terminal: every command, with examples."),
@@ -210,7 +214,7 @@ LINK_MAP = {
     "docs/conversation.md": "conversation", "docs/motivation.md": "motivation", "docs/predictions.md": "predictions", "docs/graph.md": "graph",
     "docs/llm-providers.md": "llm-providers", "docs/capabilities.md": "capabilities", "docs/integrations.md": "integrations",
     "docs/dreaming.md": "dreaming", "docs/snapshots-replay.md": "snapshots-replay", "docs/performance.md": "development",
-    "docs/RELEASE_NOTES.md": "development", "docs/privacy.md": "privacy", "docs/epistemics.md": "epistemics", "docs/openapi.json": "api", "docs/adr": "decisions",
+    "docs/RELEASE_NOTES.md": "development", "docs/privacy.md": "privacy", "docs/epistemics.md": "epistemics", "docs/volition.md": "volition", "docs/planning.md": "planning", "docs/agency.md": "agency", "docs/cognitive-research.md": "cognitive-research", "docs/openapi.json": "api", "docs/adr": "decisions",
 }
 
 
