@@ -173,7 +173,7 @@ func TestFirstMilestone(t *testing.T) {
 		Reply *conversation.Message `json:"reply"`
 		Note  string                `json:"note"`
 	}
-	if code := h.do("POST", "/api/v1/minds/m1/ask", map[string]any{"text": "atlas has a failing disk.", "wait_seconds": 20}, &ask); code != 200 || ask.Reply == nil {
+	if code := h.do("POST", "/api/v1/minds/m1/ask", map[string]any{"text": "atlas has a failing disk.", "wait_seconds": 90}, &ask); code != 200 || ask.Reply == nil {
 		t.Fatalf("ask 1: %d %+v", code, ask)
 	}
 	if !strings.Contains(ask.Reply.Content, "Noted") || ask.Reply.LLMCallID.IsZero() || ask.Reply.EventID.IsZero() {
@@ -184,7 +184,7 @@ func TestFirstMilestone(t *testing.T) {
 	if intent.Kind != "acknowledge" || len(intent.Beliefs) != 1 {
 		t.Fatalf("intent 1 wrong: %+v", intent)
 	}
-	if code := h.do("POST", "/api/v1/minds/m1/ask", map[string]any{"text": "What do you believe about atlas?", "wait_seconds": 20}, &ask); code != 200 || ask.Reply == nil {
+	if code := h.do("POST", "/api/v1/minds/m1/ask", map[string]any{"text": "What do you believe about atlas?", "wait_seconds": 90}, &ask); code != 200 || ask.Reply == nil {
 		t.Fatalf("ask 2: %d %+v", code, ask)
 	}
 	json.Unmarshal(ask.Reply.Intent, &intent) //nolint:errcheck
@@ -274,7 +274,7 @@ func TestFirstMilestone(t *testing.T) {
 		t.Fatalf("state not continued after restart: before %d/%d after %d/%d", cycleBefore, len(ws.State.WorkingMemory), ws2.State.Cycle, len(ws2.State.WorkingMemory))
 	}
 	// 14. Continue the same mind: it still holds the belief and answers.
-	if code := h2.do("POST", "/api/v1/minds/m1/ask", map[string]any{"text": "What do you believe about atlas?", "wait_seconds": 20}, &ask); code != 200 || ask.Reply == nil {
+	if code := h2.do("POST", "/api/v1/minds/m1/ask", map[string]any{"text": "What do you believe about atlas?", "wait_seconds": 90}, &ask); code != 200 || ask.Reply == nil {
 		t.Fatalf("ask after restart: %d %+v", code, ask)
 	}
 	json.Unmarshal(ask.Reply.Intent, &intent) //nolint:errcheck

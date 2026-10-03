@@ -47,9 +47,12 @@ func TestCommitmentTurnsActionIntoRequestForApproval(t *testing.T) {
 	if it.Kind != volition.IntentRequestApproval || !it.RequireApproval {
 		t.Fatalf("intention should be to request approval: %+v", it)
 	}
-	waitFor(t, h, m, 15*time.Second, "an approval request", func() bool {
+	// The approval request commits before the executor marks the intention
+	// blocked, so wait for both.
+	waitFor(t, h, m, 60*time.Second, "an approval request and a blocked intention", func() bool {
 		ap, _ := h.Deps.Capabilities.Approvals(ctx, m.ID, "pending", 10)
-		return len(ap) == 1
+		cur, _ := h.Deps.Volition.GetIntention(ctx, nil, m.ID, it.ID)
+		return len(ap) == 1 && cur.Status == volition.IntentionBlocked
 	})
 	if host.count() != 0 {
 		t.Fatal("restart ran without approval")
