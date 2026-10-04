@@ -800,8 +800,8 @@ func (e *Executor) reconsider(ctx context.Context, p Plan, it volition.Intention
 	rc := volition.Reconsider(it, t, volition.ReconsiderContext{Replans: p.Revision - 1, MaxReplans: p.MaxReplans, Now: e.now()})
 	switch rc.Outcome {
 	case volition.Replan, volition.Tighten:
-		if err := e.Plans.SetStatus(ctx, nil, p.ID, PlanReplanning, rc.Reason); err != nil {
-			return err
+		if won, err := e.Plans.BeginReplan(ctx, p.ID, rc.Reason); err != nil || !won {
+			return err // another reconsideration is already replanning or has closed this plan
 		}
 		cur, err := e.Volition.Apply(ctx, r, p.MindID, it.ID, rc, t)
 		if err != nil {

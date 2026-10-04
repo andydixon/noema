@@ -399,6 +399,18 @@ func (s *Store) SetStatus(ctx context.Context, q storage.Querier, id ids.ID, sta
 	return err
 }
 
+// BeginReplan moves an open plan into replanning only if no one else has,
+// so two reconsiderations holding the same plan cannot both replan it. It
+// reports whether this caller won.
+func (s *Store) BeginReplan(ctx context.Context, id ids.ID, reason string) (bool, error) {
+	tag, err := s.db.Exec(ctx, `UPDATE plans SET status=$2, status_reason=$3, updated_at=now() WHERE id=$1 AND status = ANY($4)`,
+		id, PlanReplanning, trunc(reason, 500), []string{PlanValidated, PlanWaiting, PlanExecuting, PlanBlocked, PlanAwaitingApproval})
+	if err != nil {
+		return false, err
+	}
+	return tag.RowsAffected() == 1, nil
+}
+
 // AddActual adds consumed resources to a plan and returns the new totals.
 func (s *Store) AddActual(ctx context.Context, id ids.ID, delta Resources) (Resources, error) {
 	var raw []byte

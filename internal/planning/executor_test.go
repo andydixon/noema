@@ -538,3 +538,22 @@ func TestStaleStepCopyCannotMoveStepBackwards(t *testing.T) {
 		t.Fatalf("stale copy overwrote a claimed step: %s", got.Status)
 	}
 }
+
+// Two reconsiderations holding the same plan (an event reaction and an
+// executor tick) must replan it once, not twice.
+func TestConcurrentReconsiderationReplansOnce(t *testing.T) {
+	f := newFixture(t)
+	f.allow("service.restart")
+	it := f.intention(false)
+	p := f.start(it)
+	trig := volition.Trigger{Kind: volition.TriggerStepFailed, Detail: "test"}
+	if err := f.exec.reconsider(f.ctx, p, it, trig); err != nil {
+		t.Fatal(err)
+	}
+	if err := f.exec.reconsider(f.ctx, p, it, trig); err != nil { // stale copies of the plan and intention
+		t.Fatal(err)
+	}
+	if ps, _ := f.plans.ForIntention(f.ctx, nil, it.ID); len(ps) != 2 {
+		t.Fatalf("want one replan, got %d plans", len(ps))
+	}
+}
