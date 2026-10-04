@@ -72,7 +72,8 @@ func TestIncidentScenario(t *testing.T) {
 	var req string
 	waitFor(t, h, m, 30*time.Second, "a capability request for logs", func() bool {
 		rs, _ := h.Deps.Capabilities.CapabilityRequests(ctx, m.ID, "pending", 5)
-		if len(rs) == 1 {
+		// The request commits before the executor blocks the intention.
+		if cur, _ := h.Deps.Volition.GetIntention(ctx, nil, m.ID, investigate.ID); len(rs) == 1 && cur.Status == volition.IntentionBlocked {
 			req = rs[0].ID.String()
 			if rs[0].Capability != "logs.query" || rs[0].Risk == "" || rs[0].Fallback == "" || rs[0].MaxOperations == nil {
 				t.Fatalf("request not explained: %+v", rs[0])
@@ -139,6 +140,9 @@ func TestIncidentScenario(t *testing.T) {
 	if host.count() != 0 || restart.Kind != volition.IntentRequestApproval || len(restart.BeliefIDs) == 0 {
 		t.Fatalf("restart before approval, wrong kind or no supporting belief: restarts=%d %+v", host.count(), restart)
 	}
+	if restart.BeliefIDs[0] != belief.ID {
+		t.Fatalf("the belief about restarting should be the first support, got %v (want %s)", restart.BeliefIDs, belief.ID)
+	}
 
 	// 21–25: approved; restarted with a typed capability; health is verified, not assumed; it fails.
 	post("/api/v1/approvals/"+approval+"/approve", map[string]any{"note": "go"})
@@ -182,14 +186,16 @@ func TestIncidentScenario(t *testing.T) {
 		}
 		return false
 	})
-	mems, _ := h.Deps.Memory.List(ctx, m.ID, memory.Filter{Kinds: []concepts.MemoryKind{concepts.Procedural}, Limit: 10})
-	learnt := false
-	for _, mm := range mems {
-		learnt = learnt || strings.Contains(mm.Content, "confirmed by observation")
-	}
-	if !learnt {
-		t.Fatalf("what worked was not recorded as a procedure: %+v", mems)
-	}
+	// The plan completes, and records what worked, after the prediction resolves.
+	waitFor(t, h, m, 30*time.Second, "what worked recorded as a procedure", func() bool {
+		mems, _ := h.Deps.Memory.List(ctx, m.ID, memory.Filter{Kinds: []concepts.MemoryKind{concepts.Procedural}, Limit: 10})
+		for _, mm := range mems {
+			if strings.Contains(mm.Content, "confirmed by observation") {
+				return true
+			}
+		}
+		return false
+	})
 
 	// 31: "Why did you do that?" is answered from the recorded chain.
 	execs, _ := h.Deps.Capabilities.Executions(ctx, m.ID, 50)

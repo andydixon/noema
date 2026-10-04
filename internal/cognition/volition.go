@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"sort"
 	"strings"
 	"time"
 
@@ -495,6 +496,13 @@ func supportingBeliefs(ctx context.Context, s *brain.State, w volition.Want) []i
 	if err != nil {
 		return nil
 	}
+	// A belief about the proposed action itself ("restarting atlas-worker
+	// clears the queue") is what the action rests on, so it comes first; the
+	// first supporting belief is the one a verification outcome revises.
+	action := strings.ToLower(w.Proposal.Capability[strings.LastIndex(w.Proposal.Capability, ".")+1:])
+	sort.SliceStable(bs, func(i, j int) bool {
+		return action != "" && strings.Contains(strings.ToLower(bs[i].Proposition), action) && !strings.Contains(strings.ToLower(bs[j].Proposition), action)
+	})
 	var out []ids.ID
 	for _, b := range bs {
 		if len(out) == 3 {

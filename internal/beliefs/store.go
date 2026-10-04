@@ -872,7 +872,7 @@ func (s *Store) Search(ctx context.Context, mind ids.ID, text string, limit int)
 	}
 	q := strings.Join(toks, " | ")
 	rows, err := s.db.Query(ctx, `SELECT `+cols+` FROM beliefs b WHERE b.mind_id=$1 AND b.status NOT IN ('superseded') AND b.search @@ to_tsquery('english', $2)
-		ORDER BY ts_rank_cd(b.search, to_tsquery('english', $2)) DESC, b.confidence DESC LIMIT $3`, mind, q, limit)
+		ORDER BY ts_rank_cd(b.search, to_tsquery('english', $2)) DESC, b.confidence DESC, b.id LIMIT $3`, mind, q, limit)
 	if err != nil {
 		return nil, err
 	}
