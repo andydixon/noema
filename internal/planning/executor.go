@@ -372,7 +372,7 @@ func (e *Executor) explain(p Plan, it volition.Intention, st Step, c capabilitie
 	}
 	var alts []string
 	for _, a := range p.Alternatives {
-		if !a.Selected && a.Why != "already failed" {
+		if !a.Selected && a.Why != "already failed" && !strings.HasPrefix(a.Why, "not consulted") {
 			alts = append(alts, a.Strategy)
 		}
 	}

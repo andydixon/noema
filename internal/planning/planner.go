@@ -78,6 +78,13 @@ func (p *Planner) Propose(ctx context.Context, it volition.Intention, previous [
 			alts = append(alts, Alternative{Strategy: s.name, Description: "tried in an earlier revision", Why: "already failed"})
 			continue
 		}
+		if s.name == "model" && chosen != nil {
+			// A model is consulted only when no deterministic strategy
+			// applies; building it here would spend a live call on an
+			// alternative that cannot be selected.
+			alts = append(alts, Alternative{Strategy: s.name, Description: "model decomposition", ExpectedConfidence: s.confidence, Why: "not consulted: a deterministic strategy applies"})
+			continue
+		}
 		d, err := s.build()
 		if err != nil {
 			alts = append(alts, Alternative{Strategy: s.name, Description: err.Error(), Why: "not buildable"})

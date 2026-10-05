@@ -510,6 +510,40 @@ func TestInvalidModelPlanNeverRuns(t *testing.T) {
 	}
 }
 
+// A model is consulted only when no deterministic strategy applies (B2):
+// planning a direct capability action must not spend a live model call on
+// an alternative that cannot be selected.
+func TestModelIsNotConsultedWhenADeterministicStrategyApplies(t *testing.T) {
+	f := newFixture(t)
+	calls := 0
+	f.exec.Planner.Model = func(context.Context, ids.ID, string, []capabilities.Capability) (string, ids.ID, error) {
+		calls++
+		return `{"steps":[]}`, ids.Nil, nil
+	}
+	it, _ := f.vol.CreateIntention(f.ctx, f.vol.Direct(f.es, "test"), volition.Intention{MindID: f.mind.ID, Description: "check the status page", Kind: volition.IntentAct,
+		Proposal: &volition.Proposal{Kind: "capability", Capability: "service.status", Params: map[string]any{"service": "atlas-worker"}}})
+	p, err := f.exec.Start(f.ctx, f.exec.rec(), it)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if calls != 0 {
+		t.Fatalf("the model was called %d time(s) although the direct strategy applied", calls)
+	}
+	recorded := false
+	for _, a := range p.Alternatives {
+		recorded = recorded || (a.Strategy == "model" && !a.Selected && strings.HasPrefix(a.Why, "not consulted"))
+	}
+	if p.Strategy != "direct" || !recorded {
+		t.Fatalf("expected the direct strategy with the model recorded as not consulted: %+v", p.Alternatives)
+	}
+	// With no deterministic strategy the model is consulted.
+	pursue, _ := f.vol.CreateIntention(f.ctx, f.vol.Direct(f.es, "test"), volition.Intention{MindID: f.mind.ID, Description: "make the dashboard faster", Kind: volition.IntentPursue})
+	f.exec.Start(f.ctx, f.exec.rec(), pursue) //nolint:errcheck
+	if calls != 1 {
+		t.Fatalf("the model should be consulted once when nothing else applies, got %d", calls)
+	}
+}
+
 // Regression: an executor holding a stale "pending" copy of a step must not
 // move it back to "ready" after another executor has claimed it, or the
 // step can be claimed and run a second time.
