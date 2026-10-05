@@ -135,3 +135,40 @@ func TestStoreLifecycle(t *testing.T) {
 		t.Fatalf("conflict with a satisfied want still open: %+v", cs)
 	}
 }
+
+// Regression: two reconsiderations racing on one intention must not both
+// apply. A caller holding a copy the database has moved past gets ErrClosed
+// and writes neither a transition, an event nor a decision; an intention
+// closed by one path is never reopened by the other.
+func TestStaleIntentionCopyCannotApply(t *testing.T) {
+	pool := storage.TestPool(t, migrations.FS)
+	ctx := context.Background()
+	m, _ := minds.NewStore(pool).Create(ctx, minds.CreateParams{Slug: "race"})
+	es := evstore.NewStore(pool, nil, nil)
+	s := NewStore(pool)
+	r := s.Direct(es, "volition.test")
+	it, err := s.CreateIntention(ctx, r, Intention{MindID: m.ID, Description: "fetch the status page", Kind: IntentAct, Status: IntentionBlocked, BlockedKind: BlockApproval})
+	if err != nil {
+		t.Fatal(err)
+	}
+	stale := it // the executor's copy, read before the event bus abandoned it
+	if _, err := s.Apply(ctx, r, m.ID, it.ID, Reconsideration{Outcome: Abandon, Reason: "the goal it served was abandoned"}, Trigger{Kind: TriggerGoalAbandoned}); err != nil {
+		t.Fatal(err)
+	}
+	cur, err := s.applyFrom(ctx, r, stale, Reconsideration{Outcome: Resume, Reason: "the operator granted the requested authority"}, Trigger{Kind: TriggerRequestGranted})
+	if !errors.Is(err, ErrClosed) || cur.Status != IntentionAbandoned || cur.ClosedAt == nil {
+		t.Fatalf("stale resume applied: %v %+v", err, cur)
+	}
+	if evs, _ := es.Query(ctx, evstore.Filter{MindID: m.ID, Types: []events.Type{events.IntentionResumed}}); len(evs) != 0 {
+		t.Fatal("a lost race still recorded an event")
+	}
+	if ds, _ := s.Decisions(ctx, m.ID, DecisionFilter{IntentionID: it.ID}); len(ds) != 1 {
+		t.Fatalf("decisions: %d, want the abandonment only", len(ds))
+	}
+	if err := s.Supersede(ctx, r, m.ID, it.ID, ids.New(), "replaced"); err != nil {
+		t.Fatal(err)
+	}
+	if got, _ := s.GetIntention(ctx, nil, m.ID, it.ID); got.Status != IntentionAbandoned {
+		t.Fatalf("supersede relabelled a closed intention: %s", got.Status)
+	}
+}

@@ -591,3 +591,28 @@ func TestConcurrentReconsiderationReplansOnce(t *testing.T) {
 		t.Fatalf("want one replan, got %d plans", len(ps))
 	}
 }
+
+// Regression: a caller holding a stale copy of a plan (a reconsideration
+// that lost a race with completion) must not relabel a closed plan.
+func TestClosedPlanIsNeverRelabelled(t *testing.T) {
+	f := newFixture(t)
+	f.host.fixOnRestart = true
+	f.allow("service.restart")
+	it := f.intention(false)
+	p := f.start(it)
+	for i := 0; i < 5 && f.plan(p.ID).Status != PlanCompleted; i++ {
+		f.tick()
+	}
+	if f.plan(p.ID).Status != PlanCompleted {
+		t.Fatalf("plan did not complete: %s", f.plan(p.ID).Status)
+	}
+	if err := f.plans.SetStatus(f.ctx, nil, p.ID, PlanBlocked, "stale reconsideration"); err != nil {
+		t.Fatal(err)
+	}
+	if err := f.exec.Reconsider(f.ctx, p.ID, volition.Trigger{Kind: volition.TriggerResourceExhausted, Detail: "late"}); err != nil {
+		t.Fatal(err)
+	}
+	if got := f.plan(p.ID); got.Status != PlanCompleted || got.StatusReason == "stale reconsideration" {
+		t.Fatalf("closed plan relabelled: %+v", got)
+	}
+}

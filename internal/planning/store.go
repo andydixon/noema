@@ -385,7 +385,10 @@ func (s *Store) SaveIf(ctx context.Context, st Step, expected string) (bool, err
 	return tag.RowsAffected() == 1, nil
 }
 
-// SetStatus writes a plan's status and reason.
+// SetStatus writes a plan's status and reason. Only an open plan (or a
+// draft) changes: a plan that was completed, failed, abandoned or
+// superseded meanwhile keeps that state, so a caller holding a stale copy
+// can never reopen or relabel a closed plan.
 func (s *Store) SetStatus(ctx context.Context, q storage.Querier, id ids.ID, status, reason string) error {
 	if q == nil {
 		q = s.db
@@ -395,7 +398,8 @@ func (s *Store) SetStatus(ctx context.Context, q storage.Querier, id ids.ID, sta
 	if !PlanOpen(status) && status != PlanDraft {
 		closed = &now
 	}
-	_, err := q.Exec(ctx, `UPDATE plans SET status=$2, status_reason=$3, closed_at=coalesce($4, closed_at), updated_at=$5 WHERE id=$1`, id, status, trunc(reason, 500), closed, now)
+	_, err := q.Exec(ctx, `UPDATE plans SET status=$2, status_reason=$3, closed_at=coalesce($4, closed_at), updated_at=$5 WHERE id=$1 AND status = ANY($6)`,
+		id, status, trunc(reason, 500), closed, now, []string{PlanDraft, PlanValidated, PlanWaiting, PlanExecuting, PlanBlocked, PlanAwaitingApproval, PlanReplanning})
 	return err
 }
 

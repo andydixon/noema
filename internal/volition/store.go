@@ -724,6 +724,16 @@ func (s *Store) Apply(ctx context.Context, r Recorder, mind, id ids.ID, rec Reco
 	if err != nil {
 		return it, err
 	}
+	return s.applyFrom(ctx, r, it, rec, t)
+}
+
+// applyFrom applies a reconsideration to the intention as the caller read
+// it. The status change is a compare-and-set against that status: two
+// reconsiderations racing on one intention (the executor and the event bus,
+// say) cannot both apply, and a closed intention is never reopened. A copy
+// the database has moved past gets ErrClosed and writes nothing.
+func (s *Store) applyFrom(ctx context.Context, r Recorder, it Intention, rec Reconsideration, t Trigger) (Intention, error) {
+	mind, id := it.MindID, it.ID
 	if !it.Status.Open() {
 		return it, fmt.Errorf("%w (%s)", ErrClosed, it.Status)
 	}
@@ -760,6 +770,20 @@ func (s *Store) Apply(ctx context.Context, r Recorder, mind, id ids.ID, rec Reco
 	if !t.EventID.IsZero() {
 		evidence = append(evidence, events.EvidenceRef{Kind: "event", ID: string(t.EventID), Note: "trigger: " + t.Kind})
 	}
+	// The transition is written before its event so that a lost race
+	// (zero rows) records nothing at all.
+	tag, err := r.Q.Exec(ctx, `UPDATE intentions SET status=$3, blocked_kind=$4, blocked_reason=$5, require_approval=$6, kind=$7, reconsiderations=reconsiderations+1, status_reason=$8, closed_at=coalesce($9, closed_at), updated_at=$10 WHERE id=$1 AND mind_id=$2 AND status=$11`,
+		id, mind, string(next), blockedKind, trunc(blockedReason, 500), requireApproval, string(kind), trunc(rec.Reason, 500), closed, now, string(it.Status))
+	if err != nil {
+		return it, err
+	}
+	if tag.RowsAffected() == 0 {
+		cur, gerr := s.GetIntention(ctx, r.Q, mind, id)
+		if gerr != nil {
+			return it, gerr
+		}
+		return cur, fmt.Errorf("%w: it moved from %s to %s meanwhile", ErrClosed, it.Status, cur.Status)
+	}
 	rr := r
 	if !t.EventID.IsZero() {
 		rr.Cause = t.EventID
@@ -769,8 +793,7 @@ func (s *Store) Apply(ctx context.Context, r Recorder, mind, id ids.ID, rec Reco
 	if err != nil {
 		return it, err
 	}
-	if _, err := r.Q.Exec(ctx, `UPDATE intentions SET status=$3, blocked_kind=$4, blocked_reason=$5, require_approval=$6, kind=$7, reconsiderations=reconsiderations+1, status_reason=$8, last_event=$9, closed_at=coalesce($10, closed_at), updated_at=$11 WHERE id=$1 AND mind_id=$2`,
-		id, mind, string(next), blockedKind, trunc(blockedReason, 500), requireApproval, string(kind), trunc(rec.Reason, 500), nullID(evID), closed, now); err != nil {
+	if _, err := r.Q.Exec(ctx, `UPDATE intentions SET last_event=$3 WHERE id=$1 AND mind_id=$2`, id, mind, nullID(evID)); err != nil {
 		return it, err
 	}
 	if _, err := s.RecordDecision(ctx, r.Q, Decision{MindID: mind, Kind: "reconsideration", Outcome: rec.Outcome, Reason: t.Kind, Rationale: rec.Reason, IntentionID: id, EventID: evID, CreatedAt: now,
@@ -802,12 +825,16 @@ func (s *Store) Supersede(ctx context.Context, r Recorder, mind, old, by ids.ID,
 		return nil
 	}
 	now := r.now()
+	tag, err := r.Q.Exec(ctx, `UPDATE intentions SET status='superseded', superseded_by=$3, status_reason=$4, closed_at=$5, updated_at=$5 WHERE id=$1 AND mind_id=$2 AND status=$6`, old, mind, by, reason, now, string(it.Status))
+	if err != nil || tag.RowsAffected() == 0 {
+		return err // moved on meanwhile: whoever closed it recorded why
+	}
 	evID, err := r.emit(ctx, mind, events.IntentionSuperseded, "intention superseded: "+it.Description+" — "+reason, 0.4, []events.EvidenceRef{{Kind: "intention", ID: string(old)}, {Kind: "intention", ID: string(by), Note: "replacement"}},
 		map[string]any{"intention_id": string(old), "superseded_by": string(by)}, map[string]any{"reason": reason})
 	if err != nil {
 		return err
 	}
-	_, err = r.Q.Exec(ctx, `UPDATE intentions SET status='superseded', superseded_by=$3, status_reason=$4, last_event=$5, closed_at=$6, updated_at=$6 WHERE id=$1 AND mind_id=$2`, old, mind, by, reason, nullID(evID), now)
+	_, err = r.Q.Exec(ctx, `UPDATE intentions SET last_event=$3 WHERE id=$1 AND mind_id=$2`, old, mind, nullID(evID))
 	return err
 }
 
