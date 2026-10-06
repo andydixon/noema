@@ -381,7 +381,12 @@ func (s *Service) Explain(ctx context.Context, mind ids.ID, ref Ref) (Explanatio
 			x.Resolution = append(x.Resolution, d.Kind+" ("+d.Outcome+"): "+d.Rationale)
 		}
 	}
+	cids := make([]ids.ID, 0, len(commitmentIDs))
 	for id := range commitmentIDs {
+		cids = append(cids, id)
+	}
+	sort.Slice(cids, func(i, j int) bool { return cids[i] < cids[j] })
+	for _, id := range cids {
 		if c, err := s.Volition.GetCommitment(ctx, nil, mind, id); err == nil {
 			x.Commitments = append(x.Commitments, c)
 		}

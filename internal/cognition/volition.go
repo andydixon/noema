@@ -137,7 +137,14 @@ func (VolitionHook) AfterCycle(ctx context.Context, c *brain.Cycle, emitted []ev
 			}
 		}
 	}
+	// Commitments in id order, so the events a cycle emits do not depend on
+	// map iteration order.
+	live := make([]volition.Commitment, 0, len(dctx.Commitments))
 	for _, cm := range dctx.Commitments {
+		live = append(live, cm)
+	}
+	sort.Slice(live, func(i, j int) bool { return live[i].ID < live[j].ID })
+	for _, cm := range live {
 		switch volition.Assess(cm, c.State.Now) {
 		case volition.StateDue:
 			if err := vs.MarkDue(ctx, r, cm); err != nil {
@@ -158,10 +165,6 @@ func (VolitionHook) AfterCycle(ctx context.Context, c *brain.Cycle, emitted []ev
 				return err
 			}
 		}
-	}
-	var live []volition.Commitment
-	for _, cm := range dctx.Commitments {
-		live = append(live, cm)
 	}
 	for _, cf := range volition.CommitmentConflicts(live, c.State.Now) {
 		key := pairKey(cf.A.ID, cf.B.ID)

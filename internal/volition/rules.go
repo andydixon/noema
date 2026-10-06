@@ -688,9 +688,16 @@ func Form(in FormationInput) Formation {
 	case w.CommitmentID != "":
 		f.Kind = IntentFulfilCommitment
 	}
+	// Summed in key order: floating-point addition is not associative, and a
+	// decision must not depend on map iteration order.
+	keys := make([]string, 0, len(t))
+	for k := range t {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
 	score := 0.0
-	for _, v := range t {
-		score += v
+	for _, k := range keys {
+		score += t[k]
 	}
 	f.Score = round3(score)
 	t["score"] = f.Score

@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"sort"
 	"strings"
 	"time"
 
@@ -93,8 +94,13 @@ func (Metacognition) Observe(ctx context.Context, s *brain.State) ([]brain.Candi
 				bySubject[b.Subject]++
 			}
 		}
-		for subj, n := range bySubject {
-			if n >= 3 {
+		subjects := make([]string, 0, len(bySubject))
+		for subj := range bySubject {
+			subjects = append(subjects, subj)
+		}
+		sort.Strings(subjects)
+		for _, subj := range subjects {
+			if n := bySubject[subj]; n >= 3 {
 				add("repeated_failure", subj, fmt.Sprintf("%d hypotheses about %q were rejected this month", n, subj), 0.6, nil, map[string]any{"subject": subj, "count": n})
 			}
 		}
@@ -260,8 +266,13 @@ func volitionChecks(ctx context.Context, s *brain.State, add func(check, ref, su
 				byAction[capName]++
 			}
 		}
-		for capName, n := range byAction {
-			if n >= 3 {
+		names := make([]string, 0, len(byAction))
+		for capName := range byAction {
+			names = append(names, capName)
+		}
+		sort.Strings(names) // candidates in a stable order, for replay
+		for _, capName := range names {
+			if n := byAction[capName]; n >= 3 {
 				add("repeated_execution_failure", capName, fmt.Sprintf("%s failed %d times in plans today", capName, n), 0.6, nil, map[string]any{"capability": capName, "count": n})
 			}
 		}
