@@ -27,6 +27,9 @@ Volition, planning and cognitive research (PLAN.md §8; docs/volition.md, docs/p
 - The approval centre's Approve and Deny and the policy form called unwired UI callbacks and returned 500.
 - API belief events were published before their transaction committed.
 - Snapshot column discovery read the `public` schema instead of the current one.
+- The planner consulted the `plan` model even when a deterministic strategy applied, spending a live call on an alternative that could not be selected.
+- Intention and plan status transitions were not compare-and-set, so two reconsiderations racing on one intention could both apply and a stale copy could relabel a closed plan.
+- Formation summed its terms, and the volition hook, metacognition and forensic explanations iterated, in map order; each now runs in sorted order so identical state gives identical output.
 
 ## [0.2.0] - 2026-09-15
 

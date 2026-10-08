@@ -411,6 +411,6 @@ Each unit is revertible. Migrations only add. Reverting cognition integration le
 | Part L scenario and failure modes (I, J, L) | done | d59cb1c |
 | Documentation (K) | done | this commit |
 
-Defects found and fixed along the way: unwired UI approval and policy callbacks (aae312a), belief events published before commit (e7ebbf8), snapshot column discovery reading the wrong schema (a3caed7), and a stale step copy able to re-run a claimed step (e25d68f).
+Defects found and fixed along the way: unwired UI approval and policy callbacks (aae312a), belief events published before commit (e7ebbf8), snapshot column discovery reading the wrong schema (a3caed7), a stale step copy able to re-run a claimed step (e25d68f), and from the review pass: the plan model consulted when a deterministic strategy applied (fbe6ff1), intention and plan transitions without compare-and-set (82b37fe) and map-order iteration in decisions and cycle output (66d8375).
 
 Known limits are listed at the end of each of `docs/volition.md`, `docs/planning.md`, `docs/agency.md` and `docs/cognitive-research.md`.
