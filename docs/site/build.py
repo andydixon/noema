@@ -6,8 +6,9 @@ Usage: python3 docs/site/build.py OUTPUT_DIR
 Sources: the repository's Markdown documents, the OpenAPI document, the UI
 screenshots, and the authored pages in docs/site/pages/*.md. A page file may
 pull a repository document in with a line `{{include path [demote]}}`.
-The output follows the dixon.cx page skeleton; the section is deliberately
-not linked from the site navigation and is marked noindex.
+The output follows the dixon.cx page shell (css/site.css, navy rail) with the
+full SEO head: indexable, canonical, Open Graph, Twitter and TechArticle JSON-LD.
+Every page must also be listed in the Noema block of dixon.cx's sitemap.xml.
 """
 import html
 import json
@@ -91,120 +92,75 @@ HEAD = """<!doctype html>
 <html lang="en-GB">
 	<head>
 		<meta charset="utf-8">
-		<meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+		<meta name="viewport" content="width=device-width, initial-scale=1">
 		<meta name="description" content="{desc}">
 		<meta name="author" content="Andy Dixon">
-		<meta name="robots" content="noindex, nofollow">
+		<meta name="robots" content="index, follow">
 		<link rel="canonical" href="{canonical}">
+		<link rel="alternate" type="application/atom+xml" title="Andy Dixon: Blog" href="/blog/feed.xml">
 		<title>{titletag} | Andy Dixon</title>
 		<meta property="og:type" content="article">
-		<meta property="og:title" content="{title} | Noema">
+		<meta property="og:title" content="{ogtitle}">
 		<meta property="og:description" content="{desc}">
 		<meta property="og:url" content="{canonical}">
+		<meta property="og:image" content="https://dixon.cx/assets/images/og-home.png">
+		<meta property="og:image:width" content="1200">
+		<meta property="og:image:height" content="630">
+		<meta property="og:image:alt" content="Andy Dixon: software engineer, applied AI and security">
 		<meta property="og:site_name" content="Andy Dixon">
 		<meta property="og:locale" content="en_GB">
-		<link href="/assets/images/favicon.png" rel="icon" type="image/png">
-		<link href="/assets/plugins/bootstrap/bootstrap.min.css" rel="stylesheet">
-		<link href="/assets/plugins/magnific-popup/magnific-popup.min.css" rel="stylesheet">
-		<link href="/assets/plugins/swiper/swiper-bundle.min.css" rel="stylesheet">
-		<link href="/assets/css/theme.css" rel="stylesheet">
-		<link href="/assets/plugins/bootstrap-icons/bootstrap-icons.css" rel="stylesheet">
-		<link href="/assets/plugins/fontawesome/css/all.css" rel="stylesheet">
-		<link href="/css/site-custom.css" rel="stylesheet">
+		<meta name="twitter:card" content="summary_large_image">
+		<meta name="twitter:title" content="{ogtitle}">
+		<meta name="twitter:description" content="{desc}">
+		<meta name="twitter:image" content="https://dixon.cx/assets/images/og-home.png">
+		<script type="application/ld+json">
+{jsonld}
+		</script>
 		{style}
+		<link href="/assets/images/favicon.png" rel="icon" type="image/png">
+		<link rel="preconnect" href="https://fonts.googleapis.com">
+		<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+		<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+		<link href="/css/site.css?v=20260922c" rel="stylesheet">
 	</head>
-	<body data-preloader="true">
-		<script>document.body.classList.toggle('theme-dark', (localStorage.getItem('theme') || (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')) === 'dark');</script>
-		<a class="skip-link" href="#main-content">Skip to content</a>
+	<body class="inner">
+		<a class="skip" href="#main">Skip to content</a>
+		<div class="shell">
+			<aside class="side">
+				<a class="brand" href="/">Andy <br><span>Dixon</span></a>
+				<nav class="side-nav" aria-label="Main">
+					<a href="/">Home</a>
+					<a href="/#portfolio">Work</a>
+					<a href="/about">About</a>
+					<a href="/blog">Blog</a>
+					<a href="/noema/" aria-current="page">Noema</a>
+					<a href="/privacy-guide/">Privacy Guide</a>
+					<a href="/digital-forensics-guide/">Forensics Guide</a>
+					<a href="/qualifications">Qualifications</a>
+					<a href="/side-quests">Side Quests</a>
+					<a href="/contact">Contact</a>
+				</nav>
+				<p class="side-foot">Software engineer, applied AI and security. Remote, worldwide.<br><a href="mailto:web@dixon.cx">web@dixon.cx</a> <a href="https://github.com/andydixon">GitHub</a></p>
+			</aside>
+			<main id="main" class="content">
+				<div class="sections-wrapper noema-doc">
 
-		<div class="toggle-menu">
-			<button class="toggle-close" aria-label="Close menu"><i class="bi bi-x"></i></button>
-			<h6 class="mono-heading fw-normal mb-2">Phone:</h6>
-			<button type="button" class="phone-reveal" data-reveal-phone>Reveal phone number</button>
-			<p class="phone-reveal-note">Hidden from the page source until you click: friction against scrapers, not a guarantee.</p>
-			<div class="mt-4">
-				<h6 class="mono-heading fw-normal mb-2">Email:</h6>
-				<h4 class="fw-medium"><a class="link-decoration" href="mailto:web@dixon.cx">web@dixon.cx</a></h4>
-				<ul class="list-inline-sm mt-3">
-					<li><a class="button-circle button-circle-sm" href="https://github.com/andydixon" target="_blank" rel="noopener" aria-label="GitHub"><i class="bi bi-github"></i></a></li>
-				</ul>
-			</div>
-			<div class="mt-4 mt-lg-5">
-				<ul class="list-circle">
-					<li><a class="mono-heading link-decoration" href="/about">About</a></li>
-					<li><a class="mono-heading link-decoration" href="/blog">Blog</a></li>
-					<li><a class="mono-heading link-decoration" href="/qualifications">Qualifications</a></li>
-					<li><a class="mono-heading link-decoration" href="/side-quests">Side Quests</a></li>
-					<li><a class="mono-heading link-decoration" href="/privacy-guide/">Privacy Guide</a></li>
-					<li><a class="mono-heading link-decoration" href="/digital-forensics-guide/">Forensics Guide</a></li>
-					<li><a class="mono-heading link-decoration" href="https://alchementary.co.uk/" target="_blank" rel="noopener">Hire Alchementary</a></li>
-					<li><a class="mono-heading link-decoration" href="/contact">Contact</a></li>
-				</ul>
-			</div>
-			<div class="tm-bottom">
-				<button type="button" class="theme-toggle" data-theme-toggle aria-label="Switch between light and dark theme"><i class="bi bi-moon-stars"></i> <span data-theme-toggle-label>Dark mode</span></button>
-			</div>
-		</div>
-
-		<div class="container">
-			<div id="header">
-				<div class="row">
-					<div class="col-12 col-lg-4 col-xl-3 order-lg-2 text-end">
-						<div class="d-inline-flex align-items-center">
-							<button type="button" class="button-circle button-circle-sm me-2" data-theme-toggle aria-label="Switch between light and dark theme"><i class="bi bi-moon-stars"></i></button>
-							<ul class="list-inline d-inline-block mono-heading fw-medium">
-								<li><a class="link-decoration" href="https://github.com/andydixon" target="_blank" rel="noopener">GitHub</a></li>
-							</ul>
-							<button class="menu-dots" aria-label="Open menu"><span></span></button>
-						</div>
-					</div>
-					<div class="col-12 col-lg-8 order-lg-1 col-xl-9">
-						<div class="py-4">
-							<p class="site-name display-2 fw-semi-bold m-0"><a class="link-decoration" href="/" style="color:inherit">Andy <span class="stroke-text">Dixon</span></a></p>
-						</div>
-					</div>
-				</div>
-			</div>
-
-			<div class="row g-4 g-lg-5">
-				<div class="col-12 col-lg-4 col-xl-3">
-					<div class="nav-wrapper">
-						<div class="section-nav">
-							<ul class="nav">
-							<li class="nav-item"><a class="nav-link" href="/"><span class="nav-link-desktop">Home</span><span class="nav-link-mobile">H</span><span class="nav-circle"></span></a></li>
-							<li class="nav-item"><a class="nav-link" href="/about"><span class="nav-link-desktop">About</span><span class="nav-link-mobile">A</span><span class="nav-circle"></span></a></li>
-							<li class="nav-item"><a class="nav-link" href="/#portfolio"><span class="nav-link-desktop">Work</span><span class="nav-link-mobile">W</span><span class="nav-circle"></span></a></li>
-							<li class="nav-item"><a class="nav-link" href="/blog"><span class="nav-link-desktop">Blog</span><span class="nav-link-mobile">B</span><span class="nav-circle"></span></a></li>
-							<li class="nav-item"><a class="nav-link" href="/privacy-guide/"><span class="nav-link-desktop">Privacy Guide</span><span class="nav-link-mobile">PG</span><span class="nav-circle"></span></a></li>
-							<li class="nav-item"><a class="nav-link" href="/digital-forensics-guide/"><span class="nav-link-desktop">Forensics Guide</span><span class="nav-link-mobile">FG</span><span class="nav-circle"></span></a></li>
-							<li class="nav-item"><a class="nav-link" href="/qualifications"><span class="nav-link-desktop">Qualifications</span><span class="nav-link-mobile">Q</span><span class="nav-circle"></span></a></li>
-							<li class="nav-item"><a class="nav-link" href="/side-quests"><span class="nav-link-desktop">Side Quests</span><span class="nav-link-mobile">SQ</span><span class="nav-circle"></span></a></li>
-							<li class="nav-item"><a class="nav-link" href="/contact"><span class="nav-link-desktop">Contact</span><span class="nav-link-mobile">&#9993;</span><span class="nav-circle"></span></a></li>
-							</ul>
-						</div>
-					</div>
-				</div>
-
-				<div class="col-12 col-lg-8 col-xl-9" id="main-content">
-					<div class="sections-wrapper noema-doc">
 """
 
-TAIL = """					</div>
+TAIL = """
 				</div>
-			</div>
+				<footer class="site-footer">
+					<p>Andy Dixon. <a href="https://github.com/andydixon">GitHub</a> <a href="/privacy">Privacy</a> <a href="/blog/feed.xml">Atom feed</a></p>
+				</footer>
+			</main>
 		</div>
-
-		<div class="bg-lines">
-			<div class="bg-line-1"></div><div class="bg-line-2"></div><div class="bg-line-3"></div><div class="bg-line-4"></div>
-		</div>
-
-		<script src="/assets/plugins/jquery.min.js"></script>
-		<script src="/assets/plugins/plugins.js"></script>
-		<script src="/assets/js/functions.js"></script>
-		<script src="/js/site-custom.js"></script>
+		<script src="/js/site.js"></script>
 	</body>
 </html>
 """
+
+# dixon.cx house style: plain ASCII punctuation on every published page.
+PLAIN = str.maketrans({"\u2014": "-", "\u2013": "-", "\u2018": "'", "\u2019": "'", "\u201c": '"', "\u201d": '"', "\u2026": "..."})
 
 LINK_MAP = {
     "ARCHITECTURE.md": "architecture", "SECURITY.md": "security", "THREAT_MODEL.md": "security", "PLAN.md": "development",
@@ -348,7 +304,16 @@ def render_page(idx, slug, title, summary, md):
 							{contents}
 						</div>'''
     canonical = SITE + BASE + ("" if slug == "index" else slug)
-    page = HEAD.format(title=html.escape(title), titletag=html.escape(title if slug == "index" else title + " | Noema"), desc=html.escape(summary), canonical=canonical, style=STYLE) + head_box + "\n".join(boxes) + nav_box + TAIL
+    ld = {"@context": "https://schema.org", "@type": "TechArticle", "headline": title, "description": summary,
+          "author": {"@type": "Person", "name": "Andy Dixon", "url": SITE + "/"},
+          "publisher": {"@type": "Person", "name": "Andy Dixon", "url": SITE + "/"},
+          "mainEntityOfPage": canonical, "inLanguage": "en-GB"}
+    if slug != "index":
+        ld["isPartOf"] = {"@type": "CreativeWork", "name": "Noema", "url": SITE + BASE}
+    jsonld = "\n".join("\t\t" + l for l in json.dumps(ld, indent=2, ensure_ascii=False).replace("</", "<\\/").split("\n"))
+    titletag = title if slug == "index" else title + " | Noema"
+    ogtitle = "Noema | Andy Dixon" if slug == "index" else title + " | Noema"
+    page = HEAD.format(titletag=html.escape(titletag), ogtitle=html.escape(ogtitle), desc=html.escape(summary), canonical=canonical, jsonld=jsonld, style=STYLE) + head_box + "\n".join(boxes) + nav_box + TAIL
     return page
 
 
@@ -365,7 +330,7 @@ def main():
     for i, (slug, title, summary) in enumerate(CHAPTERS):
         with open(os.path.join(PAGES, slug + ".md"), encoding="utf-8") as f:
             md = f.read()
-        page = render_page(i, slug, title, summary, md)
+        page = render_page(i, slug, title, summary, md).translate(PLAIN)
         with open(os.path.join(out, slug + ".html"), "w", encoding="utf-8") as f:
             f.write(page)
         print("wrote", slug + ".html", len(page) // 1024, "KB")

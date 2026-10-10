@@ -11,5 +11,7 @@ python3 -m venv .venv && .venv/bin/pip install markdown
 .venv/bin/python docs/site/build.py /path/to/public_html/noema
 ```
 
-The output is intentionally not linked from the site navigation and carries a
-`noindex` robots directive.
+The output uses the dixon.cx page shell and is indexable, with canonical,
+Open Graph, Twitter and TechArticle JSON-LD metadata. Add any new chapter to the
+`<!-- Noema -->` block of dixon.cx's `sitemap.xml`, then run
+`scripts/site-seo-audit.py` there.
