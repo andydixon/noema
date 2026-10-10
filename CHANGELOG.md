@@ -2,7 +2,7 @@
 
 All notable changes to Noema are recorded here. Format follows Keep a Changelog; versions follow SemVer.
 
-## [Unreleased]
+## [0.3.0] - 2026-09-22
 
 Volition, planning and cognitive research (PLAN.md §8; docs/volition.md, docs/planning.md, docs/agency.md, docs/cognitive-research.md).
 
