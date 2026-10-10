@@ -1,0 +1,21 @@
+[Unit]
+Description=Noema daemon (docker container)
+After=docker.service network-online.target postgresql.service
+Requires=docker.service
+Wants=network-online.target
+
+[Service]
+Restart=always
+RestartSec=5
+TimeoutStartSec=0
+ExecStartPre=-/usr/bin/docker rm -f noema
+ExecStart=/usr/bin/docker run --rm --name noema \
+  --env-file /etc/noema/noema.env \
+  -p 127.0.0.1:29630:8080 \
+  -v /srv/noema/research:/research \
+  --memory 2g --cpus 4 --pids-limit 512 \
+  noema:latest
+ExecStop=/usr/bin/docker stop -t 30 noema
+
+[Install]
+WantedBy=multi-user.target
