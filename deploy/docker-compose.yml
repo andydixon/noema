@@ -13,7 +13,9 @@ services:
       - noema-pgdata:/var/lib/postgresql/data
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U noema"]
-      interval: 5s
+      interval: 30s
+      start_period: 60s
+      start_interval: 2s
       timeout: 3s
       retries: 20
 
