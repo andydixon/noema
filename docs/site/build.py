@@ -140,6 +140,7 @@ HEAD = """<!doctype html>
 					<a href="/side-quests">Side Quests</a>
 					<a href="/contact">Contact</a>
 				</nav>
+				<a class="side-fsu" href="https://freespeechunion.org/" title="Proud Gold supporter of the Free Speech Union"><img src="/assets/images/fsu-logo.png" width="170" height="63" alt="Free Speech Union, Gold supporter"></a>
 				<p class="side-foot">Software engineer, applied AI and security. Remote, worldwide.<br><a href="mailto:web@dixon.cx">web@dixon.cx</a> <a href="https://github.com/andydixon">GitHub</a></p>
 			</aside>
 			<main id="main" class="content">
