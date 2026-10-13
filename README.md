@@ -123,4 +123,5 @@ Version 0.2.0: all sixteen phases of [PLAN.md](PLAN.md) are implemented, and the
 
 ## Licence
 
-TBD by the project owner.
+AGPL 3.0 - See LICENSE.
+Noema is developed by Andy Dixon - www.dixon.cx
